@@ -1,0 +1,1039 @@
+esphome:
+  name: lilygos3-info-screen
+  friendly_name: lilygos3-info-screen
+  platformio_options:
+    board_build.f_flash: 80000000L
+    board_build.partitions: default_16MB.csv
+    board_build.arduino.memory_type: qio_opi
+  on_boot:
+    then:
+      - lambda: |-
+                id(in_deep_sleep).publish_state(false); 
+external_components:
+  - source: github://landonr/lilygo-tdisplays3-esphome
+    components: [tdisplays3]
+
+esp32:
+  board: esp32-s3-devkitc-1
+  variant: esp32s3
+  framework:
+    type: arduino
+  flash_size: 16MB
+#     build_unflags: -Werror=all
+#     board_build.flash_mode: dio
+
+preferences:
+  flash_write_interval: 60min
+# esp32:
+#   board: esp32-s3-devkitc-1
+#   variant: esp32s3
+#   framework:
+#     type: esp-idf
+#   flash_size: 16MB
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret lilygos3_info_screen_esp_api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret lilygos3_info_screen_esp_ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  fast_connect: true
+  manual_ip:
+    static_ip: !secret lilygos3_info_screen_wifi_manual_ip_static_ip
+    gateway: !secret wifi_manual_ip_gateway
+    subnet: !secret wifi_manual_ip_subnet
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: !secret lilygos3_info_screen_wifi_ap_ssid
+    password: !secret lilygos3_info_screen_wifi_ap_password
+
+captive_portal:
+
+globals:
+  - id: sleep_mode_enabled
+    type: bool
+    restore_value: False
+    initial_value: "false"
+
+time:
+  - platform: homeassistant
+    id: ha_time
+    timezone: Europe/Berlin
+    on_time:
+      # Every 1 minute
+      - seconds: 0
+        minutes: /1
+        then:
+           - lambda: id(current_time).publish_state(id(ha_time).now().strftime("%H:%M"));
+
+      # Every day
+      - seconds: 0
+        minutes: 0
+        hours: 0
+        then:
+          - lambda: id(current_date).publish_state(id(ha_time).now().strftime("%Y-%m-%d %a"));
+
+output:
+  - platform: ledc
+    pin: GPIO38
+    id: gpio38
+    frequency: 2000
+
+light:
+  - platform: monochromatic
+    output: gpio38
+    name: "Backlight brightness"
+    restore_mode: RESTORE_DEFAULT_ON
+
+color:
+  - id: color_red
+    hex: FF0000
+  - id: color_white
+    hex: FFFFFF
+  - id: color_black
+    hex: '000000'
+  - id: color_green
+    hex: 00FF00
+  - id: color_blue
+    hex: 0000FF
+  - id: color_dark_blue
+    hex: '000066'
+  - id: color_yellow
+    hex: FFFF00
+  - id: color_light_yellow
+    hex: FFFF99
+  - id: color_gold
+    hex: FAD30F
+  - id: color_gray
+    hex: 5E5E5E
+  - id: color_braun
+    hex: 8A6C66
+  - id: color_cream
+    hex: FFFFCC
+
+display:
+  - platform: tdisplays3
+    id: disp
+    update_interval: 5s
+   # update_interval: never
+    rotation: 270    
+    # lambda: |-
+    #   it.print(10, 20, id(font_roboto), Color(255, 255, 255), "Hello, SmartHomeScene!");
+    lambda: |-
+
+      // ADD LOADING SCREEN
+
+      // auto draw_battery_indicator = [](display::DisplayBuffer &it) {
+      //     if (id(battery_level).has_state() && id(battery_level).state >= 0) {
+      //     // Outer shell
+      //     it.rectangle(it.get_width() - 55, 2, 52, 22, id(color_white));
+
+      //     // Determine color
+      //     auto bat_col = green;
+      //     auto bat_text_col = yellow;
+      //     auto bat_state = id(battery_level).state;
+
+      //     if (id(charging).has_state() && id(charging).state == true) 
+      //     {
+      //       bat_col = id(color_blue);
+      //       bat_text_col = light_yellow;
+      //     } else if (bat_state < 50)
+      //     { 
+      //       bat_col = id(color_gold);
+      //       bat_text_col = id(color_white);
+      //     } else if (bat_state < 10)
+      //     { 
+      //       bat_col = id(color_red);
+      //       bat_text_col = yellow;
+      //     }
+
+      //     // Determine width
+      //     int bat_state_width = floor(id(battery_level).state / 2);
+
+      //     if (id(charging).has_state() && id(charging).state == true && id(battery_level_charging).has_state()) {
+      //       bat_state_width = floor(id(battery_level_charging).state / 2);
+      //     }
+
+      //     // Render inner section
+      //     if (bat_state_width > 0 )
+      //     {
+      //       it.filled_rectangle(it.get_width() - 54, 3, bat_state_width, 20, bat_col);
+      //     } 
+
+      //     // Display percentage
+      //     if (id(charging).has_state() && id(charging).state == true && id(battery_level_charging).has_state()) {
+      //       it.printf(it.get_width() - 27, 13, id(font_roboto_16), bat_text_col, COLOR_OFF, display::TextAlign::CENTER, "%.0f%%", id(battery_level_charging).state);
+      //     } else {
+      //       it.printf(it.get_width() - 27, 13, id(font_roboto_16), bat_text_col, COLOR_OFF, display::TextAlign::CENTER, "%.0f%%", id(battery_level).state);
+      //     }
+      //   }
+      // };
+
+      // Red (255, 0, 0) → White (255, 255, 255) or Yellow (255, 255, 0)
+      // Green (0, 255, 0) → Black (0, 0, 0) or White (255, 255, 255)
+      // Blue (0, 0, 255) → White (255, 255, 255) or Light Yellow (255, 255, 153)
+      // Gold/Yellow (250, 211, 15) → Dark Blue (0, 0, 102) or Black (0, 0, 0)
+      // Grey (94, 94, 94) → White (255, 255, 255) or Light Blue (173, 216, 230)
+      // Muted Brown (138, 108, 102) → Cream (255, 255, 204) or Light Gray (211, 211, 211)
+
+      // Render Battery Indicator
+      // draw_battery_indicator(it);
+      if (id(battery_level).has_state() && id(battery_level).state >= 0) {
+        // Outer shell
+        it.rectangle(it.get_width() - 55, 2, 52, 22, id(color_white));
+
+        // Determine color
+        auto bat_col = id(color_green);
+        auto bat_text_col = id(color_yellow);
+        auto bat_state = id(battery_level).state;
+
+        if (id(charging).has_state() && id(charging).state == true) 
+        {
+          bat_col = id(color_blue);
+          bat_text_col = id(color_light_yellow);
+        } else if (bat_state < 50)
+        { 
+          bat_col = id(color_gold);
+          bat_text_col = id(color_white);
+        } else if (bat_state < 10)
+        { 
+          bat_col = id(color_red);
+          bat_text_col = id(color_yellow);
+        }
+
+        // Determine width
+        int bat_state_width = floor(id(battery_level).state / 2);
+
+        if (id(charging).has_state() && id(charging).state == true && id(battery_level_charging).has_state()) {
+          bat_state_width = floor(id(battery_level_charging).state / 2);
+        }
+
+        // Render inner section
+        if (bat_state_width > 0 )
+        {
+           it.filled_rectangle(it.get_width() - 54, 3, bat_state_width, 20, bat_col);
+           // it.filled_rectangle(it.get_width() - 54, 3, bat_state_width, 20, id(bat_col));
+        } 
+
+        // Display percentage
+        if (id(charging).has_state() && id(charging).state == true && id(battery_level_charging).state >= 0) {
+          it.printf(it.get_width() - 27, 13, id(font_roboto_16), bat_text_col, COLOR_OFF, display::TextAlign::CENTER, "%.0f%%", id(battery_level_charging).state);
+          // it.printf(it.get_width() - 27, 13, id(font_roboto_16), id(bat_text_col), COLOR_OFF, display::TextAlign::CENTER, "%.0f%%", id(battery_level_charging).state);
+        } else {
+          it.printf(it.get_width() - 27, 13, id(font_roboto_16), bat_text_col, COLOR_OFF, display::TextAlign::CENTER, "%.0f%%", id(battery_level).state);
+          // it.printf(it.get_width() - 27, 13, id(font_roboto_16), id(bat_text_col), COLOR_OFF, display::TextAlign::CENTER, "%.0f%%", id(battery_level).state);
+        }
+      }     
+
+      // if (id(battery_voltage).has_state()) {
+      //  it.printf(it.get_width() - 70, 30, id(font_roboto_20), id(color_red), "%.2fV", id(battery_voltage).state);
+      // }     
+
+      // Render WiFi Indicator
+      if (id(wifi_signal_db).has_state()) {        
+        // Render Outer Shells
+        it.rectangle(3,17,5,5,id(color_white));
+        it.rectangle(10,12,5,10,id(color_white));
+        it.rectangle(16,7,5,15,id(color_white));
+        it.rectangle(22,2,5,20,id(color_white));
+
+        // Determine color and number of inner indicators
+        int signal_quart = ceil(id(wifi_signal_proc).state / 25);
+        auto wifi_sign_cl = id(color_green);
+
+        switch(signal_quart){
+          case 0:
+          case 1: wifi_sign_cl = id(color_red); break;
+          case 2: wifi_sign_cl = id(color_gold); break;
+        }
+
+        // Render inner indicators
+        if (signal_quart > 0) {
+          it.filled_rectangle(4,18,3,3,wifi_sign_cl);
+        }
+
+        if (signal_quart > 1) {
+          it.filled_rectangle(11,13,3,8,wifi_sign_cl);
+        }
+
+        if (signal_quart > 2) {
+          it.filled_rectangle(17,8,3,13,wifi_sign_cl);
+        }
+
+        if (signal_quart > 3) {
+          it.filled_rectangle(23,3,3,18,wifi_sign_cl);
+        }
+
+        // Display Wifi strength text
+        // it.printf(40, 12, id(font_roboto_16), id(color_white), COLOR_OFF, display::TextAlign::CENTER_LEFT, "%.0fdBm", id(wifi_signal_db).state);
+      }
+
+      // Render Home Assistant API State
+      auto ha_api_state_col = id(color_white);
+
+      if (global_api_server->is_connected() == false) {
+        ha_api_state_col = id(color_red);
+      }
+
+      it.image(35, 2, id(ha_api_icon), ha_api_state_col);
+
+      // Render energy saving mode
+      if (id(sleep_mode_enabled) == true) {
+        it.image(62, 2, id(energy_saving_icon), id(color_green));
+      }      
+
+      // Render Temperature
+      if (id(buro_temperature).has_state()) {
+        it.image(105, 2, id(temp_icon));
+        it.printf(125, 12, id(font_orbitron_16), id(color_white), COLOR_OFF, display::TextAlign::CENTER_LEFT, "%.1f°C", id(buro_temperature).state);
+      }
+
+      // Render Humidity
+      if (id(buro_humidity).has_state()) {
+
+        auto hum_col = id(color_white);
+        int buro_h = id(buro_humidity).state;
+
+        if (buro_h > 65 || buro_h < 50) {
+           hum_col = id(color_gold);
+        }
+
+        if (buro_h > 75 || buro_h < 35) {
+           hum_col = id(color_red);
+        }
+
+        it.image(190, 2, id(hum_icon), hum_col, COLOR_OFF);
+        it.printf(210, 12, id(font_orbitron_16), hum_col, COLOR_OFF, display::TextAlign::CENTER_LEFT, "%.0f%%", id(buro_humidity).state);
+      }
+
+      // Render time
+      auto time_col = id(color_white);
+
+      if (
+          (
+           (id(ha_time).now().hour == 0 && id(ha_time).now().minute >= 30) 
+           || id(ha_time).now().hour >= 1 ) 
+           && id(ha_time).now().hour < 6) {
+        time_col = id(color_red);
+      }
+
+        // it.printf(20, 70, id(font_orbitron_32), Color(255, 0, 0), id(ha_time).now().strftime("%Y-%m-%d %H:%M:%S").c_str());      
+      it.printf(2, 40, id(font_orbitron_36), time_col, id(current_time).state.c_str());
+            
+      // Render date
+        // it.printf(20, 70, id(font_orbitron_32), Color(255, 0, 0), id(ha_time).now().strftime("%Y-%m-%d %H:%M:%S").c_str());      
+      it.printf(2, it.get_height() - 10, id(font_orbitron_16), id(color_white), display::TextAlign::CENTER_LEFT, id(current_date).state.c_str());
+
+      // Render waste collection
+
+      // Render outer shells
+      auto hausmull_shell_col = id(hausmull).has_state() && id(hausmull).state <= 1 ? id(color_red) : id(color_white);
+      auto biomull_shell_col = id(biomull).has_state() && id(biomull).state <= 1 ? id(color_red) : id(color_white);
+      auto papier_shell_col = id(papier).has_state() && id(papier).state <= 1 ? id(color_red) : id(color_white);
+      auto gelbe_tonne_shell_col = id(gelbe_tonne).has_state() && id(gelbe_tonne).state <= 1 ? id(color_red) : id(color_white);
+
+      it.rectangle(180, it.get_height() - 30, 30, 30, hausmull_shell_col);
+      it.rectangle(215, it.get_height() - 30, 30, 30, id(color_white));
+      it.rectangle(250, it.get_height() - 30, 30, 30, id(color_white));
+      it.rectangle(285, it.get_height() - 30, 30, 30, id(color_white));
+
+      // Render Hausmull
+      it.filled_rectangle(181, it.get_height() - 29, 28, 28, id(color_gray));
+
+      if (id(hausmull).has_state()) {
+        it.printf(195, it.get_height() - 15, id(font_orbitron_16), id(color_white), display::TextAlign::CENTER, "%.0f", id(hausmull).state);
+      }
+
+      // Render Biomull
+      it.filled_rectangle(216, it.get_height() - 29, 28, 28, id(color_braun));
+
+      if (id(biomull).has_state()) {
+        it.printf(230, it.get_height() - 15, id(font_orbitron_16), id(color_cream), display::TextAlign::CENTER, "%.0f", id(biomull).state);
+      }
+
+      // Render Papier
+      it.filled_rectangle(251, it.get_height() - 29, 28, 28, id(color_blue));
+
+      if (id(papier).has_state()) {
+        it.printf(265, it.get_height() - 15, id(font_orbitron_16), id(color_light_yellow), display::TextAlign::CENTER, "%.0f", id(papier).state);
+      }
+
+      // Render Gelbe Tonne
+      it.filled_rectangle(286, it.get_height() - 29, 28, 28, id(color_gold));
+
+      if (id(gelbe_tonne).has_state()) {
+        it.printf(300, it.get_height() - 15, id(font_orbitron_16), id(color_dark_blue), display::TextAlign::CENTER, "%.0f", id(gelbe_tonne).state);
+      }
+
+      // Render Air Quality Icons
+
+      // Render co2
+      auto co2_col = id(color_gray);
+
+      if (id(co2_level).has_state()) {                  
+         auto co2_level_val = id(co2_level).state;
+         
+         if (co2_level_val == "Low") { co2_col = id(color_white); }
+         if (co2_level_val == "Medium") { co2_col = id(color_yellow); }
+         if (co2_level_val == "Elevated") { co2_col = id(color_gold); }
+         if (co2_level_val == "High") { co2_col = id(color_red); }
+         if (co2_level_val == "Extremely High") { co2_col = id(color_red); }
+      }
+      it.image(2, 95, id(co2_icon), co2_col, COLOR_OFF);
+
+      // Render voc
+      auto voc_col = id(color_gray);
+      if (id(voc_level).has_state()) {                  
+         auto voc_level_val = id(voc_level).state;
+         
+         if (voc_level_val == "Low") { voc_col = id(color_white); }
+         if (voc_level_val == "Medium") { voc_col = id(color_yellow); }
+         if (voc_level_val == "Elevated") { voc_col = id(color_gold); }
+         if (voc_level_val == "High") { voc_col = id(color_red); }
+         if (voc_level_val == "Extremely High") { voc_col = id(color_red); }
+      }
+      it.image(42, 95, id(voc_icon), voc_col, COLOR_OFF);
+
+      // Render ppm
+      auto ppm_col = id(color_gray);
+      if (id(ppm_level).has_state()) {                  
+         auto ppm_level_val = id(ppm_level).state;
+         
+         if (ppm_level_val == "Low") { ppm_col = id(color_white); }
+         if (ppm_level_val == "Medium") { ppm_col = id(color_yellow); }
+         if (ppm_level_val == "Elevated") { ppm_col = id(color_gold); }
+         if (ppm_level_val == "High") { ppm_col = id(color_red); }
+         if (ppm_level_val == "Extremely High") { ppm_col = id(color_red); }
+      }
+      it.image(82, 95, id(ppm_icon), ppm_col, COLOR_OFF);
+
+
+      // display last occupancy changed
+      it.printf(130, 80, id(font_orbitron_16), id(color_white), "%.0f", id(pir_occupancy_last_changed_seconds).state);
+    
+image:
+  # - file: https://esphome.io/_images/logo.png
+  #   type: rgb565
+  #   transparency: alpha_channel    
+  #   id: esphome_logo
+  #   resize: 200x162
+  - file: mdi:thermometer
+    id: temp_icon
+    type: grayscale
+    transparency: alpha_channel
+    resize: 22x22
+  - file: mdi:water-percent
+    id: hum_icon
+    type: grayscale
+    transparency: alpha_channel
+    resize: 22x22
+  - file: mdi:molecule-co2
+    id: co2_icon
+    type: grayscale
+    transparency: alpha_channel
+    resize: 40x40
+  - file: mdi:molecule
+    id: voc_icon
+    type: grayscale
+    transparency: alpha_channel
+    resize: 40x40
+  - file: mdi:chemical-weapon
+    id: ppm_icon
+    type: grayscale
+    transparency: alpha_channel
+    resize: 40x40  
+  - file: mdi:leaf
+    id: energy_saving_icon
+    type: grayscale
+    transparency: alpha_channel
+    resize: 22x22
+  - file: mdi:home-assistant
+    id: ha_api_icon
+    type: grayscale
+    transparency: alpha_channel
+    resize: 22x22
+
+     
+
+  # - file: mdi:alert-outline
+  #   id: alert
+  #   type: grayscale
+  #   transparency: alpha_channel
+  #   resize: 80x80
+
+
+#Add a simple Google Font
+font:
+  # - file: "gfonts://Roboto"
+  #   id: font_roboto_20
+  #   size: 20
+  - file: "gfonts://Roboto"
+    id: font_roboto_16
+    size: 16
+    glyphs: [
+     "0123456789",
+     "%"
+     ]
+  - file: "gfonts://Orbitron"
+    id: font_orbitron_36
+    size: 36
+    bpp: 4
+    glyphs: [
+     "0123456789",
+     ":"
+     ]
+  - file: "gfonts://Orbitron"
+    id: font_orbitron_16
+    size: 16
+    bpp: 4
+    glyphs: [
+     "0123456789",
+     "- .%°",
+     "SunMoTeWdhFriatC"
+     ]
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO0
+    #  allow_other_uses: true
+      inverted: true
+    name: "Button Up"
+    on_multi_click:
+      - timing:
+          - ON FOR AT LEAST 500ms
+        then:
+          switch.toggle: backlight_on_bat
+  - platform: gpio
+    pin:
+      number: GPIO14
+      allow_other_uses: true
+      inverted: true
+    name: "Button Down"
+  - platform: template
+    id: charging
+    name: Charging From Cable
+    lambda: |-
+      return id(battery_voltage).has_state() && id(battery_voltage).state > 4.3;
+  - platform: template
+    id: is_deep_sleep_time    
+    internal: True
+    lambda: |-
+      return id(charging).state == false &&
+             (
+               (
+                id(ha_time).now().is_valid() &&
+                id(ha_time).now().hour >= 1 && 
+                id(ha_time).now().hour <= 8
+               ) ||
+               (id(pir_occupancy_last_changed_seconds).has_state() && id(pir_occupancy_last_changed_seconds).state >= 600 && id(pir_occupancy).has_state() && id(pir_occupancy).state == false)
+             );
+    on_press:
+      - script.execute: manage_deep_sleep
+      # - wait_until:
+      #     wifi.connected:
+      # - wait_until:
+      #     api.connected:      
+      # - lambda: id(sleep_mode_enabled) = true;      
+      # - logger.log: "initiating sleep mode"
+      # - logger.log: "device will go in deep sleep in 30 seconds if conditions still met"
+      # - delay: 30sec
+      # - if:
+      #     condition:
+      #       binary_sensor.is_on: is_deep_sleep_time
+      #     then:            
+      #       - script.execute: set_sleep_duration
+      #       - lambda: |-
+      #           id(in_deep_sleep).publish_state(true);
+      #       - logger.log: "entering deep sleep"            
+      #       - deep_sleep.enter:
+      #           id: deep_sleep_1
+      #     else:
+      #       - lambda: id(sleep_mode_enabled) = false;            
+      #       - logger.log: "sleeping conditions are not met anymore, sleep has been cancelled"           
+    on_release:      
+      - script.execute: manage_deep_sleep
+      # - wait_until:
+      #     wifi.connected:
+      # - wait_until:
+      #     api.connected:
+      # - deep_sleep.prevent:
+      #     id: deep_sleep_1
+      # - logger.log: "disabling sleep mode"
+      # - lambda: id(sleep_mode_enabled) = false;
+      # - logger.log: "sleep mode has been disabled"
+  - platform: template
+    id: in_power_saving_mode
+    icon: mdi:leaf
+    name: In power saving mode
+    lambda: return id(sleep_mode_enabled) == true;
+  - platform: template
+    id: in_deep_sleep
+    icon: mdi:sleep
+    name: In deep sleep
+    entity_category: diagnostic
+  - platform: homeassistant
+    id: pir_occupancy
+    entity_id: binary_sensor.buro_pir_sensor_occupancy
+    internal: true
+    
+text_sensor:
+  - platform: template
+    name: "Current Time"
+    id: current_time
+    internal: True
+    update_interval: 5min
+    lambda: return id(ha_time).now().strftime("%H:%M");
+    filters:
+     - lambda: |-
+         static std::string last_time;
+         if (x == last_time)
+           return {};
+         last_time = x;
+         return x;
+  - platform: template
+    name: "Current Date"
+    id: current_date
+    internal: True
+    update_interval: 5min
+    lambda: return id(ha_time).now().strftime("%Y-%m-%d %a"); 
+    filters:
+    - lambda: |-
+        static std::string last_date;
+        if (x == last_date)
+          return {};
+        last_date = x;
+        return x;
+  - platform: homeassistant
+    id: voc_level
+    entity_id: sensor.air_quality_sensor_1_voc_level
+    internal: true
+    filters:
+    - lambda: |-
+        static std::string last_voc_level;
+        if (x == last_voc_level)
+          return {};
+        last_voc_level = x;
+        return x;
+  - platform: homeassistant
+    id: co2_level
+    entity_id: sensor.air_quality_sensor_1_co2_level
+    internal: true
+    filters:
+    - lambda: |-
+        static std::string last_co2_level;
+        if (x == last_co2_level)
+          return {};
+        last_co2_level = x;
+        return x;
+  - platform: homeassistant
+    id: ppm_level
+    entity_id: sensor.air_quality_sensor_1_particulate_level
+    internal: true
+    filters:
+    - lambda: |-
+        static std::string last_ppm_level;
+        if (x == last_ppm_level)
+          return {};
+        last_ppm_level = x;
+        return x;       
+  - platform: homeassistant
+    id: person_state
+    entity_id: person.dmitry_mokretsov
+    internal: true
+    filters:
+    - lambda: |-
+        static std::string last_person_state;
+        if (x == last_person_state)
+          return {};
+        last_person_state = x;
+        return x;          
+sensor:
+  # - platform: template
+  #   name: "Current Timestamp"
+  #   device_class: timestamp
+  #   id: current_timestamp
+  #   lambda: |-
+  #     return id(ha_time).now().timestamp;
+  #   filters:
+  #     - delta: 60
+  #  lambda: |-
+  #    return id(current_timestamp).publish_state(id(ha_time).now().timestamp);
+  # - platform: template
+  #   id: time_color
+  #   internal: True
+
+  # - platform: template
+  #   id: bat_text_col
+  #   internal: True
+  #   lambda: |-
+  #     if (id(charging).has_state() && id(charging).state == true) 
+  #     {
+  #       return id(color_light_yellow);
+  #     } else if (id(battery_level).state < 50)
+  #     { 
+  #       return id(color_white);
+  #     } else if (id(battery_level).state < 10)
+  #     { 
+  #       return id(color_yellow);
+  #     }
+
+  #     return id(color_yellow);
+  # - platform: template
+  #   id: bat_col
+  #   internal: True
+  #   lambda: |-
+  #     if (id(charging).has_state() && id(charging).state == true) 
+  #     {
+  #       return id(color_blue);
+  #     } else if (id(battery_level).state < 50)
+  #     { 
+  #       return id(color_gold);
+  #     } else if (id(battery_level).state < 10)
+  #     { 
+  #       return id(color_red);
+  #     }
+
+  #     return id(color_green);      
+  - platform: adc
+    id: battery_voltage
+    name: Battery Voltage
+    pin:
+      number: GPIO4
+    update_interval: 1min
+    unit_of_measurement: "V"
+    accuracy_decimals: 2    
+    state_class: measurement
+    device_class: voltage
+    attenuation: 12db
+    filters:
+      - multiply: 2
+      - or:
+        - throttle: 5min
+        - delta: 0.01       
+  - platform: template    
+    lambda: |-
+      return id(battery_voltage).state;
+    id: battery_level    
+    name: Battery Charge
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    state_class: measurement
+    device_class: battery
+    filters:      
+      - calibrate_linear:
+        - 3.50 -> 0.0
+        - 4.06 -> 100.0
+      - or:
+        - throttle: 5min
+        - delta: 1
+      - lambda: |-
+         if (x > 100) return 100;
+         if (x < 0) return 0;
+         return x;
+  - platform: template    
+    lambda: |-
+      return id(battery_voltage).state;
+    id: battery_level_charging
+    name: Battery Charging Percentage
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    state_class: measurement
+    device_class: battery
+    internal: True
+    filters:      
+      - calibrate_linear:
+        - 4.63 -> 0.0
+        - 4.83 -> 100.0
+      - or:
+        - throttle: 5min
+        - delta: 1
+      - lambda: |-
+         if (x > 100) return 100;
+         if (x < 0) return 0;
+         return x;
+  - platform: wifi_signal # Reports the WiFi signal strength/RSSI in dB
+    name: "RSSI"
+    id: wifi_signal_db
+    update_interval: 60s
+    entity_category: "diagnostic"
+    unit_of_measurement: dBm
+    filters: 
+      - or:
+        - throttle: 5min
+        - delta: 1
+  - platform: copy # Reports the WiFi signal strength in %
+    source_id: wifi_signal_db
+    id: wifi_signal_proc
+    name: "WiFi Strength"
+    unit_of_measurement: "%"
+    entity_category: "diagnostic"
+    device_class: ""
+    filters: 
+      - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
+      - or:
+        - throttle: 5min
+        - delta: 1
+  - platform: homeassistant
+    id: buro_temperature
+    entity_id: sensor.temperature_sensor_buro_temperature
+    unit_of_measurement: °C
+    internal: true
+    filters:
+      - or:
+        - throttle: 5min
+        - delta: 0.1     
+  - platform: homeassistant
+    id: buro_humidity
+    entity_id: sensor.temperature_sensor_buro_humidity
+    unit_of_measurement: "%"
+    internal: true
+    filters:
+      - or:
+        - throttle: 5min
+        - delta: 1
+  - platform: homeassistant
+    id: hausmull
+    attribute: daysTo
+    entity_id: sensor.hausmull_next_collection
+    unit_of_measurement: d
+    internal: true
+    filters:
+      - or:
+        - throttle: 600min
+        - delta: 1
+  - platform: homeassistant
+    id: biomull
+    attribute: daysTo
+    entity_id: sensor.biomull_next_collection
+    unit_of_measurement: d
+    internal: true
+    filters:
+      - or:
+        - throttle: 600min
+        - delta: 1
+  - platform: homeassistant
+    id: papier
+    attribute: daysTo
+    unit_of_measurement: d
+    entity_id: sensor.papier_next_collection
+    internal: true
+    filters:
+      - or:
+        - throttle: 600min
+        - delta: 1
+  - platform: homeassistant
+    id: gelbe_tonne
+    attribute: daysTo
+    unit_of_measurement: d
+    entity_id: sensor.gelbe_tonne_next_collection
+    internal: true
+    filters:
+      - or:
+        - throttle: 600min
+        - delta: 1
+  - platform: homeassistant
+    id: pir_occupancy_last_changed_seconds
+    entity_id: sensor.buro_pir_sensor_occupancy_last_changed_seconds
+    unit_of_measurement: s
+    internal: true
+    filters:
+      - or:
+        - throttle: 5min
+        - delta: 60
+  - platform: template
+    name: "Wakeup Cause"
+    id: wakeup_cause
+    accuracy_decimals: 0
+    lambda: return esp_sleep_get_wakeup_cause();
+    entity_category: diagnostic
+    filters:
+      - or:
+        - throttle: 5min
+        - delta: 1    
+switch:
+  - platform: gpio
+    pin:
+      number: GPIO15
+      mode:
+        output: True
+    id: backlight_on_bat
+    icon: mdi:television
+    restore_mode: RESTORE_DEFAULT_ON
+
+deep_sleep:
+  id: deep_sleep_1
+  esp32_ext1_wakeup:
+    pins:
+      - number: GPIO14
+        allow_other_uses: true
+    mode: ALL_LOW
+# number:
+#   - platform: template
+#     max_value: 60
+#     min_value: 1
+#     name: Screen Refresh Rate
+#     id: screen_refresh_rate
+#     step: 1
+#     initial_value: 10
+#     optimistic: True
+#     unit_of_measurement: s
+#     device_class: duration
+
+# Example configuration entry
+# interval:
+#   - interval: 1s
+#     then:
+#       - if:
+#           condition:
+#             lambda: 'return id(charging).state == true'
+#           then:
+#             - component.update: disp
+#   - interval: 10s
+#     then:
+#       - if:
+#           condition:
+#             lambda: 'return id(charging).state == false'
+#           then:
+#             - component.update: disp
+script:
+  - id: manage_deep_sleep
+    then:
+      - wait_until:
+          wifi.connected:
+      - wait_until:
+          api.connected:
+      - wait_until:
+          lambda: |-
+            return id(pir_occupancy_last_changed_seconds).has_state();
+      - wait_until:
+          lambda: |-
+            return id(wakeup_cause).has_state();
+      - if:
+          condition:
+            binary_sensor.is_on: is_deep_sleep_time
+          then:        
+            - lambda: id(sleep_mode_enabled) = true;      
+            - logger.log: "initiating sleep mode"            
+            - if:
+                condition:
+                   lambda: return id(wakeup_cause).state != 4;                  
+                then:
+                  - logger.log: "device will go in deep sleep in 60 seconds if conditions still met"
+                  - delay: 60sec
+                else: 
+                   - logger.log: "device will go in deep sleep now if conditions still met"
+            - if:
+                condition:
+                  binary_sensor.is_on: is_deep_sleep_time
+                then:            
+                  - script.execute: set_sleep_duration
+                  - lambda: |-
+                      id(in_deep_sleep).publish_state(true);
+                  - logger.log: "entering deep sleep"            
+                  - deep_sleep.enter:
+                      id: deep_sleep_1
+                else:
+                - lambda: id(sleep_mode_enabled) = false;            
+                - logger.log: "sleeping conditions are not met anymore, sleep has been cancelled"           
+          else:  
+            - deep_sleep.prevent:
+                id: deep_sleep_1
+            - logger.log: "disabling sleep mode"
+            - lambda: id(sleep_mode_enabled) = false;
+            - logger.log: "sleep mode has been disabled"
+  - id: set_sleep_duration
+    then:
+      - lambda: |-
+                // auto now = id(ha_time).now();
+                // auto target_time = now;
+
+                // // Set target time to 08:00:00 using ESPTime's members.
+                // target_time.hour = 8;
+                // target_time.minute = 0;
+                // target_time.second = 0;
+
+                // // Recalculate the timestamp for the modified ESPTime object.
+                // target_time.recalc_timestamp_local();  // or recalc_timestamp_utc() based on your requirements.
+
+                // // If the target time today has already passed, add a day.
+                // if (now.timestamp >= target_time.timestamp) {
+                //   const time_t one_day_sec = 3600 * 24;
+                //   target_time.timestamp += one_day_sec;
+                // }
+
+                // // Calculate sleep duration in milliseconds.
+                // uint32_t sleep_duration = (target_time.timestamp - now.timestamp) * 1000;
+                // ESP_LOGD("sleep", "Estimated sleep duration: %d", sleep_duration);
+
+                // // Set the sleep duration for deep sleep.
+                // id(deep_sleep_1).set_sleep_duration(sleep_duration);
+                
+                // default sleep duration is five minutes
+                uint32_t sleep_duration = 60 * 5 * 1000;
+
+                // if not occuppied for thirty minutes
+                if (id(pir_occupancy_last_changed_seconds).state >= 60*30) {
+                  sleep_duration = 60 * 15 * 1000;
+                }
+
+                // if not occuppied for one hour
+                if (id(pir_occupancy_last_changed_seconds).state >= 60*60) {
+                  sleep_duration = 60 * 30 * 1000;
+                }
+
+                // if not occuppied for four hours
+                if (
+                  id(pir_occupancy_last_changed_seconds).state >= 60*60*4
+                  || id(person_state).state != "home"
+                  ) 
+                {
+                  sleep_duration = 60 * 60 * 1000;
+                }
+
+                // If night sleep calculate overnight sleep duration instead
+                if (id(ha_time).now().hour >= 1 && id(ha_time).now().hour <= 8) {
+                  // Get the current time from ha_time
+                  auto now = id(ha_time).now();
+
+                  // Convert the ESPTime 'now' to a standard C tm structure.
+                  struct tm target_tm = now.to_c_tm();
+                
+                  // Update the target time to 08:00:00.
+                  target_tm.tm_hour = 8;
+                  target_tm.tm_min  = 0;
+                  target_tm.tm_sec  = 0;
+
+                  // Compute a new timestamp from the adjusted tm.
+                  time_t target_timestamp = mktime(&target_tm);
+
+                  // If today's target time has passed, add one day (86400 seconds).
+                  if (now.timestamp >= target_timestamp) {
+                    const time_t one_day_sec = 3600 * 24;
+                    target_timestamp += one_day_sec;
+                  }
+
+                  // Calculate sleep duration in milliseconds.
+                  sleep_duration = (target_timestamp - now.timestamp) * 1000;
+
+                  auto max_sleep_duration_ms = 60 * 60 * 1000;
+
+                  // limit sleep duration to one hour to avoid waking up issues
+                  if (sleep_duration > max_sleep_duration_ms) {
+                    sleep_duration = max_sleep_duration_ms;
+                  }
+                }
+
+                ESP_LOGD("sleep", "Estimated sleep duration: %d", sleep_duration);
+
+                // Set the sleep duration.
+                id(deep_sleep_1).set_sleep_duration(sleep_duration);
+    
