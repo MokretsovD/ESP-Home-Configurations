@@ -1,6 +1,13 @@
 substitutions:
   name: bluetooth-proxy-wr
   friendly_name: bluetooth-proxy-wr
+  device_static_ip: !secret bluetooth_proxy_wr_wifi_manual_ip_static_ip
+  device_ap_ssid: !secret bluetooth_proxy_wr_wifi_ap_ssid
+  device_ap_password: !secret bluetooth_proxy_wr_wifi_ap_password
+  wifi_ssid: !secret wifi_ssid
+  wifi_password: !secret wifi_password
+  wifi_manual_ip_gateway: !secret wifi_manual_ip_gateway
+  wifi_manual_ip_subnet: !secret wifi_manual_ip_subnet
 
 esphome:
   name: ${name}
@@ -10,7 +17,7 @@ esphome:
   project:
     name: esphome.bluetooth-proxy
     # https://github.com/esphome/bluetooth-proxies/releases
-    version: "25.3.1"  
+    version: "25.3.1"
 
 esp32:
   board: esp32dev
@@ -29,18 +36,7 @@ ota:
   - platform: http_request
     id: ota_http_request
 
-wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
-  manual_ip:
-    static_ip: !secret bluetooth_proxy_wr_wifi_manual_ip_static_ip
-    gateway: !secret wifi_manual_ip_gateway
-    subnet: !secret wifi_manual_ip_subnet
-
-  # Enable fallback hotspot (captive portal) in case wifi connection fails
-  ap:
-    ssid: !secret bluetooth_proxy_wr_wifi_ap_ssid
-    password: !secret bluetooth_proxy_wr_wifi_ap_password
+wifi: !include ./components/wifi.yaml
 
 logger:
 improv_serial:
@@ -54,7 +50,7 @@ update:
 http_request:
 
 dashboard_import:
-  package_import_url: github://esphome/firmware/bluetooth-proxy/esp32-generic.yaml@main
+  package_import_url: github://esphome/bluetooth-proxies/esp32-generic/esp32-generic.yaml@main
 
 esp32_ble_tracker:
   scan_parameters:
@@ -73,4 +69,4 @@ button:
 
   - platform: factory_reset
     id: factory_reset_btn
-    name: Factory reset        
+    name: Factory reset

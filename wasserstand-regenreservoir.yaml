@@ -1,4 +1,13 @@
 ---
+substitutions:
+  device_static_ip: !secret
+  device_ap_ssid: !secret
+  device_ap_password: !secret
+  wifi_ssid: !secret wifi_ssid
+  wifi_password: !secret wifi_password
+  wifi_manual_ip_gateway: !secret wifi_manual_ip_gateway
+  wifi_manual_ip_subnet: !secret wifi_manual_ip_subnet
+
 esphome:
   name: wasserstand-regenreservoir
   friendly_name: wasserstand-regenreservoir

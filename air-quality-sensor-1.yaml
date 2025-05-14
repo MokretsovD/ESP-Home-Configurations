@@ -1,12 +1,21 @@
+---
 substitutions:
   name: air-quality-sensor-1
   friendly_name: air-quality-sensor-1
+  device_static_ip: !secret air_quality_sensor_1_wifi_manual_ip_static_ip
+  device_ap_ssid: !secret air_quality_sensor_1_wifi_ap_ssid
+  device_ap_password: !secret air_quality_sensor_1_wifi_ap_password
+  wifi_ssid: !secret wifi_ssid
+  wifi_password: !secret wifi_password
+  wifi_manual_ip_gateway: !secret wifi_manual_ip_gateway
+  wifi_manual_ip_subnet: !secret wifi_manual_ip_subnet
 
-# Sensorbox v2 config for PCB SBR1
+# Sensor box v2 config for PCB SBR1
 # config r2 (20241130)
 # https://go.toms3d.org/sbr1
 # Leave the "substitutions" block in place, then add this config.
-# You can choose a new "friendly name" in the substitutions, this will be its display name in Home Assistant.
+# You can choose a new "friendly name" in the substitutions,
+# this will be its display name in Home Assistant.
 
 esphome:
   name: ${name}
@@ -25,7 +34,7 @@ esp32:
     type: arduino
 
 preferences:
-  flash_write_interval: 60min    
+  flash_write_interval: 60min
 
 # Enable logging
 logger:
@@ -39,18 +48,7 @@ ota:
   - platform: esphome
     password: !secret air_quality_sensor_1_esp_ota_password
 
-wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
-  manual_ip:
-    static_ip: !secret air_quality_sensor_1_wifi_manual_ip_static_ip
-    gateway: !secret wifi_manual_ip_gateway
-    subnet:  !secret wifi_manual_ip_subnet
-
-  # Enable fallback hotspot (captive portal) in case wifi connection fails
-  ap:
-    ssid: !secret air_quality_sensor_1_wifi_ap_ssid
-    password: !secret air_quality_sensor_1_wifi_ap_password
+wifi: !include ./components/wifi.yaml
 
 # In combination with the `ap` this allows the user
 # to provision wifi credentials to the device via WiFi AP.
@@ -71,11 +69,11 @@ debug:
 
 # Display dimming
 globals:
-   - id: dbright
-     type: int
-     restore_value: yes
-     initial_value: '0'
-     
+  - id: dbright
+    type: int
+    restore_value: true
+    initial_value: "0"
+
 output:
   - platform: ledc
     pin: GPIO15
@@ -100,14 +98,26 @@ binary_sensor:
     filters:
       - delayed_on: 10ms
       - delayed_off: 500ms
-    on_press: 
+    on_press:
       then:
         - lambda: |-
             switch(id(dbright)){
-            case 0: id(dbright) = 3; id(back_light).turn_on().set_brightness(1.00).perform(); return;
-            case 1: id(dbright) = 0; id(back_light).turn_off().perform();                     return;
-            case 2: id(dbright) = 1; id(back_light).turn_on().set_brightness(0.05).perform(); return;
-            case 3: id(dbright) = 2; id(back_light).turn_on().set_brightness(0.33).perform(); return;
+              case 0:
+                id(dbright) = 3;
+                id(back_light).turn_on().set_brightness(1.00).perform();
+                break;
+              case 1:
+                id(dbright) = 0;
+                id(back_light).turn_off().perform();
+                break;
+              case 2:
+                id(dbright) = 1;
+                id(back_light).turn_on().set_brightness(0.05).perform();
+                break;
+              case 3:
+                id(dbright) = 2;
+                id(back_light).turn_on().set_brightness(0.33).perform();
+                break;
             }
 
 # /Display dimming
@@ -116,23 +126,93 @@ font:
     id: font_label_14
     size: 14
     bpp: 4
-    glyphs: [
-      "0","1","2","3","4","5","6","7","8","9", "µ", "³",  "/", "°", "%", ",", ".", "(", ")", "-", "_", A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z," ",a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z
+    glyphs:
+      [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "µ",
+        "³",
+        "/",
+        "°",
+        "%",
+        ",",
+        ".",
+        "(",
+        ")",
+        "-",
+        "_",
+        A,
+        B,
+        C,
+        D,
+        E,
+        F,
+        G,
+        H,
+        I,
+        J,
+        K,
+        L,
+        M,
+        N,
+        O,
+        P,
+        Q,
+        R,
+        S,
+        T,
+        U,
+        V,
+        W,
+        X,
+        Y,
+        Z,
+        " ",
+        a,
+        b,
+        c,
+        d,
+        e,
+        f,
+        g,
+        h,
+        i,
+        j,
+        k,
+        l,
+        m,
+        n,
+        o,
+        p,
+        q,
+        r,
+        s,
+        t,
+        u,
+        v,
+        w,
+        x,
+        y,
+        z,
       ]
   - file: "gfonts://Rubik@400"
     id: font_value_30
     size: 30
     bpp: 4
-    glyphs: [
-      "0","1","2","3","4","5","6","7","8","9", "."
-      ]
+    glyphs: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "."]
   - file: "gfonts://Orbitron"
     id: font_heading_36
     size: 36
     bpp: 4
-    glyphs: [
-      "2",C,O,P,V,a,c,e,i,l,r,s,t
-      ]
+    glyphs: ["2", C, O, P, V, a, c, e, i, l, r, s, t]
 
 color:
   - id: white
@@ -153,22 +233,24 @@ color:
 psram:
 
 display:
-  - platform: ili9xxx    
+  - platform: ili9xxx
     model: ILI9341
     cs_pin: GPIO03
     dc_pin: GPIO04
-    reset_pin: GPIO06    
-    #data_rate: 10MHz
+    reset_pin: GPIO06
+    # data_rate: 10MHz
     transform:
-      #mirror_x: true
+      # mirror_x: true
       mirror_y: true
-    #show_test_card: true
+    # show_test_card: true
     color_palette: 8BIT
-    color_order: bgr # CHANGE THIS if your screen has colors mapped wrong
+    # CHANGE THIS if your screen has colors mapped wrong
+    color_order: bgr
     invert_colors: false
     lambda: |-
       it.fill(Color::BLACK);
-      // Please forgive me. I know this is horrible spaghetti code, but for now it gets the job done. Will eventually move all this to LVGL. 
+      // Please forgive me. I know this is horrible spaghetti code,
+      // but for now it gets the job done. Will eventually move all this to LVGL.
 
       auto cy = 0; // current Y position
       auto ix = 0; // current X grid position
@@ -259,25 +341,60 @@ display:
       auto pm10_c = col;
 
       // SELECT BEST AVAILABLE TEMPERATURE SENSOR
-      float temps[5] = {id(temp_sht40).state, id(temp_aht20).state, id(temp_scd40).state, id(temp_aht20_ens).state, id(temp_bmp280).state};
-      float hums[4] = {id(hum_sht40).state, id(hum_aht20).state, id(hum_scd40).state, id(hum_aht20_ens).state};
+      float temps[5] = {
+        id(temp_sht40).state,
+        id(temp_aht20).state,
+        id(temp_scd40).state,
+        id(temp_aht20_ens).state,
+        id(temp_bmp280).state
+      };
+
+      float hums[4] = {
+        id(hum_sht40).state,
+        id(hum_aht20).state,
+        id(hum_scd40).state,
+        id(hum_aht20_ens).state
+      };
+
       float temp = 0;
       float hum = 0;
-      for(int i = 0; i < 5; i++){
-      if(!isnan(temps[i])){temp = temps[i]; break;}
+
+      for (int i = 0; i < 5; i++) {
+        if (!isnan(temps[i])) {
+          temp = temps[i];
+          break;
+        }
       }
-      for(int i = 0; i < 4; i++){
-      if(!isnan(hums[i])){hum = hums[i]; break;}
+
+      for (int i = 0; i < 4; i++) {
+        if(!isnan(hums[i])) {
+          hum = hums[i];
+          break;
+        }
       }
-      ;
-      // DRAW HUMITEMP
+
+      // DRAW HUMIDITY AND TEMP
       it.printf(90, 30, fl14, id(grey), TextAlign::BOTTOM_LEFT, "°C");
-      it.printf(90, 34, fv30, white, display::TextAlign::BOTTOM_RIGHT, "%.1f", temp);
+      it.printf(
+        90,
+        34,
+        fv30,
+        white,
+        display::TextAlign::BOTTOM_RIGHT,
+        "%.1f",
+        temp);
       it.printf(197, 18, fl14, id(grey), TextAlign::BOTTOM_LEFT, "RH");
       it.print(197, 30, fl14, id(grey), TextAlign::BOTTOM_LEFT, "\%");
-      it.printf(197, 34, fv30, white, display::TextAlign::BOTTOM_RIGHT, "%.1f", hum);
-      ;
-      ;
+      it.printf(
+        197,
+        34,
+        fv30,
+        white,
+        display::TextAlign::BOTTOM_RIGHT,
+        "%.1f",
+        hum
+      );
+
       // PREPARE VARIABLES
       auto title = "";
       auto unit = "";
@@ -285,139 +402,167 @@ display:
       float values[3];
       esphome::Color colors[3];
       int count = 0;
-      ;
-      ;
+
       // PREPARE PARTICLES
       cy = 30;
-      ;
-      if (!isnan(pm1)){
-      count = 0;
-      title = "Particles";
-      unit = "µg/m³";
-      names[0] = "PM1";
-      names[1] = "PM2.5";
-      names[2] = "PM10"; //god C++ sucks
-      values[0] = pm1;
-      values[1] = pm25;
-      values[2] = pm10;
-      colors[0] = pm1_c;
-      colors[1] = pm25_c;
-      colors[2] = pm10_c;
-      ;
-      ;
-      // START REUSABLE
-      it.line(0,cy,w,cy,id(white));
-      it.print(2, cy + 22, fh36, id(light_grey), TextAlign::CENTER_LEFT, title);
-      it.print(w-2, cy + 31, fl14, id(grey), TextAlign::CENTER_RIGHT, unit);
-      ix = 0;
-      for (int i = 0; i < 3; i++){
-      if(isnan(values[i])){continue;}
-      it.printf(w/6*(1+ix*2), cy + 58, fl14, id(grey), TextAlign::BOTTOM_CENTER, "%s", names[i]);
-      it.printf(w/6*(1+ix*2), cy + 50, fv30, colors[i], display::TextAlign::TOP_CENTER, "%.0f", values[i]);
-      ix++;
+
+      if (!isnan(pm1)) {
+        count = 0;
+        title = "Particles";
+        unit = "µg/m³";
+        names[0] = "PM1";
+        names[1] = "PM2.5";
+        names[2] = "PM10"; //god C++ sucks
+        values[0] = pm1;
+        values[1] = pm25;
+        values[2] = pm10;
+        colors[0] = pm1_c;
+        colors[1] = pm25_c;
+        colors[2] = pm10_c;
+
+        // START REUSABLE
+        it.line( 0, cy, w, cy, id(white));
+        it.print(2, cy + 22, fh36, id(light_grey), TextAlign::CENTER_LEFT, title);
+        it.print(w-2, cy + 31, fl14, id(grey), TextAlign::CENTER_RIGHT, unit);
+        ix = 0;
+        for (int i = 0; i < 3; i++) {
+          if(isnan(values[i])) {
+            continue;
+          }
+          it.printf(w/6*(1+ix*2), cy + 58, fl14, id(grey), TextAlign::BOTTOM_CENTER, "%s", names[i]);
+          it.printf(
+            w/6*(1+ix*2), 
+            cy + 50, 
+            fv30, 
+            colors[i], 
+            display::TextAlign::TOP_CENTER, 
+            "%.0f", 
+            values[i]);
+          ix++;
+        }
+        // END REUSABLE
+      
+        cy += 88;
       }
-      // END REUSABLE
-      ;
-      cy += 88;
-      }
-      ;
       // END PARTICLES
-      ;
+
       // PREPARE CO2
-      ;
-      if (!isnan(co2) or !isnan(e_co2) or !isnan(s_co2)){
-      count = 0;
-      title = "CO2";
-      unit = "ppm";
-      names[0] = "SCD40";
-      names[1] = "ENS160 est.";
-      names[2] = "SGP30 est.";
-      values[0] = co2;
-      values[1] = e_co2;
-      values[2] = s_co2;
-      colors[0] = co2_c;
-      colors[1] = e_co2_c;
-      colors[2] = s_co2_c;
-      ;
-      ;
-      // START REUSABLE
-      it.line(0,cy,w,cy,id(white));
-      it.print(2, cy + 22, fh36, id(light_grey), TextAlign::CENTER_LEFT, title);
-      it.print(w-2, cy + 31, fl14, id(grey), TextAlign::CENTER_RIGHT, unit);
-      ix = 0;
-      for (int i = 0; i < 3; i++){
-      if(isnan(values[i])){continue;}
-      it.printf(w/6*(1+ix*2), cy + 58, fl14, id(grey), TextAlign::BOTTOM_CENTER, "%s", names[i]);
-      it.printf(w/6*(1+ix*2), cy + 50, fv30, colors[i], display::TextAlign::TOP_CENTER, "%.0f", values[i]);
-      ix++;
+
+      if (!isnan(co2) or !isnan(e_co2) or !isnan(s_co2)) {
+        count = 0;
+        title = "CO2";
+        unit = "ppm";
+        names[0] = "SCD40";
+        names[1] = "ENS160 est.";
+        names[2] = "SGP30 est.";
+        values[0] = co2;
+        values[1] = e_co2;
+        values[2] = s_co2;
+        colors[0] = co2_c;
+        colors[1] = e_co2_c;
+        colors[2] = s_co2_c;
+
+        // START REUSABLE
+        it.line( 0, cy, w, cy, id(white));
+        it.print(2, cy + 22, fh36, id(light_grey), TextAlign::CENTER_LEFT, title);
+        it.print(w-2, cy + 31, fl14, id(grey), TextAlign::CENTER_RIGHT, unit);
+        ix = 0;
+        for (int i = 0; i < 3; i++) {
+          if(isnan(values[i])) {
+            continue;
+          }
+          it.printf(w/6*(1+ix*2), cy + 58, fl14, id(grey), TextAlign::BOTTOM_CENTER, "%s", names[i]);
+          it.printf(
+            w/6*(1+ix*2), 
+            cy + 50, 
+            fv30, 
+            colors[i], 
+            display::TextAlign::TOP_CENTER, 
+            "%.0f", 
+            values[i]);
+          ix++;
+        }
+        // END REUSABLE
+      
+        cy += 88;
       }
-      // END REUSABLE
-      ;
-      ;
-      cy += 88;
-      }
-      ;
+
       // END CO2
-      ;
+
       // PREPARE VOC
-      ;
+
       bool draw_general_voc = (!isnan(ch2o) or !isnan(e_voc) or !isnan(s_voc));
       bool draw_sgp4x = (!isnan(aqi_voc) or !isnan(aqi_nox));
-      if (draw_general_voc or draw_sgp4x){
-      count = 0;
-      title = "VOC";
-      unit = "ppb";
-      names[0] = "SGP30";
-      names[1] = "ENS160";
-      names[2] = "ZE08-CH2O";
-      values[0] = s_voc;
-      values[1] = e_voc;
-      values[2] = ch2o;
-      colors[0] = s_voc_c;
-      colors[1] = e_voc_c;
-      colors[2] = ch2o_c;
-      ;
-      ;
-      // START REUSABLE | UNIT CONDITION ADDED
-      it.line(0,cy,w,cy,id(white));
-      it.print(2, cy + 22, fh36, id(light_grey), TextAlign::CENTER_LEFT, title);
-      if (draw_general_voc){it.print(w-2, cy + 31, fl14, id(grey), TextAlign::CENTER_RIGHT, unit);}
-      ix = 0;
-      for (int i = 0; i < 3; i++){
-      if(isnan(values[i])){continue;}
-      it.printf(w/6*(1+ix*2), cy + 58, fl14, id(grey), TextAlign::BOTTOM_CENTER, "%s", names[i]);
-      it.printf(w/6*(1+ix*2), cy + 50, fv30, colors[i], display::TextAlign::TOP_CENTER, "%.0f", values[i]);
-      ix++;
-      }
-      // END REUSABLE
-      ;
-      ;
-      if (draw_general_voc){cy += 88;}
-      else {cy += 46;}
+      if (draw_general_voc or draw_sgp4x) {
+        count = 0;
+        title = "VOC";
+        unit = "ppb";
+        names[0] = "SGP30";
+        names[1] = "ENS160";
+        names[2] = "ZE08-CH2O";
+        values[0] = s_voc;
+        values[1] = e_voc;
+        values[2] = ch2o;
+        colors[0] = s_voc_c;
+        colors[1] = e_voc_c;
+        colors[2] = ch2o_c;
+
+        // START REUSABLE | UNIT CONDITION ADDED
+        it.line(0,cy,w,cy,id(white));
+        it.print(2, cy + 22, fh36, id(light_grey), TextAlign::CENTER_LEFT, title);
+        if (draw_general_voc) {
+          it.print(w-2, cy + 31, fl14, id(grey), TextAlign::CENTER_RIGHT, unit);
+        }
+
+        ix = 0;
+      
+        for (int i = 0; i < 3; i++) {
+          if(isnan(values[i])) {
+            continue;
+          }
+        
+          it.printf(w/6*(1+ix*2), cy + 58, fl14, id(grey), TextAlign::BOTTOM_CENTER, "%s", names[i]);
+          it.printf(
+            w/6*(1+ix*2),
+            cy + 50,
+            fv30,
+            colors[i],
+            display::TextAlign::TOP_CENTER,
+            "%.0f",
+            values[i]);
+          ix++;
+        }
+        // END REUSABLE
+      
+        if (draw_general_voc) {
+          cy += 88;
+        } else {
+          cy += 46;
+        }
       }
       // START SGP4x
       cy+=2;
       auto sgp4x = "SGP41";
-      if (isnan(aqi_nox)){sgp4x = "SGP40";}
-      if(!isnan(aqi_voc)){
-      col = id(white);
-      it.printf(2, cy, fl14, id(grey), TextAlign::CENTER_LEFT, "%s VOC Index", sgp4x);
-      it.printf(180, cy, fl14, id(grey), TextAlign::CENTER_LEFT, "(1 ... 500)");
-      it.printf(180, cy, fl14, col, TextAlign::CENTER_RIGHT, "%.0f ", aqi_voc);
-      cy+=15;
+      if (isnan(aqi_nox)) {
+        sgp4x = "SGP40";
       }
-      ;
-      if(!isnan(aqi_nox)){
-      col = id(white);
-      it.printf(2, cy, fl14, id(grey), TextAlign::CENTER_LEFT, "%s NOx Index", sgp4x);
-      it.printf(180, cy, fl14, id(grey), TextAlign::CENTER_LEFT, "(1 ... 500)");
-      it.printf(180, cy, fl14, col, TextAlign::CENTER_RIGHT, "%.0f ", aqi_nox);
+      
+      if (!isnan(aqi_voc)) {
+        col = id(white);
+        it.printf(2, cy, fl14, id(grey), TextAlign::CENTER_LEFT, "%s VOC Index", sgp4x);
+        it.printf(180, cy, fl14, id(grey), TextAlign::CENTER_LEFT, "(1 ... 500)");
+        it.printf(180, cy, fl14, col, TextAlign::CENTER_RIGHT, "%.0f ", aqi_voc);
+        cy+=15;
       }
-      ;
+      
+      if (!isnan(aqi_nox)) {
+        col = id(white);
+        it.printf(2, cy, fl14, id(grey), TextAlign::CENTER_LEFT, "%s NOx Index", sgp4x);
+        it.printf(180, cy, fl14, id(grey), TextAlign::CENTER_LEFT, "(1 ... 500)");
+        it.printf(180, cy, fl14, col, TextAlign::CENTER_RIGHT, "%.0f ", aqi_nox);
+      }
+
       // END VOC & SGP4x
-      ;
-      ;
-      ;
     dimensions:
       height: 320
       width: 240
@@ -430,27 +575,32 @@ uart:
     parity: none
     data_bits: 8
     stop_bits: 1
-    debug: 
+    debug:
       direction: BOTH
       dummy_receiver: true
       after:
-        # bytes: 9 
+        # bytes: 9
         timeout: 10ms
       sequence:
         - lambda: |-
-            //UARTDebug::log_int(direction, bytes, ',');                 // Log the message as int. 
-            //UARTDebug::log_hex(direction, bytes, ',');                 // Log the message in hex.
+            // Log the message as int.
+            // UARTDebug::log_int(direction, bytes, ','); 
+            // Log the message in hex.
+            // UARTDebug::log_hex(direction, bytes, ',');
             ESP_LOGD("custom", "Bytes size: %d", bytes.size());
             if (direction == UART_DIRECTION_RX)                        
               {
                   if (bytes.size() == 9)                               
                     {
-                        if ( bytes[0] == 0xFF &&                       // Check sensor identification
+                        // Check sensor identification
+                        if ( bytes[0] == 0xFF &&
                             bytes[1] == 0x17
                             )       
                           {
-                            float value = float((bytes[4] * 256) + bytes[5]);  // Decode message
-                            id(ch2o_ze08).publish_state(value);     // Publish results to a sensor.
+                            // Decode message
+                            float value = float((bytes[4] * 256) + bytes[5]);
+                            // Publish results to a sensor.
+                            id(ch2o_ze08).publish_state(value);
                           }
                     }
               }
@@ -483,9 +633,9 @@ sensor:
     state_class: measurement
     device_class: volatile_organic_compounds
     id: ch2o_ze08
-    filters: 
+    filters:
       - filter_out: 2000.0
-      - exponential_moving_average: 
+      - exponential_moving_average:
           send_every: 1
           alpha: 0.5
 
@@ -493,20 +643,20 @@ sensor:
     name: "Uptime"
     id: uptime_sensor
     update_interval: 5s
-    disabled_by_default: True
+    disabled_by_default: true
 
   - platform: debug
     free:
       name: "Heap Free"
       id: heap_free
-      disabled_by_default: True
+      disabled_by_default: true
     loop_time:
       name: "Loop Time"
       id: loop_time
-      disabled_by_default: True
+      disabled_by_default: true
 
   - platform: aht10
-    #address: 0x38
+    # address: 0x38
     i2c_id: i2c_main
     variant: AHT20
     temperature:
@@ -514,15 +664,15 @@ sensor:
       id: temp_aht20
       filters:
         - or:
-          - throttle: 5min
-          - delta: 0.1
+            - throttle: 5min
+            - delta: 0.1
     humidity:
       name: "AHT20 Humidity"
       id: hum_aht20
       filters:
         - or:
-          - throttle: 5min
-          - delta: 0.1
+            - throttle: 5min
+            - delta: 0.1
     update_interval: 10s
 
   - platform: bmp280_i2c
@@ -537,50 +687,49 @@ sensor:
       id: pres_bmp280
     update_interval: 10s
 
-
   - platform: sht4x
-    #addr 0x44
+    # addr 0x44
     i2c_id: i2c_main
     temperature:
       name: "SHT40 Temperature"
       id: temp_sht40
       filters:
         - or:
-          - throttle: 5min
-          - delta: 0.1
+            - throttle: 5min
+            - delta: 0.1
     humidity:
       name: "SHT40 Relative Humidity"
       id: hum_sht40
       filters:
         - or:
-          - throttle: 5min
-          - delta: 0.1
+            - throttle: 5min
+            - delta: 0.1
     update_interval: 10s
 
   - platform: scd4x
-    #address: 0x62
+    # address: 0x62
     i2c_id: i2c_main
     co2:
       name: "SCD40 CO2"
       id: co2_scd40
       filters:
         - or:
-          - throttle: 5min
-          - delta: 1
+            - throttle: 5min
+            - delta: 1
     temperature:
       name: "SCD40 Temperature"
       id: temp_scd40
       filters:
         - or:
-          - throttle: 5min
-          - delta: 0.1
+            - throttle: 5min
+            - delta: 0.1
     humidity:
       name: "SCD40 Humidity"
       id: hum_scd40
       filters:
         - or:
-          - throttle: 5min
-          - delta: 0.1
+            - throttle: 5min
+            - delta: 0.1
     update_interval: 30s
 
   - platform: ens160_i2c
@@ -592,8 +741,8 @@ sensor:
     tvoc:
       name: "ENS160 TVOC"
       id: tvoc_ens160
-      filters: 
-        - exponential_moving_average: 
+      filters:
+        - exponential_moving_average:
             send_every: 1
             alpha: 0.5
     aqi:
@@ -605,17 +754,17 @@ sensor:
       humidity: hum_aht20_ens
 
   - platform: aht10
-    #address: 0x38
+    # address: 0x38
     i2c_id: i2c_2
     variant: AHT20
     temperature:
       name: "AHT20/ENS160 Temperature"
       id: temp_aht20_ens
-      disabled_by_default: True
+      disabled_by_default: true
     humidity:
       name: "AHT20/ENS160 Humidity"
       id: hum_aht20_ens
-      disabled_by_default: True
+      disabled_by_default: true
     update_interval: 10s
 
   - platform: sgp30
@@ -625,33 +774,33 @@ sensor:
       name: "SGP30 eCO2"
       id: eco2_sgp30
       accuracy_decimals: 0
-      filters: 
-        - exponential_moving_average: 
+      filters:
+        - exponential_moving_average:
             send_every: 1
             alpha: 0.2
         - or:
-          - throttle: 5min
-          - delta: 1
+            - throttle: 5min
+            - delta: 1
     tvoc:
       name: "SGP30 TVOC"
       id: tvoc_sgp30
       accuracy_decimals: 1
-      filters: 
-        - exponential_moving_average: 
+      filters:
+        - exponential_moving_average:
             send_every: 1
             alpha: 0.2
         - or:
-          - throttle: 5min
-          - delta: 1
-    store_baseline: yes
+            - throttle: 5min
+            - delta: 1
+    store_baseline: true
     update_interval: 5s
-    compensation: 
+    compensation:
       humidity_source: hum_aht20
       temperature_source: temp_aht20
 
   - platform: sgp4x
     i2c_id: i2c_main
-    #address: 0x59
+    # address: 0x59
     voc:
       name: "SGP41 VOC Index"
       id: aqi_voc_sgp41
@@ -661,8 +810,8 @@ sensor:
       unit_of_measurement: "index points"
       filters:
         - or:
-          - throttle: 5min
-          - delta: 1
+            - throttle: 5min
+            - delta: 1
     nox:
       name: "SGP41 NOx Index"
       id: aqi_nox_sgp41
@@ -672,16 +821,16 @@ sensor:
       unit_of_measurement: "index points"
       filters:
         - or:
-          - throttle: 5min
-          - delta: 1
-    compensation: 
+            - throttle: 5min
+            - delta: 1
+    compensation:
       humidity_source: hum_aht20
       temperature_source: temp_aht20
-    store_baseline: True
+    store_baseline: true
     update_interval: 10s
 
   - platform: pmsx003
-    type: PMSX003 
+    type: PMSX003
     update_interval: 90s
     uart_id: uart_pms
     pm_1_0:
@@ -689,26 +838,29 @@ sensor:
       id: pm1_pms
       filters:
         - or:
-          - throttle: 5min
-          - delta: 1
+            - throttle: 5min
+            - delta: 1
     pm_2_5:
       name: "PMS Particulate Matter <2.5µm Concentration"
       id: pm25_pms
       filters:
         - or:
-          - throttle: 5min
-          - delta: 1
+            - throttle: 5min
+            - delta: 1
     pm_10_0:
       name: "PMS Particulate Matter <10.0µm Concentration"
       id: pm10_pms
       filters:
         - or:
-          - throttle: 5min
-          - delta: 1
+            - throttle: 5min
+            - delta: 1
 text_sensor:
   - platform: template
     lambda: |-
-      auto pm = max(id(pm1_pms).state, max(id(pm25_pms).state, id(pm10_pms).state));
+      auto pm = max(
+        id(pm1_pms).state,
+        max(id(pm25_pms).state, id(pm10_pms).state)
+      );
 
       auto r = "Low";
 
@@ -724,17 +876,17 @@ text_sensor:
         r = "Extremely High";
       }
 
-      return { r };      
-    id: pm_level    
+      return { r };
+    id: pm_level
     name: Particulate Level
     update_interval: 1min
     filters:
-     - lambda: |-
-         static std::string last_pm_level;
-         if (x == last_pm_level)
-         return {};
-         last_pm_level = x;
-         return x;
+      - lambda: |-
+          static std::string last_pm_level;
+          if (x == last_pm_level)
+          return {};
+          last_pm_level = x;
+          return x;
   - platform: template
     lambda: |-
       auto pm = id(co2_scd40).state;
@@ -757,17 +909,17 @@ text_sensor:
         r = "Extremely High";
       }  
 
-      return { r };      
+      return { r };
     id: co2_level
     name: CO2 Level
     update_interval: 1min
     filters:
-     - lambda: |-
-         static std::string last_co2_level;
-         if (x == last_co2_level)
-         return {};
-         last_co2_level = x;
-         return x;
+      - lambda: |-
+          static std::string last_co2_level;
+          if (x == last_co2_level)
+          return {};
+          last_co2_level = x;
+          return x;
   - platform: template
     lambda: |-
       auto pm = id(tvoc_sgp30).state;
@@ -795,9 +947,9 @@ text_sensor:
     name: VOC Level
     update_interval: 1min
     filters:
-     - lambda: |-
-         static std::string last_voc_level;
-         if (x == last_voc_level)
-         return {};
-         last_voc_level = x;
-         return x;
+      - lambda: |-
+          static std::string last_voc_level;
+          if (x == last_voc_level)
+          return {};
+          last_voc_level = x;
+          return x;

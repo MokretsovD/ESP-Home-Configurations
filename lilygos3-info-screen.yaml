@@ -1,4 +1,13 @@
 ---
+substitutions:
+  device_static_ip: !secret lilygos3_info_screen_wifi_manual_ip_static_ip
+  device_ap_ssid: !secret lilygos3_info_screen_wifi_ap_ssid
+  device_ap_password: !secret lilygos3_info_screen_wifi_ap_password
+  wifi_ssid: !secret wifi_ssid
+  wifi_password: !secret wifi_password
+  wifi_manual_ip_gateway: !secret wifi_manual_ip_gateway
+  wifi_manual_ip_subnet: !secret wifi_manual_ip_subnet
+
 esphome:
   name: lilygos3-info-screen
   friendly_name: lilygos3-info-screen
@@ -37,25 +46,15 @@ ota:
   - platform: esphome
     password: !secret lilygos3_info_screen_esp_ota_password
 
-wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
-  fast_connect: true
-  manual_ip:
-    static_ip: !secret lilygos3_info_screen_wifi_manual_ip_static_ip
-    gateway: !secret wifi_manual_ip_gateway
-    subnet: !secret wifi_manual_ip_subnet
-  # Enable fallback hotspot (captive portal) in case wifi connection fails
-  ap:
-    ssid: !secret lilygos3_info_screen_wifi_ap_ssid
-    password: !secret lilygos3_info_screen_wifi_ap_password
+wifi: !include ./components/wifi.yaml  
+  fast_connect: true  
 
 captive_portal:
 
 globals:
   - id: sleep_mode_enabled
     type: bool
-    restore_value: False
+    restore_value: false
     initial_value: "false"
 
 time:
@@ -502,39 +501,9 @@ binary_sensor:
                (id(pir_occupancy_last_changed_seconds).has_state() && id(pir_occupancy_last_changed_seconds).state >= 600 && id(pir_occupancy).has_state() && id(pir_occupancy).state == false)
              );
     on_press:
-      - script.execute: manage_deep_sleep
-      # - wait_until:
-      #     wifi.connected:
-      # - wait_until:
-      #     api.connected:      
-      # - lambda: id(sleep_mode_enabled) = true;      
-      # - logger.log: "initiating sleep mode"
-      # - logger.log: "device will go in deep sleep in 30 seconds if conditions still met"
-      # - delay: 30sec
-      # - if:
-      #     condition:
-      #       binary_sensor.is_on: is_deep_sleep_time
-      #     then:            
-      #       - script.execute: set_sleep_duration
-      #       - lambda: |-
-      #           id(in_deep_sleep).publish_state(true);
-      #       - logger.log: "entering deep sleep"            
-      #       - deep_sleep.enter:
-      #           id: deep_sleep_1
-      #     else:
-      #       - lambda: id(sleep_mode_enabled) = false;            
-      #       - logger.log: "sleeping conditions are not met anymore, sleep has been cancelled"           
+      - script.execute: manage_deep_sleep       
     on_release:      
       - script.execute: manage_deep_sleep
-      # - wait_until:
-      #     wifi.connected:
-      # - wait_until:
-      #     api.connected:
-      # - deep_sleep.prevent:
-      #     id: deep_sleep_1
-      # - logger.log: "disabling sleep mode"
-      # - lambda: id(sleep_mode_enabled) = false;
-      # - logger.log: "sleep mode has been disabled"
   - platform: template
     id: in_power_saving_mode
     icon: mdi:leaf
@@ -650,8 +619,7 @@ sensor:
   #     { 
   #       return id(color_yellow);
   #     }
-
-  #     return id(color_yellow);
+  #   return id(color_yellow);
   # - platform: template
   #   id: bat_col
   #   internal: True

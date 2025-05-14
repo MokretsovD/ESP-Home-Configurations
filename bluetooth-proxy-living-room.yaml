@@ -1,6 +1,13 @@
 substitutions:
   name: bluetooth-proxy-lr
   friendly_name: bluetooth-proxy-living-room
+  device_static_ip: !secret bluetooth_proxy_lr_wifi_manual_ip_static_ip
+  device_ap_ssid: !secret bluetooth_proxy_lr_wifi_ap_ssid
+  device_ap_password: !secret bluetooth_proxy_lr_wifi_ap_password
+  wifi_ssid: !secret wifi_ssid
+  wifi_password: !secret wifi_password
+  wifi_manual_ip_gateway: !secret wifi_manual_ip_gateway
+  wifi_manual_ip_subnet: !secret wifi_manual_ip_subnet
 
 esphome:
   name: ${name}
@@ -33,17 +40,7 @@ ota:
   - platform: http_request
     id: ota_http_request
 
-wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
-  manual_ip:
-    static_ip: !secret bluetooth_proxy_lr_wifi_manual_ip_static_ip
-    gateway: !secret wifi_manual_ip_gateway
-    subnet: !secret wifi_manual_ip_subnet
-  # Enable fallback hotspot (captive portal) in case wifi connection fails
-  ap:
-    ssid: !secret bluetooth_proxy_lr_wifi_ap_ssid
-    password: !secret bluetooth_proxy_lr_wifi_ap_password
+wifi: !include ./components/wifi.yaml
 
 captive_portal:
   
