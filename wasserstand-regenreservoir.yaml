@@ -1,3 +1,4 @@
+---
 esphome:
   name: wasserstand-regenreservoir
   friendly_name: wasserstand-regenreservoir
@@ -39,17 +40,17 @@ time:
     id: sntp_time
     timezone: Europe/Berlin
     servers:
-     - 192.168.8.1
-    
+      - !secret wifi_manual_ip_gateway
+
 # i2c Bus auf D1 und D2 konfigurieren
 i2c:
   id: bus_a
   sda: D2
   scl: D1
-  scan: True
+  scan: true
 
 # 1-Wire-Sensoren am Pin D4
-#dallas:
+# dallas:
 #  - pin: D4
 
 # ADC einrichten, ADDR-Pin ist auf VCC gelegt, daher Adresse 0x49
@@ -75,18 +76,16 @@ sensor:
           send_every: 20
 # Spannungen nach Messreihe in Füllhöhe umrechnen          
       - calibrate_linear:
-          - 0.16 -> 0.0
-#          - 0.3 -> 20
-#          - 0.69 -> 40
-#          - 1.0 -> 60
-#          - 1.35 -> 80
-#          - 1.75 -> 100
-#          - 2.03 -> 120
-#          - 2.42 -> 140
-#          - 2.7 -> 160
-          - 3.29 -> 200          
-# Füllmenge nach Füllstandskurve berechnen
+          - 0.325 -> 0.0
+          - 3.29 -> 200      
+      - lambda: |-
+         if (x < 0) return 0;
+         return x;
+      - or:
+        - throttle: 5min
+        - delta: 0.1    
 
+# Füllmenge nach Füllstandskurve berechnen
   - platform: template
     name: "Volume Regenreservoir"
     lambda: |-
@@ -94,24 +93,17 @@ sensor:
     
     filters:
       - calibrate_linear:
-          - 4 -> 80
-#          - 10 -> 200
-#          - 12.5 -> 300
-#          - 15 -> 400
-#          - 17.5 -> 500
-#          - 20 -> 600
-#          - 25 -> 850
-#          - 27.5 -> 1000
-#          - 40 -> 1700
-#          - 45 -> 2000
-#          - 60 -> 3000
-#          - 70 -> 3600
-#          - 80 -> 4000
-#          - 85 -> 4400
-#          - 90 -> 4700
-          - 95.5 -> 4980
+          - 0 -> 0
+          - 1287 -> 4000
+          - 2000 -> 6215
+      - lambda: |-
+         if (x < 0) return 0;
+         return x;
+      - or:
+        - throttle: 5min
+        - delta: 0.5  
     unit_of_measurement: l
-    accuracy_decimals: 0
+    accuracy_decimals: 1
 
 #    # 1-Wire Temperatursensor 
 
