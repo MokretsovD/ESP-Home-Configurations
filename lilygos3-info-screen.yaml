@@ -1,3 +1,4 @@
+---
 esphome:
   name: lilygos3-info-screen
   friendly_name: lilygos3-info-screen
@@ -461,20 +462,7 @@ image:
     transparency: alpha_channel
     resize: 22x22
 
-     
-
-  # - file: mdi:alert-outline
-  #   id: alert
-  #   type: grayscale
-  #   transparency: alpha_channel
-  #   resize: 80x80
-
-
-#Add a simple Google Font
 font:
-  # - file: "gfonts://Roboto"
-  #   id: font_roboto_20
-  #   size: 20
   - file: "gfonts://Roboto"
     id: font_roboto_16
     size: 16
@@ -980,17 +968,17 @@ script:
                 // default sleep duration is five minutes
                 uint32_t sleep_duration = 60 * 5 * 1000;
 
-                // if not occuppied for thirty minutes
+                // if not occupied for thirty minutes
                 if (id(pir_occupancy_last_changed_seconds).state >= 60*30) {
                   sleep_duration = 60 * 15 * 1000;
                 }
 
-                // if not occuppied for one hour
+                // if not occupied for one hour
                 if (id(pir_occupancy_last_changed_seconds).state >= 60*60) {
                   sleep_duration = 60 * 30 * 1000;
                 }
 
-                // if not occuppied for four hours
+                // if not occupied for four hours
                 if (
                   id(pir_occupancy_last_changed_seconds).state >= 60*60*4
                   || id(person_state).state != "home"
