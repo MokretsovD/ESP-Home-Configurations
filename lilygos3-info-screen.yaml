@@ -25,13 +25,7 @@ esp32:
 
 preferences:
   flash_write_interval: 60min
-# esp32:
-#   board: esp32-s3-devkitc-1
-#   variant: esp32s3
-#   framework:
-#     type: esp-idf
-#   flash_size: 16MB
-# Enable logging
+
 logger:
 
 # Enable Home Assistant API
@@ -126,8 +120,6 @@ display:
     update_interval: 5s
    # update_interval: never
     rotation: 270    
-    # lambda: |-
-    #   it.print(10, 20, id(font_roboto), Color(255, 255, 255), "Hello, SmartHomeScene!");
     lambda: |-
 
       // ADD LOADING SCREEN
@@ -227,16 +219,10 @@ display:
         // Display percentage
         if (id(charging).has_state() && id(charging).state == true && id(battery_level_charging).state >= 0) {
           it.printf(it.get_width() - 27, 13, id(font_roboto_16), bat_text_col, COLOR_OFF, display::TextAlign::CENTER, "%.0f%%", id(battery_level_charging).state);
-          // it.printf(it.get_width() - 27, 13, id(font_roboto_16), id(bat_text_col), COLOR_OFF, display::TextAlign::CENTER, "%.0f%%", id(battery_level_charging).state);
         } else {
           it.printf(it.get_width() - 27, 13, id(font_roboto_16), bat_text_col, COLOR_OFF, display::TextAlign::CENTER, "%.0f%%", id(battery_level).state);
-          // it.printf(it.get_width() - 27, 13, id(font_roboto_16), id(bat_text_col), COLOR_OFF, display::TextAlign::CENTER, "%.0f%%", id(battery_level).state);
         }
       }     
-
-      // if (id(battery_voltage).has_state()) {
-      //  it.printf(it.get_width() - 70, 30, id(font_roboto_20), id(color_red), "%.2fV", id(battery_voltage).state);
-      // }     
 
       // Render WiFi Indicator
       if (id(wifi_signal_db).has_state()) {        
@@ -271,10 +257,7 @@ display:
 
         if (signal_quart > 3) {
           it.filled_rectangle(23,3,3,18,wifi_sign_cl);
-        }
-
-        // Display Wifi strength text
-        // it.printf(40, 12, id(font_roboto_16), id(color_white), COLOR_OFF, display::TextAlign::CENTER_LEFT, "%.0fdBm", id(wifi_signal_db).state);
+        }        
       }
 
       // Render Home Assistant API State
@@ -321,16 +304,14 @@ display:
       if (
           (
            (id(ha_time).now().hour == 0 && id(ha_time).now().minute >= 30) 
-           || id(ha_time).now().hour >= 1 ) 
+           || id(ha_time).now().hour >= 1) 
            && id(ha_time).now().hour < 6) {
         time_col = id(color_red);
       }
 
-        // it.printf(20, 70, id(font_orbitron_32), Color(255, 0, 0), id(ha_time).now().strftime("%Y-%m-%d %H:%M:%S").c_str());      
       it.printf(2, 40, id(font_orbitron_36), time_col, id(current_time).state.c_str());
             
-      // Render date
-        // it.printf(20, 70, id(font_orbitron_32), Color(255, 0, 0), id(ha_time).now().strftime("%Y-%m-%d %H:%M:%S").c_str());      
+      // Render date        
       it.printf(2, it.get_height() - 10, id(font_orbitron_16), id(color_white), display::TextAlign::CENTER_LEFT, id(current_date).state.c_str());
 
       // Render waste collection
@@ -342,9 +323,9 @@ display:
       auto gelbe_tonne_shell_col = id(gelbe_tonne).has_state() && id(gelbe_tonne).state <= 1 ? id(color_red) : id(color_white);
 
       it.rectangle(180, it.get_height() - 30, 30, 30, hausmull_shell_col);
-      it.rectangle(215, it.get_height() - 30, 30, 30, id(color_white));
-      it.rectangle(250, it.get_height() - 30, 30, 30, id(color_white));
-      it.rectangle(285, it.get_height() - 30, 30, 30, id(color_white));
+      it.rectangle(215, it.get_height() - 30, 30, 30, biomull_shell_col);
+      it.rectangle(250, it.get_height() - 30, 30, 30, papier_shell_col);
+      it.rectangle(285, it.get_height() - 30, 30, 30, gelbe_tonne_shell_col);
 
       // Render Hausmull
       it.filled_rectangle(181, it.get_height() - 29, 28, 28, id(color_gray));
@@ -415,11 +396,7 @@ display:
          if (ppm_level_val == "Extremely High") { ppm_col = id(color_red); }
       }
       it.image(82, 95, id(ppm_icon), ppm_col, COLOR_OFF);
-
-
-      // display last occupancy changed
-      it.printf(130, 80, id(font_orbitron_16), id(color_white), "%.0f", id(pir_occupancy_last_changed_seconds).state);
-    
+   
 image:
   # - file: https://esphome.io/_images/logo.png
   #   type: rgb565
