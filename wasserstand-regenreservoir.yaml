@@ -1,8 +1,8 @@
 ---
 substitutions:
-  device_static_ip: !secret
-  device_ap_ssid: !secret
-  device_ap_password: !secret
+  device_static_ip: !secret wasserstand_regenreservoir_wifi_manual_ip_static_ip
+  device_ap_ssid: !secret wasserstand_regenreservoir_wifi_ap_ssid
+  device_ap_password: !secret wasserstand_regenreservoir_wifi_ap_password
   wifi_ssid: !secret wifi_ssid
   wifi_password: !secret wifi_password
   wifi_manual_ip_gateway: !secret wifi_manual_ip_gateway
@@ -28,18 +28,8 @@ ota:
     password: !secret wasserstand_regenreservoir_esp_ota_password
     id: ota_esphome
 
-wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
-  manual_ip:
-    static_ip: !secret wasserstand_regenreservoir_wifi_manual_ip_static_ip
-    gateway: !secret wifi_manual_ip_gateway
-    subnet: !secret wifi_manual_ip_subnet
-
-  # Enable fallback hotspot (captive portal) in case wifi connection fails
-  ap:
-    ssid: !secret wasserstand_regenreservoir_wifi_ap_ssid
-    password: !secret wasserstand_regenreservoir_wifi_ap_password
+packages:
+  wifi_settings: github://MokretsovD/ESP-Home-Configurations/packages/wifi.yaml@main
 
 captive_portal:
 

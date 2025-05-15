@@ -48,7 +48,8 @@ ota:
   - platform: esphome
     password: !secret air_quality_sensor_1_esp_ota_password
 
-wifi: !include ./components/wifi.yaml
+packages:
+  wifi_settings: github://MokretsovD/ESP-Home-Configurations/packages/wifi.yaml@main
 
 # In combination with the `ap` this allows the user
 # to provision wifi credentials to the device via WiFi AP.
