@@ -46,10 +46,7 @@ ota:
   - platform: esphome
     password: !secret lilygos3_info_screen_esp_ota_password
 
-
-packages:
-  wifi_settings: github://MokretsovD/ESP-Home-Configurations/packages/wifi.yaml@main
-wifi:
+wifi: !include components/wifi.yaml
   fast_connect: true  
 
 captive_portal:

@@ -8,66 +8,11 @@ substitutions:
   wifi_password: !secret wifi_password
   wifi_manual_ip_gateway: !secret wifi_manual_ip_gateway
   wifi_manual_ip_subnet: !secret wifi_manual_ip_subnet
-
-esphome:
-  name: ${name}
-  friendly_name: ${friendly_name}
-  min_version: 2025.2.1
-  name_add_mac_suffix: true
-  project:
-    name: esphome.bluetooth-proxy
-    # https://github.com/esphome/bluetooth-proxies/releases
-    version: "25.3.1"
-
-esp32:
+  api_encryption_key: !secret bluetooth_proxy_wr_esp_api_encryption_key
+  esp_ota_password: !secret bluetooth_proxy_wr_esp_ota_password
+  manifest_url: https://firmware.esphome.io/bluetooth-proxy/esp32-generic/manifest.json
+  dashboard_import: github://esphome/bluetooth-proxies/esp32-generic/esp32-generic.yaml@main
   board: esp32dev
-  framework:
-    type: esp-idf
 
-# Enable Home Assistant API
-api:
-  encryption:
-    key: !secret bluetooth_proxy_wr_esp_api_encryption_key
-
-ota:
-  - platform: esphome
-    password: !secret bluetooth_proxy_wr_esp_ota_password
-    id: ota_esphome
-  - platform: http_request
-    id: ota_http_request
-
-packages:
-  wifi_settings: github://MokretsovD/ESP-Home-Configurations/packages/wifi.yaml@main
-
-logger:
-improv_serial:
-
-update:
-  - platform: http_request
-    id: update_http_request
-    name: Firmware
-    source: https://firmware.esphome.io/bluetooth-proxy/esp32-generic/manifest.json
-
-http_request:
-
-dashboard_import:
-  package_import_url: github://esphome/bluetooth-proxies/esp32-generic/esp32-generic.yaml@main
-
-esp32_ble_tracker:
-  scan_parameters:
-    # We currently use the defaults to ensure Bluetooth
-    # can co-exist with WiFi In the future we may be able to
-    # enable the built-in coexistence logic in ESP-IDF
-    active: true
-
-bluetooth_proxy:
-  active: true
-
-button:
-  - platform: safe_mode
-    id: button_safe_mode
-    name: Safe Mode Boot
-
-  - platform: factory_reset
-    id: factory_reset_btn
-    name: Factory reset
+packages: 
+  bt_proxy: !include packages/device-configs/bluetooth-proxy.yaml
