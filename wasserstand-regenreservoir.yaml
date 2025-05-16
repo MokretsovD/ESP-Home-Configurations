@@ -28,7 +28,8 @@ ota:
     password: !secret wasserstand_regenreservoir_esp_ota_password
     id: ota_esphome
 
-wifi: !include components/wifi.yaml
+packages:
+  wifi: !include packages/wifi.yaml
 
 captive_portal:
 

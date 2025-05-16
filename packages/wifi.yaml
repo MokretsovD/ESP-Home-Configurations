@@ -1,0 +1,10 @@
+wifi:
+  ssid: ${wifi_ssid}
+  password: ${wifi_password}
+  manual_ip:
+    static_ip: ${device_static_ip}
+    gateway: ${wifi_manual_ip_gateway}
+    subnet: ${wifi_manual_ip_subnet}
+  ap:
+    ssid: ${device_ap_ssid}
+    password: ${device_ap_password}

@@ -15,6 +15,6 @@ substitutions:
   dashboard_import: github://esphome/bluetooth-proxies/esp32-generic/esp32-generic.yaml@main
   board: esp32dev
 
-packages: 
+packages:
   bt_proxy: !include packages/device-configs/bluetooth-proxy.yaml
 

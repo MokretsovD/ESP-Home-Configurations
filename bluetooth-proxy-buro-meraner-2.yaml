@@ -15,5 +15,5 @@ substitutions:
   dashboard_import: github://esphome/bluetooth-proxies/m5stack/m5stack-atom-lite.yaml@main
   board: m5stack-atom
 
-packages: 
+packages:
   bt_proxy: !include packages/device-configs/bluetooth-proxy.yaml

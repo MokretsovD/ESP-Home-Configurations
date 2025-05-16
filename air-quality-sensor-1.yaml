@@ -17,6 +17,9 @@ substitutions:
 # You can choose a new "friendly name" in the substitutions,
 # this will be its display name in Home Assistant.
 
+packages:
+  wifi: !include packages/wifi.yaml
+
 esphome:
   name: ${name}
   friendly_name: ${friendly_name}
@@ -48,7 +51,6 @@ ota:
   - platform: esphome
     password: !secret air_quality_sensor_1_esp_ota_password
 
-wifi: !include components/wifi.yaml
 # In combination with the `ap` this allows the user
 # to provision wifi credentials to the device via WiFi AP.
 captive_portal:

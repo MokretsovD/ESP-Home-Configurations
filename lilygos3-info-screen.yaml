@@ -41,13 +41,35 @@ logger:
 api:
   encryption:
     key: !secret lilygos3_info_screen_esp_api_encryption_key
+  on_client_connected:
+    then:
+      - lambda: |-
+          id(api_status) = 1;
+          if (id(is_loading)) {
+            id(is_loading) = false;
+          }          
+  on_client_disconnected:
+    then:
+      - lambda: |-
+          id(api_status) = 0;
 
 ota:
   - platform: esphome
     password: !secret lilygos3_info_screen_esp_ota_password
 
-wifi: !include components/wifi.yaml
+packages:
+  wifi: !include packages/wifi.yaml
+
+wifi:
   fast_connect: true  
+  on_connect:
+    then:
+      - lambda: |-
+          id(wifi_status) = 1;
+  on_disconnect:
+    then:
+      - lambda: |-
+          id(wifi_status) = 0;
 
 captive_portal:
 
@@ -56,6 +78,22 @@ globals:
     type: bool
     restore_value: false
     initial_value: "false"
+  - id: is_loading
+    type: bool
+    restore_value: false
+    initial_value: "true"
+  - id: wifi_status
+    type: int
+    restore_value: false
+    initial_value: '0' # 0 = connecting, 1 = connected
+  - id: api_status
+    type: int
+    restore_value: false
+    initial_value: '0' # 0 = connecting, 1 = connected
+  - id: loading_anim_frame
+    type: int
+    restore_value: false
+    initial_value: '0'
 
 time:
   - platform: homeassistant
@@ -63,11 +101,9 @@ time:
     timezone: Europe/Berlin
     on_time:
       # Every 1 minute
-      - seconds: 0
-        minutes: /1
+      - seconds: 20
         then:
            - lambda: id(current_time).publish_state(id(ha_time).now().strftime("%H:%M"));
-
       # Every day
       - seconds: 0
         minutes: 0
@@ -116,12 +152,34 @@ color:
 display:
   - platform: tdisplays3
     id: disp
-    update_interval: 5s
-   # update_interval: never
+    update_interval: never
     rotation: 270    
     lambda: |-
-
-      // ADD LOADING SCREEN
+      if (id(is_loading)) {
+        it.fill(id(color_black));
+        // Animated spinner (4 dots)
+        int frame = id(loading_anim_frame);
+        int cx = it.get_width()/2;
+        int cy = it.get_height()/2 - 45;
+        int r = 4;
+        int spinner_radius = 14;
+        for (int i = 0; i < 4; i++) {
+          int angle = 90 * i;
+          float rad = angle * 3.14159 / 180.0;
+          int x = cx + cos(rad) * spinner_radius;
+          int y = cy + sin(rad) * spinner_radius;
+          auto color = (i == frame) ? id(color_yellow) : id(color_gray);
+          it.filled_circle(x, y, r, color);
+        }
+        it.printf(cx, cy + 42, id(font_orbitron_16), id(color_white), TextAlign::CENTER, "Loading...");
+        // WiFi status
+        auto wifi_col = id(wifi_status) == 1 ? id(color_green) : id(color_yellow);
+        it.printf(cx, cy + 72, id(font_roboto_16), wifi_col, TextAlign::CENTER, "WiFi: %s", id(wifi_status) == 1 ? "Connected" : "Connecting...");
+        // API status
+        auto api_col = id(api_status) == 1 ? id(color_green) : id(color_yellow);
+        it.printf(cx, cy + 97, id(font_roboto_16), api_col, TextAlign::CENTER, "HA API: %s", id(api_status) == 1 ? "Connected" : "Connecting...");
+        return;
+      }
 
       // auto draw_battery_indicator = [](display::DisplayBuffer &it) {
       //     if (id(battery_level).has_state() && id(battery_level).state >= 0) {
@@ -169,13 +227,6 @@ display:
       //   }
       // };
 
-      // Red (255, 0, 0) → White (255, 255, 255) or Yellow (255, 255, 0)
-      // Green (0, 255, 0) → Black (0, 0, 0) or White (255, 255, 255)
-      // Blue (0, 0, 255) → White (255, 255, 255) or Light Yellow (255, 255, 153)
-      // Gold/Yellow (250, 211, 15) → Dark Blue (0, 0, 102) or Black (0, 0, 0)
-      // Grey (94, 94, 94) → White (255, 255, 255) or Light Blue (173, 216, 230)
-      // Muted Brown (138, 108, 102) → Cream (255, 255, 204) or Light Gray (211, 211, 211)
-
       // Render Battery Indicator
       // draw_battery_indicator(it);
       if (id(battery_level).has_state() && id(battery_level).state >= 0) {
@@ -187,7 +238,7 @@ display:
         auto bat_text_col = id(color_yellow);
         auto bat_state = id(battery_level).state;
 
-        if (id(charging).has_state() && id(charging).state == true) 
+        if (id(is_charging).has_state() && id(is_charging).state == true) 
         {
           bat_col = id(color_blue);
           bat_text_col = id(color_light_yellow);
@@ -204,7 +255,7 @@ display:
         // Determine width
         int bat_state_width = floor(id(battery_level).state / 2);
 
-        if (id(charging).has_state() && id(charging).state == true && id(battery_level_charging).has_state()) {
+        if (id(is_charging).has_state() && id(is_charging).state == true && id(battery_level_charging).has_state()) {
           bat_state_width = floor(id(battery_level_charging).state / 2);
         }
 
@@ -216,7 +267,7 @@ display:
         } 
 
         // Display percentage
-        if (id(charging).has_state() && id(charging).state == true && id(battery_level_charging).state >= 0) {
+        if (id(is_charging).has_state() && id(is_charging).state == true && id(battery_level_charging).state >= 0) {
           it.printf(it.get_width() - 27, 13, id(font_roboto_16), bat_text_col, COLOR_OFF, display::TextAlign::CENTER, "%.0f%%", id(battery_level_charging).state);
         } else {
           it.printf(it.get_width() - 27, 13, id(font_roboto_16), bat_text_col, COLOR_OFF, display::TextAlign::CENTER, "%.0f%%", id(battery_level).state);
@@ -397,11 +448,6 @@ display:
       it.image(82, 95, id(ppm_icon), ppm_col, COLOR_OFF);
    
 image:
-  # - file: https://esphome.io/_images/logo.png
-  #   type: rgb565
-  #   transparency: alpha_channel    
-  #   id: esphome_logo
-  #   resize: 200x162
   - file: mdi:thermometer
     id: temp_icon
     type: grayscale
@@ -444,7 +490,8 @@ font:
     size: 16
     glyphs: [
      "0123456789",
-     "%"
+     "%.: ",
+     "ConectdigWFHAPI"
      ]
   - file: "gfonts://Orbitron"
     id: font_orbitron_36
@@ -461,14 +508,13 @@ font:
     glyphs: [
      "0123456789",
      "- .%°",
-     "SunMoTeWdhFriatC"
+     "SunMoTeWdhFriatCLg"
      ]
 
 binary_sensor:
   - platform: gpio
     pin:
       number: GPIO0
-    #  allow_other_uses: true
       inverted: true
     name: "Button Up"
     on_multi_click:
@@ -483,7 +529,7 @@ binary_sensor:
       inverted: true
     name: "Button Down"
   - platform: template
-    id: charging
+    id: is_charging
     name: Charging From Cable
     lambda: |-
       return id(battery_voltage).has_state() && id(battery_voltage).state > 4.3;
@@ -491,7 +537,7 @@ binary_sensor:
     id: is_deep_sleep_time    
     internal: True
     lambda: |-
-      return id(charging).state == false &&
+      return id(is_charging).state == false &&
              (
                (
                 id(ha_time).now().is_valid() &&
@@ -969,4 +1015,32 @@ script:
 
                 // Set the sleep duration.
                 id(deep_sleep_1).set_sleep_duration(sleep_duration);
+    
+interval:
+  - interval: 300ms
+    id: loading_anim
+    then:
+      if:
+        condition:
+          lambda: return id(is_loading);
+        then: 
+          - lambda: |-
+              id(loading_anim_frame) = (id(loading_anim_frame) + 1) % 4;
+          - component.update: disp
+  - interval: 1s
+    id: charging_update
+    then:
+      if:
+        condition:
+          lambda: return id(is_charging).state && !id(is_loading);
+        then: 
+          - component.update: disp
+  - interval: 5s
+    id: battery_update
+    then:
+      if:
+        condition:
+          lambda: return !id(is_charging).state && !id(is_loading);
+        then: 
+          - component.update: disp
     

@@ -26,7 +26,8 @@ ota:
   - platform: http_request
     id: ota_http_request
 
-wifi: !include ../../components/wifi.yaml
+packages:
+  wifi: !include ../wifi.yaml
 
 logger:
 improv_serial:
