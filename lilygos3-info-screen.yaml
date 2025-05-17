@@ -637,51 +637,6 @@ text_sensor:
         last_person_state = x;
         return x;          
 sensor:
-  # - platform: template
-  #   name: "Current Timestamp"
-  #   device_class: timestamp
-  #   id: current_timestamp
-  #   lambda: |-
-  #     return id(ha_time).now().timestamp;
-  #   filters:
-  #     - delta: 60
-  #  lambda: |-
-  #    return id(current_timestamp).publish_state(id(ha_time).now().timestamp);
-  # - platform: template
-  #   id: time_color
-  #   internal: True
-
-  # - platform: template
-  #   id: bat_text_col
-  #   internal: True
-  #   lambda: |-
-  #     if (id(charging).has_state() && id(charging).state == true) 
-  #     {
-  #       return id(color_light_yellow);
-  #     } else if (id(battery_level).state < 50)
-  #     { 
-  #       return id(color_white);
-  #     } else if (id(battery_level).state < 10)
-  #     { 
-  #       return id(color_yellow);
-  #     }
-  #   return id(color_yellow);
-  # - platform: template
-  #   id: bat_col
-  #   internal: True
-  #   lambda: |-
-  #     if (id(charging).has_state() && id(charging).state == true) 
-  #     {
-  #       return id(color_blue);
-  #     } else if (id(battery_level).state < 50)
-  #     { 
-  #       return id(color_gold);
-  #     } else if (id(battery_level).state < 10)
-  #     { 
-  #       return id(color_red);
-  #     }
-
-  #     return id(color_green);      
   - platform: adc
     id: battery_voltage
     name: Battery Voltage
@@ -855,34 +810,7 @@ deep_sleep:
       - number: GPIO14
         allow_other_uses: true
     mode: ALL_LOW
-# number:
-#   - platform: template
-#     max_value: 60
-#     min_value: 1
-#     name: Screen Refresh Rate
-#     id: screen_refresh_rate
-#     step: 1
-#     initial_value: 10
-#     optimistic: True
-#     unit_of_measurement: s
-#     device_class: duration
 
-# Example configuration entry
-# interval:
-#   - interval: 1s
-#     then:
-#       - if:
-#           condition:
-#             lambda: 'return id(charging).state == true'
-#           then:
-#             - component.update: disp
-#   - interval: 10s
-#     then:
-#       - if:
-#           condition:
-#             lambda: 'return id(charging).state == false'
-#           then:
-#             - component.update: disp
 script:
   - id: manage_deep_sleep
     then:
