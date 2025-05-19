@@ -1,0 +1,19 @@
+---
+substitutions:
+  name: bluetooth-proxy-kitchen
+  friendly_name: bluetooth-proxy-kitchen
+  device_static_ip: !secret bluetooth_proxy_kitchen_wifi_manual_ip_static_ip
+  device_ap_ssid: !secret bluetooth_proxy_kitchen_wifi_ap_ssid
+  device_ap_password: !secret bluetooth_proxy_kitchen_wifi_ap_password
+  wifi_ssid: !secret wifi_ssid
+  wifi_password: !secret wifi_password
+  wifi_manual_ip_gateway: !secret wifi_manual_ip_gateway
+  wifi_manual_ip_subnet: !secret wifi_manual_ip_subnet
+  api_encryption_key: !secret bluetooth_proxy_kitchen_esp_api_encryption_key
+  esp_ota_password: !secret bluetooth_proxy_kitchen_esp_ota_password
+  manifest_url: https://firmware.esphome.io/bluetooth-proxy/esp32-generic/manifest.json
+  dashboard_import: github://esphome/bluetooth-proxies/esp32-generic/esp32-generic.yaml@main
+  board: esp32dev
+
+packages:
+  bt_proxy: !include packages/device-configs/bluetooth-proxy.yaml
