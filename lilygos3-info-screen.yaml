@@ -16,9 +16,16 @@ esphome:
     board_build.partitions: default_16MB.csv
     board_build.arduino.memory_type: qio_opi
   on_boot:
-    then:
-      - lambda: |-
-                id(in_deep_sleep).publish_state(false); 
+    # priority has been determined by trial and error
+    # it should be lower than gpio components and higher than interval components
+    - priority: 300
+    # publish required states on boot
+      then:
+        - lambda: |-
+                  id(in_deep_sleep).publish_state(false);                  
+                  id(wakeup_cause).publish_state(esp_sleep_get_wakeup_cause());
+                  id(hw_initialized) = true;
+
 external_components:
   - source: github://landonr/lilygo-tdisplays3-esphome
     components: [tdisplays3]
@@ -43,11 +50,18 @@ api:
     key: !secret lilygos3_info_screen_esp_api_encryption_key
   on_client_connected:
     then:
+      # Publish API status (used by loading animation)
       - lambda: |-
           id(api_status) = 1;
-          if (id(is_loading)) {
-            id(is_loading) = false;
-          }          
+      - if:
+          condition:
+            lambda: return id(is_loading);
+          then:
+            # Hold loading animation for one more second
+            - delay: 1000ms
+            # Set loading animation to false
+            - lambda: |-
+                id(is_loading) = false;
   on_client_disconnected:
     then:
       - lambda: |-
@@ -64,6 +78,7 @@ wifi:
   fast_connect: true  
   on_connect:
     then:
+      # Set WiFi status to connected (used by loading animation)
       - lambda: |-
           id(wifi_status) = 1;
   on_disconnect:
@@ -74,22 +89,32 @@ wifi:
 captive_portal:
 
 globals:
-  - id: sleep_mode_enabled
+  # Hardware initialized flag
+  - id: hw_initialized
     type: bool
     restore_value: false
     initial_value: "false"
+  # Sleep mode enabled flag
+  - id: sleep_mode_enabled
+    type: bool
+    restore_value: true
+    initial_value: "false"
+  # Loading animation flag
   - id: is_loading
     type: bool
     restore_value: false
     initial_value: "true"
+  # WiFi status
   - id: wifi_status
     type: int
     restore_value: false
     initial_value: '0' # 0 = connecting, 1 = connected
+  # Home Assistant API status
   - id: api_status
     type: int
     restore_value: false
     initial_value: '0' # 0 = connecting, 1 = connected
+  # Loading animation frame
   - id: loading_anim_frame
     type: int
     restore_value: false
@@ -100,11 +125,11 @@ time:
     id: ha_time
     timezone: Europe/Berlin
     on_time:
-      # Every 1 minute
-      - seconds: 20
+      # Refresh current time sensor every 10 seconds
+      - seconds: 10
         then:
            - lambda: id(current_time).publish_state(id(ha_time).now().strftime("%H:%M"));
-      # Every day
+      # Refresh current date sensor every day
       - seconds: 0
         minutes: 0
         hours: 0
@@ -112,17 +137,22 @@ time:
           - lambda: id(current_date).publish_state(id(ha_time).now().strftime("%Y-%m-%d %a"));
 
 output:
+  # Backlight brightness control
   - platform: ledc
     pin: GPIO38
     id: gpio38
+    # Set priority to 400 to ensure it is initialized before on boot and interval
+    setup_priority: 400
     frequency: 2000
 
 light:
+  # Backlight control
   - platform: monochromatic
     output: gpio38
     name: "Backlight brightness"
     restore_mode: RESTORE_DEFAULT_ON
 
+# Color palette
 color:
   - id: color_red
     hex: FF0000
@@ -152,6 +182,8 @@ color:
 display:
   - platform: tdisplays3
     id: disp
+    # Update interval is never to ensure the display is only updated when required
+    # Update performed by interval components
     update_interval: never
     rotation: 270    
     lambda: |-
@@ -255,10 +287,6 @@ display:
         // Determine width
         int bat_state_width = floor(id(battery_level).state / 2);
 
-        if (id(is_charging).has_state() && id(is_charging).state == true && id(battery_level_charging).has_state()) {
-          bat_state_width = floor(id(battery_level_charging).state / 2);
-        }
-
         // Render inner section
         if (bat_state_width > 0 )
         {
@@ -267,11 +295,7 @@ display:
         } 
 
         // Display percentage
-        if (id(is_charging).has_state() && id(is_charging).state == true && id(battery_level_charging).state >= 0) {
-          it.printf(it.get_width() - 27, 13, id(font_roboto_16), bat_text_col, COLOR_OFF, display::TextAlign::CENTER, "%.0f%%", id(battery_level_charging).state);
-        } else {
-          it.printf(it.get_width() - 27, 13, id(font_roboto_16), bat_text_col, COLOR_OFF, display::TextAlign::CENTER, "%.0f%%", id(battery_level).state);
-        }
+        it.printf(it.get_width() - 27, 13, id(font_roboto_16), bat_text_col, COLOR_OFF, display::TextAlign::CENTER, "%.0f%%", id(battery_level).state);
       }     
 
       // Render WiFi Indicator
@@ -512,65 +536,99 @@ font:
      ]
 
 binary_sensor:
+  # Button Up
   - platform: gpio
     pin:
       number: GPIO0
       inverted: true
     name: "Button Up"
+    setup_priority: 400
     on_multi_click:
       - timing:
           - ON FOR AT LEAST 500ms
         then:
           switch.toggle: backlight_on_bat
+  # Button Down
   - platform: gpio
     pin:
       number: GPIO14
       allow_other_uses: true
       inverted: true
     name: "Button Down"
+    setup_priority: 400  
+  # Charging from cable  
   - platform: template
     id: is_charging
     name: Charging From Cable
-    lambda: |-
-      return id(battery_voltage).has_state() && id(battery_voltage).state > 4.3;
+    lambda: |-      
+      return id(battery_voltage_int).has_state() && id(battery_voltage_int).state > 4.3;
+  # True when it is time to go to sleep (no one is in the room or it is between 1 and 8 o'clock)
   - platform: template
-    id: is_deep_sleep_time    
-    internal: True
+    id: is_deep_sleep_time
+    internal: true
     lambda: |-
+      if (!id(is_charging).has_state()) {
+        return {};
+      }
+
+      if (!id(pir_occupancy_last_changed_seconds).has_state()) {
+        return {};
+      }
+
+      if (!id(pir_occupancy).has_state()) {
+        return {};
+      }
+
+      if (!id(ha_time).now().is_valid()) {
+        return {};
+      }
+
       return id(is_charging).state == false &&
              (
                (
-                id(ha_time).now().is_valid() &&
                 id(ha_time).now().hour >= 1 && 
                 id(ha_time).now().hour <= 8
                ) ||
-               (id(pir_occupancy_last_changed_seconds).has_state() && id(pir_occupancy_last_changed_seconds).state >= 600 && id(pir_occupancy).has_state() && id(pir_occupancy).state == false)
+               (
+                 id(pir_occupancy_last_changed_seconds).state >= 600 && 
+                 id(pir_occupancy).state == false)
              );
     on_press:
       - script.execute: manage_deep_sleep       
     on_release:      
       - script.execute: manage_deep_sleep
+  # True when sleep mode is enabled (device might be still awake, displays leaf icon on screen)
   - platform: template
     id: in_power_saving_mode
     icon: mdi:leaf
     name: In power saving mode
     lambda: return id(sleep_mode_enabled) == true;
+  # True when device is in deep sleep (to track in Home Assistant)
   - platform: template
     id: in_deep_sleep
     icon: mdi:sleep
+    setup_priority: 350
     name: In deep sleep
     entity_category: diagnostic
+  # Pir occupancy sensor
   - platform: homeassistant
     id: pir_occupancy
     entity_id: binary_sensor.buro_pir_sensor_occupancy
     internal: true
-    
+  # True when screen is on (diagnostic to track in Home Assistant)
+  - platform: template
+    name: Screen is On
+    id: screen_is_on
+    icon: mdi:television    
+    lambda: return id(backlight).state || id(is_charging).state;
+    entity_category: diagnostic    
 text_sensor:
+  # Current time sensor (to be displayed on screen)
   - platform: template
     name: "Current Time"
     id: current_time
-    internal: True
-    update_interval: 5min
+    internal: true
+    update_interval: 10sec
     lambda: return id(ha_time).now().strftime("%H:%M");
     filters:
      - lambda: |-
@@ -579,10 +637,11 @@ text_sensor:
            return {};
          last_time = x;
          return x;
+  # Current date sensor (to be displayed on screen)
   - platform: template
     name: "Current Date"
     id: current_date
-    internal: True
+    internal: true
     update_interval: 5min
     lambda: return id(ha_time).now().strftime("%Y-%m-%d %a"); 
     filters:
@@ -592,6 +651,7 @@ text_sensor:
           return {};
         last_date = x;
         return x;
+  # VOC level sensor
   - platform: homeassistant
     id: voc_level
     entity_id: sensor.air_quality_sensor_1_voc_level
@@ -603,6 +663,7 @@ text_sensor:
           return {};
         last_voc_level = x;
         return x;
+  # CO2 level sensor
   - platform: homeassistant
     id: co2_level
     entity_id: sensor.air_quality_sensor_1_co2_level
@@ -614,6 +675,7 @@ text_sensor:
           return {};
         last_co2_level = x;
         return x;
+  # PPM level sensor
   - platform: homeassistant
     id: ppm_level
     entity_id: sensor.air_quality_sensor_1_particulate_level
@@ -625,6 +687,7 @@ text_sensor:
           return {};
         last_ppm_level = x;
         return x;       
+  # Person state sensor (to determine deep sleep duration)
   - platform: homeassistant
     id: person_state
     entity_id: person.dmitry_mokretsov
@@ -637,64 +700,128 @@ text_sensor:
         last_person_state = x;
         return x;          
 sensor:
+  - platform: uptime
+    name: "Uptime"
+    id: uptime_sensor
+    update_interval: 5s
+    entity_category: diagnostic
+    disabled_by_default: true
+  # Internal battery voltage sensor
   - platform: adc
-    id: battery_voltage
+    id: battery_voltage_int
     name: Battery Voltage
     pin:
       number: GPIO4
-    update_interval: 1min
+    update_interval: 3sec
     unit_of_measurement: "V"
     accuracy_decimals: 2    
     state_class: measurement
     device_class: voltage
     attenuation: 12db
-    filters:
+    internal: true
+    on_value: 
+      then:
+        - lambda: |-
+            if (!id(uptime_sensor).has_state() || id(uptime_sensor).state < 60 * 1.5) {
+              return;
+            }
+
+            id(battery_voltage).publish_state(x);
+    filters:      
       - multiply: 2
+      # Smooth out noise
+      - sliding_window_moving_average:
+          window_size: 20
+          send_every: 20
       - or:
         - throttle: 5min
-        - delta: 0.01       
-  - platform: template    
-    lambda: |-
-      return id(battery_voltage).state;
+        - delta: 0.01
+  # Battery voltage sensor (to be displayed on screen and published to Home Assistant)
+  - platform: template
+    id: battery_voltage
+    name: Battery Voltage   
+    # Published by internal battery voltage sensor
+    update_interval: never
+    unit_of_measurement: "V"
+    accuracy_decimals: 2    
+    state_class: measurement
+    device_class: voltage  
+  # Battery level sensor (to be displayed on screen and published to Home Assistant)
+  - platform: template        
     id: battery_level    
     name: Battery Charge
     unit_of_measurement: "%"
     accuracy_decimals: 0
     state_class: measurement
+    # Published by one of the internal battery level sensors
+    update_interval: never
     device_class: battery
+    filters:            
+      - lambda: |-
+         if (x > 100) return 100;
+         if (x < 0) return 0;
+         return x;
+  # Internal battery level sensor (not charging)
+  - platform: template    
+    lambda: |-
+      return id(battery_voltage_int).state;
+    id: battery_level_int    
+    name: Battery Charge
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    state_class: measurement
+    device_class: battery
+    internal: true
     filters:      
       - calibrate_linear:
+        # Values are determined by trial and error
         - 3.50 -> 0.0
         - 4.06 -> 100.0
       - or:
         - throttle: 5min
         - delta: 1
-      - lambda: |-
-         if (x > 100) return 100;
-         if (x < 0) return 0;
-         return x;
+    on_value: 
+      then:
+        - lambda: |-
+            if (!id(uptime_sensor).has_state() || id(uptime_sensor).state < 60 * 1.5) {
+              return;
+            }
+
+            if (id(is_charging).state == false) {
+              id(battery_level).publish_state(x);
+            }
+            
+  # Internal battery level sensor (charging)
   - platform: template    
     lambda: |-
-      return id(battery_voltage).state;
-    id: battery_level_charging
+      return id(battery_voltage_int).state;
+    id: battery_level_int_charging
     name: Battery Charging Percentage
     unit_of_measurement: "%"
     accuracy_decimals: 0
     state_class: measurement
     device_class: battery
-    internal: True
-    filters:      
+    internal: true
+    filters:     
+      # Values are determined by trial and error
       - calibrate_linear:
         - 4.63 -> 0.0
         - 4.83 -> 100.0
       - or:
         - throttle: 5min
         - delta: 1
-      - lambda: |-
-         if (x > 100) return 100;
-         if (x < 0) return 0;
-         return x;
-  - platform: wifi_signal # Reports the WiFi signal strength/RSSI in dB
+    on_value: 
+      then:
+        - lambda: |-
+            if (!id(uptime_sensor).has_state() || id(uptime_sensor).state < 60 * 1.5) {
+              return;
+            }
+
+            if (id(is_charging).state == true) {
+              id(battery_level).publish_state(x);
+            }
+  # WiFi signal strength/RSSI sensor (dB)
+  - platform: wifi_signal
     name: "RSSI"
     id: wifi_signal_db
     update_interval: 60s
@@ -704,7 +831,8 @@ sensor:
       - or:
         - throttle: 5min
         - delta: 1
-  - platform: copy # Reports the WiFi signal strength in %
+  # WiFi signal strength/RSSI sensor (percentage)
+  - platform: copy
     source_id: wifi_signal_db
     id: wifi_signal_proc
     name: "WiFi Strength"
@@ -716,6 +844,7 @@ sensor:
       - or:
         - throttle: 5min
         - delta: 1
+  # Buro temperature sensor
   - platform: homeassistant
     id: buro_temperature
     entity_id: sensor.temperature_sensor_buro_temperature
@@ -725,6 +854,7 @@ sensor:
       - or:
         - throttle: 5min
         - delta: 0.1     
+  # Buro humidity sensor
   - platform: homeassistant
     id: buro_humidity
     entity_id: sensor.temperature_sensor_buro_humidity
@@ -734,6 +864,7 @@ sensor:
       - or:
         - throttle: 5min
         - delta: 1
+  # Hausmull next collection sensor
   - platform: homeassistant
     id: hausmull
     attribute: daysTo
@@ -744,6 +875,7 @@ sensor:
       - or:
         - throttle: 600min
         - delta: 1
+  # Biomull next collection sensor
   - platform: homeassistant
     id: biomull
     attribute: daysTo
@@ -754,6 +886,7 @@ sensor:
       - or:
         - throttle: 600min
         - delta: 1
+  # Papier next collection sensor
   - platform: homeassistant
     id: papier
     attribute: daysTo
@@ -764,6 +897,7 @@ sensor:
       - or:
         - throttle: 600min
         - delta: 1
+  # Gelbe Tonne next collection sensor
   - platform: homeassistant
     id: gelbe_tonne
     attribute: daysTo
@@ -774,6 +908,8 @@ sensor:
       - or:
         - throttle: 600min
         - delta: 1
+  # Pir occupancy last changed seconds sensor
+  # This sensor is used to determine if device should go to sleep when no one is in the room
   - platform: homeassistant
     id: pir_occupancy_last_changed_seconds
     entity_id: sensor.buro_pir_sensor_occupancy_last_changed_seconds
@@ -783,6 +919,7 @@ sensor:
       - or:
         - throttle: 5min
         - delta: 60
+  # Wakeup cause sensor  
   - platform: template
     name: "Wakeup Cause"
     id: wakeup_cause
@@ -792,25 +929,38 @@ sensor:
     filters:
       - or:
         - throttle: 5min
-        - delta: 1    
+        - delta: 1
 switch:
-  - platform: gpio
+  # Backlight switch
+  - platform: gpio    
     pin:
       number: GPIO15
       mode:
-        output: True
-    id: backlight_on_bat
+        output: true
+    id: backlight
     icon: mdi:television
+    # Restore backlight state to off on boot. Going to be enabled by interval component when nessesary
+    restore_mode: ALWAYS_OFF
+  # Backlight setting for battery powered mode
+  # This is used to keep the backlight on when the device is on battery
+  - platform: template
+    id: backlight_on_bat
+    name: Backlight When On Battery
+    icon: mdi:television
+    optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
 
+# Deep sleep configuration
 deep_sleep:
   id: deep_sleep_1
   esp32_ext1_wakeup:
     pins:
+      # Wakeup pin - lower button
       - number: GPIO14
         allow_other_uses: true
     mode: ALL_LOW
 
+# Script to manage deep sleep
 script:
   - id: manage_deep_sleep
     then:
@@ -824,6 +974,9 @@ script:
       - wait_until:
           lambda: |-
             return id(wakeup_cause).has_state();
+      - wait_until:
+          lambda: |-
+            return id(is_deep_sleep_time).has_state();
       - if:
           condition:
             binary_sensor.is_on: is_deep_sleep_time
@@ -832,9 +985,10 @@ script:
             - logger.log: "initiating sleep mode"            
             - if:
                 condition:
-                   lambda: return id(wakeup_cause).state != 4;                  
-                then:
+                   lambda: return id(wakeup_cause).state != ESP_SLEEP_WAKEUP_TIMER;                  
+                then:                  
                   - logger.log: "device will go in deep sleep in 60 seconds if conditions still met"
+                  # Wait for 60 seconds when wakeup cause is not timer (e.g. button press)
                   - delay: 60sec
                 else: 
                    - logger.log: "device will go in deep sleep now if conditions still met"
@@ -842,16 +996,23 @@ script:
                 condition:
                   binary_sensor.is_on: is_deep_sleep_time
                 then:            
+                  # Set sleep duration
                   - script.execute: set_sleep_duration
+                  # Publish nessesary states
                   - lambda: |-
                       id(in_deep_sleep).publish_state(true);
+                  - switch.turn_off: backlight
+                  - lambda: |-
+                      id(screen_is_on).publish_state(false);
                   - logger.log: "entering deep sleep"            
+                  # Enter deep sleep
                   - deep_sleep.enter:
                       id: deep_sleep_1
                 else:
                 - lambda: id(sleep_mode_enabled) = false;            
                 - logger.log: "sleeping conditions are not met anymore, sleep has been cancelled"           
           else:  
+            # Prevent deep sleep
             - deep_sleep.prevent:
                 id: deep_sleep_1
             - logger.log: "disabling sleep mode"
@@ -889,11 +1050,16 @@ script:
 
                 // if not occupied for thirty minutes
                 if (id(pir_occupancy_last_changed_seconds).state >= 60*30) {
-                  sleep_duration = 60 * 15 * 1000;
+                  sleep_duration = 60 * 10 * 1000;
                 }
 
                 // if not occupied for one hour
                 if (id(pir_occupancy_last_changed_seconds).state >= 60*60) {
+                  sleep_duration = 60 * 20 * 1000;
+                }
+
+                // if not occupied for two hours
+                if (id(pir_occupancy_last_changed_seconds).state >= 60*60*2) {
                   sleep_duration = 60 * 30 * 1000;
                 }
 
@@ -946,29 +1112,54 @@ script:
     
 interval:
   - interval: 300ms
+    setup_priority: 275
     id: loading_anim
     then:
-      if:
-        condition:
-          lambda: return id(is_loading);
-        then: 
-          - lambda: |-
-              id(loading_anim_frame) = (id(loading_anim_frame) + 1) % 4;
-          - component.update: disp
+      # Update loading animation 
+      - if: 
+          condition:
+            # Update loading animation if device is loading and sleep mode is disabled or wakeup cause is not timer
+            lambda: return id(is_loading) && (id(sleep_mode_enabled) == false || id(wakeup_cause).state != ESP_SLEEP_WAKEUP_TIMER);
+          then:                      
+            - lambda: |-
+                id(loading_anim_frame) = (id(loading_anim_frame) + 1) % 4;
+            - component.update: disp
   - interval: 1s
+    setup_priority: 275
     id: charging_update
     then:
-      if:
-        condition:
-          lambda: return id(is_charging).state && !id(is_loading);
-        then: 
-          - component.update: disp
-  - interval: 5s
+      # Wait for hardware to be initialized (see on boot) and wakeup cause to be set
+      - wait_until:
+          lambda: return id(hw_initialized);
+      - wait_until:
+          lambda: |-
+            return id(wakeup_cause).has_state();
+      # ================================================================
+      - if: 
+          condition:
+            lambda: return id(sleep_mode_enabled) == false || id(wakeup_cause).state != ESP_SLEEP_WAKEUP_TIMER;
+          then:        
+            # Turn on backlight if it is off after wakeup from deep sleep
+            - if:
+                condition:
+                  lambda: return id(backlight).state != id(backlight_on_bat).state;
+                then:
+                  - switch.toggle:
+                      id: backlight       
+            # Update display if device is charging
+            - if:
+                condition:
+                  lambda: return id(is_charging).state && !id(is_loading);
+                then: 
+                  - component.update: disp
+  - interval: 5s    
+    setup_priority: 275
     id: battery_update
     then:
-      if:
-        condition:
-          lambda: return !id(is_charging).state && !id(is_loading);
-        then: 
-          - component.update: disp
+      # Update display if device is not charging (on battery)
+      - if: 
+          condition:
+            lambda: return !id(is_charging).state && !id(is_loading) && (id(sleep_mode_enabled) == false || id(wakeup_cause).state != ESP_SLEEP_WAKEUP_TIMER);
+          then:                        
+            - component.update: disp
     
