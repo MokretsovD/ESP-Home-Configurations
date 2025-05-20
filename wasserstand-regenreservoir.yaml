@@ -33,7 +33,7 @@ packages:
 
 captive_portal:
 
-# Example configuration entry
+# Time sync
 time:
   - platform: sntp
     id: sntp_time

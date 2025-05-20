@@ -346,7 +346,30 @@ display:
       // Render energy saving mode
       if (id(sleep_mode_enabled) == true) {
         it.image(62, 2, id(energy_saving_icon), id(color_green));
-      }      
+      } else if (id(pir_occupancy).has_state() && id(pir_occupancy).state == false) {
+
+        int last_changed_secs = floor(id(pir_occupancy_last_changed_seconds).state);
+        
+        auto r_c = 255;        
+        auto g_c = max(min(510 - last_changed_secs, 255), 0);
+        auto b_c = max(255 - last_changed_secs, 0);
+
+        auto icon = id(run_icon);
+
+        if (id(pir_occupancy_last_changed_seconds).state > 120) {
+          icon = id(walk_icon);
+        }
+
+        if (id(pir_occupancy_last_changed_seconds).state > 240) {
+          icon = id(human_cane_icon);
+        }
+
+        if (id(pir_occupancy_last_changed_seconds).state > 360) {
+          icon = id(human_walker_icon);
+        }
+ 
+        it.image(62, 2, icon, Color(r_c, g_c, b_c));
+      }
 
       // Render Temperature
       if (id(buro_temperature).has_state()) {
@@ -507,7 +530,26 @@ image:
     type: grayscale
     transparency: alpha_channel
     resize: 22x22
-
+  - file: mdi:run
+    id: run_icon
+    type: grayscale
+    transparency: alpha_channel
+    resize: 22x22
+  - file: mdi:walk
+    id: walk_icon
+    type: grayscale
+    transparency: alpha_channel
+    resize: 22x22
+  - file: mdi:human-cane
+    id: human_cane_icon
+    type: grayscale
+    transparency: alpha_channel
+    resize: 22x22
+  - file: mdi:human-walker
+    id: human_walker_icon
+    type: grayscale
+    transparency: alpha_channel
+    resize: 22x22
 font:
   - file: "gfonts://Roboto"
     id: font_roboto_16
@@ -731,8 +773,8 @@ sensor:
       - multiply: 2
       # Smooth out noise
       - sliding_window_moving_average:
-          window_size: 20
-          send_every: 20
+          window_size: 10
+          send_every: 10
       - or:
         - throttle: 5min
         - delta: 0.01
@@ -783,7 +825,7 @@ sensor:
     on_value: 
       then:
         - lambda: |-
-            if (!id(uptime_sensor).has_state() || id(uptime_sensor).state < 60 * 1.5) {
+            if (!id(uptime_sensor).has_state() || id(uptime_sensor).state < 60) {
               return;
             }
 
@@ -813,7 +855,7 @@ sensor:
     on_value: 
       then:
         - lambda: |-
-            if (!id(uptime_sensor).has_state() || id(uptime_sensor).state < 60 * 1.5) {
+            if (!id(uptime_sensor).has_state() || id(uptime_sensor).state < 60) {
               return;
             }
 
@@ -918,7 +960,7 @@ sensor:
     filters:
       - or:
         - throttle: 5min
-        - delta: 60
+        - delta: 10
   # Wakeup cause sensor  
   - platform: template
     name: "Wakeup Cause"
@@ -1009,8 +1051,10 @@ script:
                   - deep_sleep.enter:
                       id: deep_sleep_1
                 else:
-                - lambda: id(sleep_mode_enabled) = false;            
-                - logger.log: "sleeping conditions are not met anymore, sleep has been cancelled"           
+                  - deep_sleep.prevent:
+                      id: deep_sleep_1
+                  - lambda: id(sleep_mode_enabled) = false;            
+                  - logger.log: "sleeping conditions are not met anymore, sleep has been cancelled"           
           else:  
             # Prevent deep sleep
             - deep_sleep.prevent:
