@@ -8,6 +8,63 @@ substitutions:
   wifi_manual_ip_gateway: !secret wifi_manual_ip_gateway
   wifi_manual_ip_subnet: !secret wifi_manual_ip_subnet
 
+# configuration variables ================================
+# system =================================================
+  flash_write_interval: 60min
+
+# boot ===================================================
+  interval_priority: '275'
+  boot_script_priority: '300'
+  deep_sleep_priority: '350'
+  peripherals_boot_priority: '400'
+  
+# display ================================================
+  loading_anim_duration: 1000ms
+# clock
+  clock_time_sensor_update_cron: '/5 * * * * *'
+  clock_time_update_interval: '10sec'  
+  clock_date_sensor_update_cron: '0 0 0 * * *'
+  clock_date_update_interval: '5min'
+
+# battery
+  charging_voltage_threshold_v: '4.3'
+  battery_voltage_update_uptime_sec_threshold: '60'
+  battery_threshold_yellow: '50'
+  battery_threshold_red: '10'  
+
+# occupancy
+  occupancy_step_1_threshold_sec: '60 * 2' # two minutes
+  occupancy_step_2_threshold_sec: '60 * 4' # four minutes
+  occupancy_step_3_threshold_sec: '60 * 6' # six minutes
+
+# humidity
+  humidity_upper_threshold_yellow: '65'
+  humidity_lower_threshold_yellow: '50'
+  humidity_upper_threshold_red: '75'
+  humidity_lower_threshold_red: '35'
+
+# deepsleep ==============================================
+  deepsleep_delay: '60sec'
+# deep sleep night mode, sleep from 1am to 8am
+  deepsleep_night_sleep_start_hour: '1'
+  deepsleep_night_sleep_end_hour: '8'
+# deepsleep absence threshold, sleep after ten minutes of absence
+  deepsleep_absence_threshold_sec: '60 * 10' # ten minutes
+
+# deepsleep durations
+  deepsleep_default_duration_ms: '60 * 5 * 1000' # five minutes
+  deepsleep_step_1_duration_ms: '60 * 10 * 1000' # ten minutes
+  deepsleep_step_2_duration_ms: '60 * 20 * 1000' # twenty minutes
+  deepsleep_step_3_duration_ms: '60 * 30 * 1000' # thirty minutes
+  deepsleep_step_4_duration_ms: '60 * 60 * 1000' # one hour
+  deepsleep_max_duration_ms: '60 * 60 * 1000' # one hour
+
+# deepsleep absence thresholds
+  deepsleep_step_1_threshold_sec: '60*30' # thirty minutes
+  deepsleep_step_2_threshold_sec: '60*60' # one hour
+  deepsleep_step_3_threshold_sec: '60*60*2' # two hours
+  deepsleep_step_4_threshold_sec: '60*60*4' # four hours
+
 esphome:
   name: lilygos3-info-screen
   friendly_name: lilygos3-info-screen
@@ -18,7 +75,7 @@ esphome:
   on_boot:
     # priority has been determined by trial and error
     # it should be lower than gpio components and higher than interval components
-    - priority: 300
+    - priority: ${boot_script_priority}
     # publish required states on boot
       then:
         - lambda: |-
@@ -40,7 +97,7 @@ esp32:
 #     board_build.flash_mode: dio
 
 preferences:
-  flash_write_interval: 60min
+  flash_write_interval: ${flash_write_interval}
 
 logger:
 
@@ -58,7 +115,7 @@ api:
             lambda: return id(is_loading);
           then:
             # Hold loading animation for one more second
-            - delay: 1000ms
+            - delay: ${loading_anim_duration}
             # Set loading animation to false
             - lambda: |-
                 id(is_loading) = false;
@@ -125,14 +182,12 @@ time:
     id: ha_time
     timezone: Europe/Berlin
     on_time:
-      # Refresh current time sensor every 10 seconds
-      - seconds: 10
+      # Refresh current time sensor every ${clock_time_sensor_update_cron}
+      - cron: ${clock_time_sensor_update_cron}
         then:
            - lambda: id(current_time).publish_state(id(ha_time).now().strftime("%H:%M"));
-      # Refresh current date sensor every day
-      - seconds: 0
-        minutes: 0
-        hours: 0
+      # Refresh current date sensor every ${clock_date_sensor_update_cron}
+      - cron: ${clock_date_sensor_update_cron}
         then:
           - lambda: id(current_date).publish_state(id(ha_time).now().strftime("%Y-%m-%d %a"));
 
@@ -141,8 +196,8 @@ output:
   - platform: ledc
     pin: GPIO38
     id: gpio38
-    # Set priority to 400 to ensure it is initialized before on boot and interval
-    setup_priority: 400
+    # Set priority to ${peripherals_boot_priority} to ensure it is initialized before on boot and interval
+    setup_priority: ${peripherals_boot_priority}
     frequency: 2000
 
 light:
@@ -274,11 +329,11 @@ display:
         {
           bat_col = id(color_blue);
           bat_text_col = id(color_light_yellow);
-        } else if (bat_state < 50)
+        } else if (bat_state < ${battery_threshold_yellow})
         { 
           bat_col = id(color_gold);
           bat_text_col = id(color_white);
-        } else if (bat_state < 10)
+        } else if (bat_state < ${battery_threshold_red})
         { 
           bat_col = id(color_red);
           bat_text_col = id(color_yellow);
@@ -356,15 +411,15 @@ display:
 
         auto icon = id(run_icon);
 
-        if (id(pir_occupancy_last_changed_seconds).state > 120) {
+        if (id(pir_occupancy_last_changed_seconds).state > ${occupancy_step_1_threshold_sec}) {
           icon = id(walk_icon);
         }
 
-        if (id(pir_occupancy_last_changed_seconds).state > 240) {
+        if (id(pir_occupancy_last_changed_seconds).state > ${occupancy_step_2_threshold_sec}) {
           icon = id(human_cane_icon);
         }
 
-        if (id(pir_occupancy_last_changed_seconds).state > 360) {
+        if (id(pir_occupancy_last_changed_seconds).state > ${occupancy_step_3_threshold_sec}) {
           icon = id(human_walker_icon);
         }
  
@@ -381,18 +436,18 @@ display:
       if (id(buro_humidity).has_state()) {
 
         auto hum_col = id(color_white);
-        int buro_h = id(buro_humidity).state;
+        int current_hum = id(buro_humidity).state;
 
-        if (buro_h > 65 || buro_h < 50) {
+        if (current_hum > ${humidity_upper_threshold_yellow} || current_hum < ${humidity_lower_threshold_yellow}) {
            hum_col = id(color_gold);
         }
 
-        if (buro_h > 75 || buro_h < 35) {
+        if (current_hum > ${humidity_upper_threshold_red} || current_hum < ${humidity_lower_threshold_red}) {
            hum_col = id(color_red);
         }
 
         it.image(190, 2, id(hum_icon), hum_col, COLOR_OFF);
-        it.printf(210, 12, id(font_orbitron_16), hum_col, COLOR_OFF, display::TextAlign::CENTER_LEFT, "%.0f%%", id(buro_humidity).state);
+        it.printf(210, 12, id(font_orbitron_16), hum_col, COLOR_OFF, display::TextAlign::CENTER_LEFT, "%.0f%%", current_hum);
       }
 
       // Render time
@@ -584,7 +639,7 @@ binary_sensor:
       number: GPIO0
       inverted: true
     name: "Button Up"
-    setup_priority: 400
+    setup_priority: ${peripherals_boot_priority}
     on_multi_click:
       - timing:
           - ON FOR AT LEAST 500ms
@@ -597,13 +652,13 @@ binary_sensor:
       allow_other_uses: true
       inverted: true
     name: "Button Down"
-    setup_priority: 400  
+    setup_priority: ${peripherals_boot_priority}  
   # Charging from cable  
   - platform: template
     id: is_charging
     name: Charging From Cable
     lambda: |-      
-      return id(battery_voltage_int).has_state() && id(battery_voltage_int).state > 4.3;
+      return id(battery_voltage_int).has_state() && id(battery_voltage_int).state > ${charging_voltage_threshold_v};
   # True when it is time to go to sleep (no one is in the room or it is between 1 and 8 o'clock)
   - platform: template
     id: is_deep_sleep_time
@@ -628,11 +683,11 @@ binary_sensor:
       return id(is_charging).state == false &&
              (
                (
-                id(ha_time).now().hour >= 1 && 
-                id(ha_time).now().hour <= 8
+                id(ha_time).now().hour >= ${deepsleep_night_sleep_start_hour} && 
+                id(ha_time).now().hour <= ${deepsleep_night_sleep_end_hour}
                ) ||
                (
-                 id(pir_occupancy_last_changed_seconds).state >= 600 && 
+                 id(pir_occupancy_last_changed_seconds).state >= ${deepsleep_absence_threshold_sec} && 
                  id(pir_occupancy).state == false)
              );
     on_press:
@@ -649,7 +704,7 @@ binary_sensor:
   - platform: template
     id: in_deep_sleep
     icon: mdi:sleep
-    setup_priority: 350
+    setup_priority: ${deep_sleep_priority}
     name: In deep sleep
     entity_category: diagnostic
   # Pir occupancy sensor
@@ -670,7 +725,7 @@ text_sensor:
     name: "Current Time"
     id: current_time
     internal: true
-    update_interval: 10sec
+    update_interval: ${clock_time_update_interval}
     lambda: return id(ha_time).now().strftime("%H:%M");
     filters:
      - lambda: |-
@@ -684,7 +739,7 @@ text_sensor:
     name: "Current Date"
     id: current_date
     internal: true
-    update_interval: 5min
+    update_interval: ${clock_date_update_interval}
     lambda: return id(ha_time).now().strftime("%Y-%m-%d %a"); 
     filters:
     - lambda: |-
@@ -764,7 +819,7 @@ sensor:
     on_value: 
       then:
         - lambda: |-
-            if (!id(uptime_sensor).has_state() || id(uptime_sensor).state < 60 * 1.5) {
+            if (!id(uptime_sensor).has_state() || id(uptime_sensor).state < ${battery_voltage_update_uptime_sec_threshold}) {
               return;
             }
 
@@ -817,7 +872,7 @@ sensor:
     filters:      
       - calibrate_linear:
         # Values are determined by trial and error
-        - 3.50 -> 0.0
+        - 3.52 -> 0.0
         - 4.06 -> 100.0
       - or:
         - throttle: 5min
@@ -825,7 +880,7 @@ sensor:
     on_value: 
       then:
         - lambda: |-
-            if (!id(uptime_sensor).has_state() || id(uptime_sensor).state < 60) {
+            if (!id(uptime_sensor).has_state() || id(uptime_sensor).state < ${battery_voltage_update_uptime_sec_threshold}) {
               return;
             }
 
@@ -855,7 +910,7 @@ sensor:
     on_value: 
       then:
         - lambda: |-
-            if (!id(uptime_sensor).has_state() || id(uptime_sensor).state < 60) {
+            if (!id(uptime_sensor).has_state() || id(uptime_sensor).state < ${battery_voltage_update_uptime_sec_threshold}) {
               return;
             }
 
@@ -1029,9 +1084,9 @@ script:
                 condition:
                    lambda: return id(wakeup_cause).state != ESP_SLEEP_WAKEUP_TIMER;                  
                 then:                  
-                  - logger.log: "device will go in deep sleep in 60 seconds if conditions still met"
+                  - logger.log: "device will go in deep sleep in ${deepsleep_delay} if conditions still met"
                   # Wait for 60 seconds when wakeup cause is not timer (e.g. button press)
-                  - delay: 60sec
+                  - delay: ${deepsleep_delay}
                 else: 
                    - logger.log: "device will go in deep sleep now if conditions still met"
             - if:
@@ -1090,34 +1145,34 @@ script:
                 // id(deep_sleep_1).set_sleep_duration(sleep_duration);
                 
                 // default sleep duration is five minutes
-                uint32_t sleep_duration = 60 * 5 * 1000;
+                uint32_t sleep_duration = ${deepsleep_default_duration_ms};
 
                 // if not occupied for thirty minutes
-                if (id(pir_occupancy_last_changed_seconds).state >= 60*30) {
-                  sleep_duration = 60 * 10 * 1000;
+                if (id(pir_occupancy_last_changed_seconds).state >= ${deepsleep_step_1_threshold_sec}) {
+                  sleep_duration = ${deepsleep_step_1_duration_ms};
                 }
 
                 // if not occupied for one hour
-                if (id(pir_occupancy_last_changed_seconds).state >= 60*60) {
-                  sleep_duration = 60 * 20 * 1000;
+                if (id(pir_occupancy_last_changed_seconds).state >= ${deepsleep_step_2_threshold_sec}) {
+                  sleep_duration = ${deepsleep_step_2_duration_ms};
                 }
 
                 // if not occupied for two hours
-                if (id(pir_occupancy_last_changed_seconds).state >= 60*60*2) {
-                  sleep_duration = 60 * 30 * 1000;
+                if (id(pir_occupancy_last_changed_seconds).state >= ${deepsleep_step_3_threshold_sec}) {
+                  sleep_duration = ${deepsleep_step_3_duration_ms};
                 }
 
                 // if not occupied for four hours
                 if (
-                  id(pir_occupancy_last_changed_seconds).state >= 60*60*4
+                  id(pir_occupancy_last_changed_seconds).state >= ${deepsleep_step_4_threshold_sec}
                   || id(person_state).state != "home"
                   ) 
                 {
-                  sleep_duration = 60 * 60 * 1000;
+                  sleep_duration = ${deepsleep_step_4_duration_ms};
                 }
 
                 // If night sleep calculate overnight sleep duration instead
-                if (id(ha_time).now().hour >= 1 && id(ha_time).now().hour <= 8) {
+                if (id(ha_time).now().hour >= ${deepsleep_night_sleep_start_hour} && id(ha_time).now().hour <= ${deepsleep_night_sleep_end_hour}) {
                   // Get the current time from ha_time
                   auto now = id(ha_time).now();
 
@@ -1141,7 +1196,7 @@ script:
                   // Calculate sleep duration in milliseconds.
                   sleep_duration = (target_timestamp - now.timestamp) * 1000;
 
-                  auto max_sleep_duration_ms = 60 * 60 * 1000;
+                  auto max_sleep_duration_ms = ${deepsleep_max_duration_ms};
 
                   // limit sleep duration to one hour to avoid waking up issues
                   if (sleep_duration > max_sleep_duration_ms) {
@@ -1156,7 +1211,7 @@ script:
     
 interval:
   - interval: 300ms
-    setup_priority: 275
+    setup_priority: ${interval_priority}
     id: loading_anim
     then:
       # Update loading animation 
@@ -1169,7 +1224,7 @@ interval:
                 id(loading_anim_frame) = (id(loading_anim_frame) + 1) % 4;
             - component.update: disp
   - interval: 1s
-    setup_priority: 275
+    setup_priority: ${interval_priority}
     id: charging_update
     then:
       # Wait for hardware to be initialized (see on boot) and wakeup cause to be set
@@ -1197,7 +1252,7 @@ interval:
                 then: 
                   - component.update: disp
   - interval: 5s    
-    setup_priority: 275
+    setup_priority: ${interval_priority}
     id: battery_update
     then:
       # Update display if device is not charging (on battery)
