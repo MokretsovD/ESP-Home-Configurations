@@ -5,6 +5,7 @@ This repository contains a collection of ESPHome YAML configurations for various
 ## Table of Contents
 
 - [Overview](#overview)
+- [Development Setup](#development-setup)
 - [Configurations](#configurations)
   - [Gas Meter (Gaszaehler)](#gas-meter-gaszaehler)
   - [Water Level Reservoir (wasserstand-regenreservoir)](#water-level-reservoir-wasserstand-regenreservoir)
@@ -22,6 +23,51 @@ This repository contains a collection of ESPHome YAML configurations for various
 This repository is a public collection of my ESPHome device configurations. It is intended for educational, reference, and practical use. All sensitive information (such as WiFi credentials and API keys) is stored in `secrets.yaml` and not included in the repository.
 
 Some configurations are based on or inspired by awesome projects from the community (see [Credits & Inspirations](#credits--inspirations)).
+
+---
+
+## Development Setup
+
+### IDE Setup
+
+For the best development experience, I recommend using Visual Studio Code or Cursor with the following extensions:
+
+1. [ESPHome](https://marketplace.visualstudio.com/items?itemName=ESPHome.esphome-vscode) - Provides YAML validation, syntax highlighting, and device management
+2. [ESPHome Snippets](https://marketplace.visualstudio.com/items?itemName=ESPHome.esphome-snippets) - Adds useful code snippets for ESPHome development
+
+### Local ESPHome CLI
+
+To validate configurations and perform OTA updates locally, you'll need to install the ESPHome CLI. Here's how to set it up on Linux with installed Python:
+
+1. Install ESPHome CLI using pip:
+```bash
+pip3 install esphome
+```
+
+2. Update ESPHome CLI when new versions are released:
+```bash
+pip3 install -U esphome
+```
+
+or
+
+```bash
+pip3 install esphome --upgrade
+```
+
+3. Validate a configuration:
+```bash
+esphome validate your-config.yaml
+```
+
+4. Perform an OTA update:
+```bash
+esphome run your-config.yaml
+```
+
+For more detailed installation and update instructions, refer to the official ESPHome documentation:
+- [Getting Started Guide](https://esphome.io/guides/getting_started_command_line)
+- [Installation Guide](https://esphome.io/guides/installing_esphome)
 
 ---
 
