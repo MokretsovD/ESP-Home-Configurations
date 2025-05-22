@@ -65,6 +65,31 @@ substitutions:
   deepsleep_step_3_threshold_sec: '60*60*2' # two hours
   deepsleep_step_4_threshold_sec: '60*60*4' # four hours
 
+# sensors ===============================================
+  uptime_update_interval: 60s
+# occupancy sensors
+  pir_occupancy_sensor_id: binary_sensor.buro_pir_sensor_occupancy
+  pir_occupancy_last_changed_sensor_id: sensor.buro_pir_sensor_occupancy_last_changed_seconds
+# air quality sensors
+  air_quality_voc_level_sensor_id: sensor.air_quality_sensor_1_voc_level
+  air_quality_co2_level_sensor_id: sensor.air_quality_sensor_1_co2_level
+  air_quality_ppm_level_sensor_id: sensor.air_quality_sensor_1_particulate_level
+  
+# person sensor  
+  person_sensor_id: person.dmitry_mokretsov
+
+# temperature sensor
+  temperature_sensor_id: sensor.temperature_sensor_buro_temperature
+
+# humidity sensor
+  humidity_sensor_id: sensor.temperature_sensor_buro_humidity
+
+# waste collection sensors
+  hausmull_sensor_id: sensor.hausmull_next_collection
+  biomull_sensor_id: sensor.biomull_next_collection
+  papier_sensor_id: sensor.papier_next_collection
+  gelbe_tonne_sensor_id: sensor.gelbe_tonne_next_collection
+
 esphome:
   name: lilygos3-info-screen
   friendly_name: lilygos3-info-screen
@@ -427,27 +452,26 @@ display:
       }
 
       // Render Temperature
-      if (id(buro_temperature).has_state()) {
+      if (id(room_temperature).has_state()) {
         it.image(105, 2, id(temp_icon));
-        it.printf(125, 12, id(font_orbitron_16), id(color_white), COLOR_OFF, display::TextAlign::CENTER_LEFT, "%.1f°C", id(buro_temperature).state);
+        it.printf(125, 12, id(font_orbitron_16), id(color_white), COLOR_OFF, display::TextAlign::CENTER_LEFT, "%.1f°C", id(room_temperature).state);
       }
 
       // Render Humidity
-      if (id(buro_humidity).has_state()) {
+      if (id(room_humidity).has_state()) {
 
         auto hum_col = id(color_white);
-        int current_hum = id(buro_humidity).state;
 
-        if (current_hum > ${humidity_upper_threshold_yellow} || current_hum < ${humidity_lower_threshold_yellow}) {
+        if (id(room_humidity).state > ${humidity_upper_threshold_yellow} || id(room_humidity).state < ${humidity_lower_threshold_yellow}) {
            hum_col = id(color_gold);
         }
 
-        if (current_hum > ${humidity_upper_threshold_red} || current_hum < ${humidity_lower_threshold_red}) {
+        if (id(room_humidity).state > ${humidity_upper_threshold_red} || id(room_humidity).state < ${humidity_lower_threshold_red}) {
            hum_col = id(color_red);
         }
 
         it.image(190, 2, id(hum_icon), hum_col, COLOR_OFF);
-        it.printf(210, 12, id(font_orbitron_16), hum_col, COLOR_OFF, display::TextAlign::CENTER_LEFT, "%.0f%%", current_hum);
+        it.printf(210, 12, id(font_orbitron_16), hum_col, COLOR_OFF, display::TextAlign::CENTER_LEFT, "%.0f%%", id(room_humidity).state);
       }
 
       // Render time
@@ -710,7 +734,7 @@ binary_sensor:
   # Pir occupancy sensor
   - platform: homeassistant
     id: pir_occupancy
-    entity_id: binary_sensor.buro_pir_sensor_occupancy
+    entity_id: ${pir_occupancy_sensor_id}
     internal: true
   # True when screen is on (diagnostic to track in Home Assistant)
   - platform: template
@@ -751,7 +775,7 @@ text_sensor:
   # VOC level sensor
   - platform: homeassistant
     id: voc_level
-    entity_id: sensor.air_quality_sensor_1_voc_level
+    entity_id: ${air_quality_voc_level_sensor_id}
     internal: true
     filters:
     - lambda: |-
@@ -763,7 +787,7 @@ text_sensor:
   # CO2 level sensor
   - platform: homeassistant
     id: co2_level
-    entity_id: sensor.air_quality_sensor_1_co2_level
+    entity_id: ${air_quality_co2_level_sensor_id}
     internal: true
     filters:
     - lambda: |-
@@ -775,7 +799,7 @@ text_sensor:
   # PPM level sensor
   - platform: homeassistant
     id: ppm_level
-    entity_id: sensor.air_quality_sensor_1_particulate_level
+    entity_id: ${air_quality_ppm_level_sensor_id}
     internal: true
     filters:
     - lambda: |-
@@ -787,7 +811,7 @@ text_sensor:
   # Person state sensor (to determine deep sleep duration)
   - platform: homeassistant
     id: person_state
-    entity_id: person.dmitry_mokretsov
+    entity_id: ${person_sensor_id}
     internal: true
     filters:
     - lambda: |-
@@ -800,7 +824,7 @@ sensor:
   - platform: uptime
     name: "Uptime"
     id: uptime_sensor
-    update_interval: 5s
+    update_interval: ${uptime_update_interval}
     entity_category: diagnostic
     disabled_by_default: true
   # Internal battery voltage sensor
@@ -941,20 +965,20 @@ sensor:
       - or:
         - throttle: 5min
         - delta: 1
-  # Buro temperature sensor
+  # Temperature sensor
   - platform: homeassistant
-    id: buro_temperature
-    entity_id: sensor.temperature_sensor_buro_temperature
+    id: room_temperature
+    entity_id: ${temperature_sensor_id}
     unit_of_measurement: °C
     internal: true
     filters:
       - or:
         - throttle: 5min
         - delta: 0.1     
-  # Buro humidity sensor
+  # Humidity sensor
   - platform: homeassistant
-    id: buro_humidity
-    entity_id: sensor.temperature_sensor_buro_humidity
+    id: room_humidity
+    entity_id: ${humidity_sensor_id}
     unit_of_measurement: "%"
     internal: true
     filters:
@@ -965,7 +989,7 @@ sensor:
   - platform: homeassistant
     id: hausmull
     attribute: daysTo
-    entity_id: sensor.hausmull_next_collection
+    entity_id: ${hausmull_sensor_id}
     unit_of_measurement: d
     internal: true
     filters:
@@ -976,7 +1000,7 @@ sensor:
   - platform: homeassistant
     id: biomull
     attribute: daysTo
-    entity_id: sensor.biomull_next_collection
+    entity_id: ${biomull_sensor_id}
     unit_of_measurement: d
     internal: true
     filters:
@@ -988,7 +1012,7 @@ sensor:
     id: papier
     attribute: daysTo
     unit_of_measurement: d
-    entity_id: sensor.papier_next_collection
+    entity_id: ${papier_sensor_id}
     internal: true
     filters:
       - or:
@@ -999,7 +1023,7 @@ sensor:
     id: gelbe_tonne
     attribute: daysTo
     unit_of_measurement: d
-    entity_id: sensor.gelbe_tonne_next_collection
+    entity_id: ${gelbe_tonne_sensor_id}
     internal: true
     filters:
       - or:
@@ -1009,7 +1033,7 @@ sensor:
   # This sensor is used to determine if device should go to sleep when no one is in the room
   - platform: homeassistant
     id: pir_occupancy_last_changed_seconds
-    entity_id: sensor.buro_pir_sensor_occupancy_last_changed_seconds
+    entity_id: ${pir_occupancy_last_changed_sensor_id}
     unit_of_measurement: s
     internal: true
     filters:
