@@ -7,7 +7,7 @@ esphome:
   project:
     name: esphome.bluetooth-proxy
     # https://github.com/esphome/bluetooth-proxies/releases
-    version: "25.3.1"
+    version: "25.5.1"
 
 esp32:
   board: ${board}
