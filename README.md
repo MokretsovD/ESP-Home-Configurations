@@ -12,6 +12,7 @@ This repository contains a collection of ESPHome YAML configurations for various
   - [Air Quality Sensor 1](#air-quality-sensor-1)
   - [Bluetooth Proxy](#bluetooth-proxy)
   - [Info Screen](#info-screen)
+  - [Soil Sensor (Tuya)](#soil-sensor-tuya)
 - [Secrets & Sensitive Data](#secrets--sensitive-data)
 - [Credits & Inspirations](#credits--inspirations)
 - [License](#license)
@@ -122,6 +123,18 @@ For more detailed installation and update instructions, refer to the official ES
   - Custom display layouts
   - Battery and WiFi status
   - Home Assistant API integration
+
+### Soil Sensor
+
+- **File:** `soil-sensor-tuyas.yaml`
+- **Description:** Soil moisture sensor configuration for monitoring soil conditions and integrating with Home Assistant.
+- **Features:**
+  - Soil moisture measurement via analog voltage
+  - Calibration support (zero and full voltage)
+  - Static IP and WiFi AP fallback
+  - OTA updates and Home Assistant API integration
+- **Board:** ESP8266 D1 Mini
+- **Common Config:** Uses shared configuration from `packages/device-configs/soil-sensor-d1-mini.yaml` for hardware and network setup.
 
 ---
 
