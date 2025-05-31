@@ -8,83 +8,83 @@ substitutions:
   wifi_manual_ip_gateway: !secret wifi_manual_ip_gateway
   wifi_manual_ip_subnet: !secret wifi_manual_ip_subnet
 
-# configuration variables ================================
-# system =================================================
+  # configuration variables ================================
+  # system =================================================
   flash_write_interval: 60min
 
-# boot ===================================================
-  interval_priority: '275'
-  boot_script_priority: '300'
-  deep_sleep_priority: '350'
-  peripherals_boot_priority: '400'
-  
-# display ================================================
+  # boot ===================================================
+  interval_priority: "275"
+  boot_script_priority: "300"
+  deep_sleep_priority: "350"
+  peripherals_boot_priority: "400"
+
+  # display ================================================
   loading_anim_duration: 1000ms
-# clock
-  clock_time_sensor_update_cron: '/5 * * * * *'
-  clock_time_update_interval: '10sec'  
-  clock_date_sensor_update_cron: '0 0 0 * * *'
-  clock_date_update_interval: '5min'
+  # clock
+  clock_time_sensor_update_cron: "/5 * * * * *"
+  clock_time_update_interval: "10sec"
+  clock_date_sensor_update_cron: "0 0 0 * * *"
+  clock_date_update_interval: "5min"
 
-# battery
-  charging_voltage_threshold_v: '4.3'
-  battery_voltage_update_uptime_sec_threshold: '60'
-  battery_threshold_yellow: '50'
-  battery_threshold_red: '10'  
+  # battery
+  charging_voltage_threshold_v: "4.3"
+  battery_voltage_update_uptime_sec_threshold: "60"
+  battery_threshold_yellow: "50"
+  battery_threshold_red: "10"
 
-# occupancy
-  occupancy_step_1_threshold_sec: '60 * 2' # two minutes
-  occupancy_step_2_threshold_sec: '60 * 4' # four minutes
-  occupancy_step_3_threshold_sec: '60 * 6' # six minutes
+  # occupancy
+  occupancy_step_1_threshold_sec: "60 * 2" # two minutes
+  occupancy_step_2_threshold_sec: "60 * 4" # four minutes
+  occupancy_step_3_threshold_sec: "60 * 6" # six minutes
 
-# humidity
-  humidity_upper_threshold_yellow: '65'
-  humidity_lower_threshold_yellow: '50'
-  humidity_upper_threshold_red: '75'
-  humidity_lower_threshold_red: '35'
+  # humidity
+  humidity_upper_threshold_yellow: "65"
+  humidity_lower_threshold_yellow: "50"
+  humidity_upper_threshold_red: "75"
+  humidity_lower_threshold_red: "35"
 
-# deepsleep ==============================================
-  deepsleep_delay: '60sec'
-# deep sleep night mode, sleep from 1am to 8am
-  deepsleep_night_sleep_start_hour: '1'
-  deepsleep_night_sleep_end_hour: '8'
-# deepsleep absence threshold, sleep after ten minutes of absence
-  deepsleep_absence_threshold_sec: '60 * 10' # ten minutes
+  # deepsleep ==============================================
+  deepsleep_delay: "60sec"
+  # deep sleep night mode, sleep from 1am to 8am
+  deepsleep_night_sleep_start_hour: "1"
+  deepsleep_night_sleep_end_hour: "8"
+  # deepsleep absence threshold, sleep after ten minutes of absence
+  deepsleep_absence_threshold_sec: "60 * 10" # ten minutes
 
-# deepsleep durations
-  deepsleep_default_duration_ms: '60 * 5 * 1000' # five minutes
-  deepsleep_step_1_duration_ms: '60 * 10 * 1000' # ten minutes
-  deepsleep_step_2_duration_ms: '60 * 20 * 1000' # twenty minutes
-  deepsleep_step_3_duration_ms: '60 * 30 * 1000' # thirty minutes
-  deepsleep_step_4_duration_ms: '60 * 60 * 1000' # one hour
-  deepsleep_max_duration_ms: '60 * 60 * 1000' # one hour
+  # deepsleep durations
+  deepsleep_default_duration_ms: "60 * 5 * 1000" # five minutes
+  deepsleep_step_1_duration_ms: "60 * 10 * 1000" # ten minutes
+  deepsleep_step_2_duration_ms: "60 * 20 * 1000" # twenty minutes
+  deepsleep_step_3_duration_ms: "60 * 30 * 1000" # thirty minutes
+  deepsleep_step_4_duration_ms: "60 * 60 * 1000" # one hour
+  deepsleep_max_duration_ms: "60 * 60 * 1000 * 2" # two hours
 
-# deepsleep absence thresholds
-  deepsleep_step_1_threshold_sec: '60*30' # thirty minutes
-  deepsleep_step_2_threshold_sec: '60*60' # one hour
-  deepsleep_step_3_threshold_sec: '60*60*2' # two hours
-  deepsleep_step_4_threshold_sec: '60*60*4' # four hours
+  # deepsleep absence thresholds
+  deepsleep_step_1_threshold_sec: "60*30" # thirty minutes
+  deepsleep_step_2_threshold_sec: "60*60" # one hour
+  deepsleep_step_3_threshold_sec: "60*60*2" # two hours
+  deepsleep_step_4_threshold_sec: "60*60*4" # four hours
 
-# sensors ===============================================
+  # sensors ===============================================
   uptime_update_interval: 60s
-# occupancy sensors
+  # occupancy sensors
   pir_occupancy_sensor_id: binary_sensor.buro_pir_sensor_occupancy
   pir_occupancy_last_changed_sensor_id: sensor.buro_pir_sensor_occupancy_last_changed_seconds
-# air quality sensors
+  # air quality sensors
   air_quality_voc_level_sensor_id: sensor.air_quality_sensor_1_voc_level
   air_quality_co2_level_sensor_id: sensor.air_quality_sensor_1_co2_level
   air_quality_ppm_level_sensor_id: sensor.air_quality_sensor_1_particulate_level
-  
-# person sensor  
+
+  # person sensor
   person_sensor_id: person.dmitry_mokretsov
 
-# temperature sensor
+  # temperature sensor
   temperature_sensor_id: sensor.temperature_sensor_buro_temperature
 
-# humidity sensor
+  # humidity sensor
   humidity_sensor_id: sensor.temperature_sensor_buro_humidity
 
-# waste collection sensors
+  # waste collection sensors
   hausmull_sensor_id: sensor.hausmull_next_collection
   biomull_sensor_id: sensor.biomull_next_collection
   papier_sensor_id: sensor.papier_next_collection
@@ -101,12 +101,12 @@ esphome:
     # priority has been determined by trial and error
     # it should be lower than gpio components and higher than interval components
     - priority: ${boot_script_priority}
-    # publish required states on boot
+      # publish required states on boot
       then:
         - lambda: |-
-                  id(in_deep_sleep).publish_state(false);                  
-                  id(wakeup_cause).publish_state(esp_sleep_get_wakeup_cause());
-                  id(hw_initialized) = true;
+            id(in_deep_sleep).publish_state(false);                  
+            id(wakeup_cause).publish_state(esp_sleep_get_wakeup_cause());
+            id(hw_initialized) = true;
 
 external_components:
   - source: github://landonr/lilygo-tdisplays3-esphome
@@ -157,7 +157,7 @@ packages:
   wifi: !include packages/wifi.yaml
 
 wifi:
-  fast_connect: true  
+  fast_connect: true
   on_connect:
     then:
       # Set WiFi status to connected (used by loading animation)
@@ -190,17 +190,17 @@ globals:
   - id: wifi_status
     type: int
     restore_value: false
-    initial_value: '0' # 0 = connecting, 1 = connected
+    initial_value: "0" # 0 = connecting, 1 = connected
   # Home Assistant API status
   - id: api_status
     type: int
     restore_value: false
-    initial_value: '0' # 0 = connecting, 1 = connected
+    initial_value: "0" # 0 = connecting, 1 = connected
   # Loading animation frame
   - id: loading_anim_frame
     type: int
     restore_value: false
-    initial_value: '0'
+    initial_value: "0"
 
 time:
   - platform: homeassistant
@@ -210,7 +210,7 @@ time:
       # Refresh current time sensor every ${clock_time_sensor_update_cron}
       - cron: ${clock_time_sensor_update_cron}
         then:
-           - lambda: id(current_time).publish_state(id(ha_time).now().strftime("%H:%M"));
+          - lambda: id(current_time).publish_state(id(ha_time).now().strftime("%H:%M"));
       # Refresh current date sensor every ${clock_date_sensor_update_cron}
       - cron: ${clock_date_sensor_update_cron}
         then:
@@ -239,13 +239,13 @@ color:
   - id: color_white
     hex: FFFFFF
   - id: color_black
-    hex: '000000'
+    hex: "000000"
   - id: color_green
     hex: 00FF00
   - id: color_blue
     hex: 0000FF
   - id: color_dark_blue
-    hex: '000066'
+    hex: "000066"
   - id: color_yellow
     hex: FFFF00
   - id: color_light_yellow
@@ -265,9 +265,13 @@ display:
     # Update interval is never to ensure the display is only updated when required
     # Update performed by interval components
     update_interval: never
-    rotation: 270    
+    rotation: 270
     lambda: |-
-      if (id(is_loading)) {
+      auto render_loading_screen = [](display::Display &it) {     
+        if (!id(is_loading)) {
+          return;
+        }
+
         it.fill(id(color_black));
         // Animated spinner (4 dots)
         int frame = id(loading_anim_frame);
@@ -290,58 +294,13 @@ display:
         // API status
         auto api_col = id(api_status) == 1 ? id(color_green) : id(color_yellow);
         it.printf(cx, cy + 97, id(font_roboto_16), api_col, TextAlign::CENTER, "HA API: %s", id(api_status) == 1 ? "Connected" : "Connecting...");
-        return;
-      }
+      };
 
-      // auto draw_battery_indicator = [](display::DisplayBuffer &it) {
-      //     if (id(battery_level).has_state() && id(battery_level).state >= 0) {
-      //     // Outer shell
-      //     it.rectangle(it.get_width() - 55, 2, 52, 22, id(color_white));
-
-      //     // Determine color
-      //     auto bat_col = green;
-      //     auto bat_text_col = yellow;
-      //     auto bat_state = id(battery_level).state;
-
-      //     if (id(charging).has_state() && id(charging).state == true) 
-      //     {
-      //       bat_col = id(color_blue);
-      //       bat_text_col = light_yellow;
-      //     } else if (bat_state < 50)
-      //     { 
-      //       bat_col = id(color_gold);
-      //       bat_text_col = id(color_white);
-      //     } else if (bat_state < 10)
-      //     { 
-      //       bat_col = id(color_red);
-      //       bat_text_col = yellow;
-      //     }
-
-      //     // Determine width
-      //     int bat_state_width = floor(id(battery_level).state / 2);
-
-      //     if (id(charging).has_state() && id(charging).state == true && id(battery_level_charging).has_state()) {
-      //       bat_state_width = floor(id(battery_level_charging).state / 2);
-      //     }
-
-      //     // Render inner section
-      //     if (bat_state_width > 0 )
-      //     {
-      //       it.filled_rectangle(it.get_width() - 54, 3, bat_state_width, 20, bat_col);
-      //     } 
-
-      //     // Display percentage
-      //     if (id(charging).has_state() && id(charging).state == true && id(battery_level_charging).has_state()) {
-      //       it.printf(it.get_width() - 27, 13, id(font_roboto_16), bat_text_col, COLOR_OFF, display::TextAlign::CENTER, "%.0f%%", id(battery_level_charging).state);
-      //     } else {
-      //       it.printf(it.get_width() - 27, 13, id(font_roboto_16), bat_text_col, COLOR_OFF, display::TextAlign::CENTER, "%.0f%%", id(battery_level).state);
-      //     }
-      //   }
-      // };
-
-      // Render Battery Indicator
-      // draw_battery_indicator(it);
-      if (id(battery_level).has_state() && id(battery_level).state >= 0) {
+      auto render_battery_indicator = [](display::Display &it) {
+        if (!id(battery_level).has_state() || id(battery_level).state < 0) {
+          return;
+        }
+        
         // Outer shell
         it.rectangle(it.get_width() - 55, 2, 52, 22, id(color_white));
 
@@ -375,58 +334,61 @@ display:
         } 
 
         // Display percentage
-        it.printf(it.get_width() - 27, 13, id(font_roboto_16), bat_text_col, COLOR_OFF, display::TextAlign::CENTER, "%.0f%%", id(battery_level).state);
-      }     
+        it.printf(it.get_width() - 27, 13, id(font_roboto_16), bat_text_col, COLOR_OFF, display::TextAlign::CENTER, "%.0f%%", id(battery_level).state);        
+      };
 
-      // Render WiFi Indicator
-      if (id(wifi_signal_db).has_state()) {        
+      auto render_wifi_indicator = [](display::Display &it) {
+        if (!id(wifi_signal_db).has_state()) {
+          return;
+        }                
         // Render Outer Shells
         it.rectangle(3,17,5,5,id(color_white));
         it.rectangle(10,12,5,10,id(color_white));
         it.rectangle(16,7,5,15,id(color_white));
         it.rectangle(22,2,5,20,id(color_white));
-
+        
         // Determine color and number of inner indicators
         int signal_quart = ceil(id(wifi_signal_proc).state / 25);
         auto wifi_sign_cl = id(color_green);
-
-        switch(signal_quart){
+         switch(signal_quart){
           case 0:
           case 1: wifi_sign_cl = id(color_red); break;
           case 2: wifi_sign_cl = id(color_gold); break;
         }
-
-        // Render inner indicators
+         // Render inner indicators
         if (signal_quart > 0) {
           it.filled_rectangle(4,18,3,3,wifi_sign_cl);
         }
-
-        if (signal_quart > 1) {
+         if (signal_quart > 1) {
           it.filled_rectangle(11,13,3,8,wifi_sign_cl);
         }
-
-        if (signal_quart > 2) {
+         if (signal_quart > 2) {
           it.filled_rectangle(17,8,3,13,wifi_sign_cl);
         }
-
-        if (signal_quart > 3) {
+         if (signal_quart > 3) {
           it.filled_rectangle(23,3,3,18,wifi_sign_cl);
-        }        
-      }
+        }                
+      };
 
-      // Render Home Assistant API State
-      auto ha_api_state_col = id(color_white);
+      auto render_ha_api_indicator = [](display::Display &it) {
+        // Render Home Assistant API State
+        auto ha_api_state_col = id(color_white);
 
-      if (global_api_server->is_connected() == false) {
-        ha_api_state_col = id(color_red);
-      }
+        if (global_api_server->is_connected() == false) {
+          ha_api_state_col = id(color_red);
+        }
 
-      it.image(35, 2, id(ha_api_icon), ha_api_state_col);
+        it.image(35, 2, id(ha_api_icon), ha_api_state_col);
+      };
 
-      // Render energy saving mode
-      if (id(sleep_mode_enabled) == true) {
+      auto render_energy_saving_mode = [](display::Display &it) {      
         it.image(62, 2, id(energy_saving_icon), id(color_green));
-      } else if (id(pir_occupancy).has_state() && id(pir_occupancy).state == false) {
+      };
+
+      auto render_pir_occupancy = [](display::Display &it) {
+        if (!id(pir_occupancy).has_state() || id(pir_occupancy).state == true) {
+          return;
+        }
 
         int last_changed_secs = floor(id(pir_occupancy_last_changed_seconds).state);
         
@@ -436,143 +398,210 @@ display:
 
         auto icon = id(run_icon);
 
-        if (id(pir_occupancy_last_changed_seconds).state > ${occupancy_step_1_threshold_sec}) {
-          icon = id(walk_icon);
-        }
-
-        if (id(pir_occupancy_last_changed_seconds).state > ${occupancy_step_2_threshold_sec}) {
-          icon = id(human_cane_icon);
-        }
-
         if (id(pir_occupancy_last_changed_seconds).state > ${occupancy_step_3_threshold_sec}) {
           icon = id(human_walker_icon);
-        }
- 
-        it.image(62, 2, icon, Color(r_c, g_c, b_c));
-      }
+        } else if (id(pir_occupancy_last_changed_seconds).state > ${occupancy_step_2_threshold_sec}) {
+          icon = id(human_cane_icon);
+        } else if (id(pir_occupancy_last_changed_seconds).state > ${occupancy_step_1_threshold_sec}) {
+          icon = id(walk_icon);
+        } 
 
-      // Render Temperature
-      if (id(room_temperature).has_state()) {
+        it.image(62, 2, icon, Color(r_c, g_c, b_c));
+      };
+
+      auto render_temperature = [](display::Display &it) {
+        if (!id(room_temperature).has_state()) {
+          return;
+        }
+
         it.image(105, 2, id(temp_icon));
         it.printf(125, 12, id(font_orbitron_16), id(color_white), COLOR_OFF, display::TextAlign::CENTER_LEFT, "%.1f°C", id(room_temperature).state);
-      }
+      };
 
-      // Render Humidity
-      if (id(room_humidity).has_state()) {
+      auto render_humidity = [](display::Display &it) {
+        if (!id(room_humidity).has_state()) {
+          return;
+        }
 
         auto hum_col = id(color_white);
 
-        if (id(room_humidity).state > ${humidity_upper_threshold_yellow} || id(room_humidity).state < ${humidity_lower_threshold_yellow}) {
+        if (id(room_humidity).state > ${humidity_upper_threshold_red} || id(room_humidity).state < ${humidity_lower_threshold_red}) {
+           hum_col = id(color_red);
+        } else if (id(room_humidity).state > ${humidity_upper_threshold_yellow} || id(room_humidity).state < ${humidity_lower_threshold_yellow}) {
            hum_col = id(color_gold);
         }
 
-        if (id(room_humidity).state > ${humidity_upper_threshold_red} || id(room_humidity).state < ${humidity_lower_threshold_red}) {
-           hum_col = id(color_red);
+        it.image(190, 2, id(hum_icon), hum_col, COLOR_OFF);
+        it.printf(210, 12, id(font_orbitron_16), hum_col, COLOR_OFF, display::TextAlign::CENTER_LEFT, "%.0f%%", id(room_humidity).state);      
+      };
+
+      auto render_time = [](display::Display &it) {
+        auto time_col = id(color_white);
+
+        if (
+            (
+             (id(ha_time).now().hour == 0 && id(ha_time).now().minute >= 30) 
+             || id(ha_time).now().hour >= 1) 
+             && id(ha_time).now().hour < 6) {
+          time_col = id(color_red);
         }
 
-        it.image(190, 2, id(hum_icon), hum_col, COLOR_OFF);
-        it.printf(210, 12, id(font_orbitron_16), hum_col, COLOR_OFF, display::TextAlign::CENTER_LEFT, "%.0f%%", id(room_humidity).state);
-      }
+        it.printf(2, 40, id(font_orbitron_36), time_col, id(current_time).state.c_str());
+      };
 
-      // Render time
-      auto time_col = id(color_white);
+      auto render_date = [](display::Display &it) {
+        it.printf(2, it.get_height() - 10, id(font_orbitron_16), id(color_white), display::TextAlign::CENTER_LEFT, id(current_date).state.c_str());
+      };
 
-      if (
-          (
-           (id(ha_time).now().hour == 0 && id(ha_time).now().minute >= 30) 
-           || id(ha_time).now().hour >= 1) 
-           && id(ha_time).now().hour < 6) {
-        time_col = id(color_red);
-      }
 
-      it.printf(2, 40, id(font_orbitron_36), time_col, id(current_time).state.c_str());
-            
-      // Render date        
-      it.printf(2, it.get_height() - 10, id(font_orbitron_16), id(color_white), display::TextAlign::CENTER_LEFT, id(current_date).state.c_str());
+      auto render_hausmull = [](display::Display &it) {      
+        //Render outer shell
+        auto hausmull_shell_col = id(hausmull).has_state() && id(hausmull).state <= 1 ? id(color_red) : id(color_white);
+        it.rectangle(180, it.get_height() - 30, 30, 30, hausmull_shell_col);
 
-      // Render waste collection
+        it.filled_rectangle(181, it.get_height() - 29, 28, 28, id(color_gray));
 
-      // Render outer shells
-      auto hausmull_shell_col = id(hausmull).has_state() && id(hausmull).state <= 1 ? id(color_red) : id(color_white);
-      auto biomull_shell_col = id(biomull).has_state() && id(biomull).state <= 1 ? id(color_red) : id(color_white);
-      auto papier_shell_col = id(papier).has_state() && id(papier).state <= 1 ? id(color_red) : id(color_white);
-      auto gelbe_tonne_shell_col = id(gelbe_tonne).has_state() && id(gelbe_tonne).state <= 1 ? id(color_red) : id(color_white);
+        // Render value
+        if (id(hausmull).has_state()) {
+          it.printf(195, it.get_height() - 15, id(font_orbitron_16), id(color_white), display::TextAlign::CENTER, "%.0f", id(hausmull).state);
+        }
+      };
 
-      it.rectangle(180, it.get_height() - 30, 30, 30, hausmull_shell_col);
-      it.rectangle(215, it.get_height() - 30, 30, 30, biomull_shell_col);
-      it.rectangle(250, it.get_height() - 30, 30, 30, papier_shell_col);
-      it.rectangle(285, it.get_height() - 30, 30, 30, gelbe_tonne_shell_col);
+      auto render_biomull = [](display::Display &it) {
+        // Render outer shell
+        auto biomull_shell_col = id(biomull).has_state() && id(biomull).state <= 1 ? id(color_red) : id(color_white);
+        it.rectangle(215, it.get_height() - 30, 30, 30, biomull_shell_col);
 
-      // Render Hausmull
-      it.filled_rectangle(181, it.get_height() - 29, 28, 28, id(color_gray));
+        it.filled_rectangle(216, it.get_height() - 29, 28, 28, id(color_braun));
 
-      if (id(hausmull).has_state()) {
-        it.printf(195, it.get_height() - 15, id(font_orbitron_16), id(color_white), display::TextAlign::CENTER, "%.0f", id(hausmull).state);
-      }
+        // Render value
+        if (id(biomull).has_state()) {
+          it.printf(230, it.get_height() - 15, id(font_orbitron_16), id(color_cream), display::TextAlign::CENTER, "%.0f", id(biomull).state);
+        }
+      };
 
-      // Render Biomull
-      it.filled_rectangle(216, it.get_height() - 29, 28, 28, id(color_braun));
+      auto render_papier = [](display::Display &it) {
+        // Render outer shell
+        auto papier_shell_col = id(papier).has_state() && id(papier).state <= 1 ? id(color_red) : id(color_white);
+        it.rectangle(250, it.get_height() - 30, 30, 30, papier_shell_col);
 
-      if (id(biomull).has_state()) {
-        it.printf(230, it.get_height() - 15, id(font_orbitron_16), id(color_cream), display::TextAlign::CENTER, "%.0f", id(biomull).state);
-      }
+        it.filled_rectangle(251, it.get_height() - 29, 28, 28, id(color_blue));
 
-      // Render Papier
-      it.filled_rectangle(251, it.get_height() - 29, 28, 28, id(color_blue));
+        // Render value
+        if (id(papier).has_state()) {
+          it.printf(265, it.get_height() - 15, id(font_orbitron_16), id(color_light_yellow), display::TextAlign::CENTER, "%.0f", id(papier).state);
+        }        
+      };
 
-      if (id(papier).has_state()) {
-        it.printf(265, it.get_height() - 15, id(font_orbitron_16), id(color_light_yellow), display::TextAlign::CENTER, "%.0f", id(papier).state);
-      }
+      auto render_gelbe_tonne = [](display::Display &it) {
+        // Render outer shell
+        auto gelbe_tonne_shell_col = id(gelbe_tonne).has_state() && id(gelbe_tonne).state <= 1 ? id(color_red) : id(color_white);
+        it.rectangle(285, it.get_height() - 30, 30, 30, gelbe_tonne_shell_col);
 
-      // Render Gelbe Tonne
-      it.filled_rectangle(286, it.get_height() - 29, 28, 28, id(color_gold));
+        it.filled_rectangle(286, it.get_height() - 29, 28, 28, id(color_gold));
 
-      if (id(gelbe_tonne).has_state()) {
-        it.printf(300, it.get_height() - 15, id(font_orbitron_16), id(color_dark_blue), display::TextAlign::CENTER, "%.0f", id(gelbe_tonne).state);
-      }
+        // Render value
+        if (id(gelbe_tonne).has_state()) {
+          it.printf(300, it.get_height() - 15, id(font_orbitron_16), id(color_dark_blue), display::TextAlign::CENTER, "%.0f", id(gelbe_tonne).state);
+        }
+      };
 
-      // Render Air Quality Icons
+      auto render_waste_collection = [&render_hausmull, &render_biomull, &render_papier, &render_gelbe_tonne](display::Display &it) {
+        render_hausmull(it);
+        render_biomull(it);
+        render_papier(it);
+        render_gelbe_tonne(it);
+      };
 
-      // Render co2
-      auto co2_col = id(color_gray);
+      auto render_co2 = [](display::Display &it) {
+        auto co2_col = id(color_gray);
 
-      if (id(co2_level).has_state()) {                  
-         auto co2_level_val = id(co2_level).state;
-         
-         if (co2_level_val == "Low") { co2_col = id(color_white); }
-         if (co2_level_val == "Medium") { co2_col = id(color_yellow); }
-         if (co2_level_val == "Elevated") { co2_col = id(color_gold); }
-         if (co2_level_val == "High") { co2_col = id(color_red); }
-         if (co2_level_val == "Extremely High") { co2_col = id(color_red); }
-      }
-      it.image(2, 95, id(co2_icon), co2_col, COLOR_OFF);
+        if (id(co2_level).has_state()) {
+          auto co2_level_val = id(co2_level).state;
+          
+          if (co2_level_val == "Low") {
+            co2_col = id(color_white);
+          } else if (co2_level_val == "Medium") {
+            co2_col = id(color_yellow);
+          } else if (co2_level_val == "Elevated") {
+            co2_col = id(color_gold);
+          } else if (co2_level_val == "High" || co2_level_val == "Extremely High") {
+            co2_col = id(color_red);
+          }
+        }
 
-      // Render voc
-      auto voc_col = id(color_gray);
-      if (id(voc_level).has_state()) {                  
-         auto voc_level_val = id(voc_level).state;
-         
-         if (voc_level_val == "Low") { voc_col = id(color_white); }
-         if (voc_level_val == "Medium") { voc_col = id(color_yellow); }
-         if (voc_level_val == "Elevated") { voc_col = id(color_gold); }
-         if (voc_level_val == "High") { voc_col = id(color_red); }
-         if (voc_level_val == "Extremely High") { voc_col = id(color_red); }
-      }
-      it.image(42, 95, id(voc_icon), voc_col, COLOR_OFF);
+        it.image(2, 95, id(co2_icon), co2_col, COLOR_OFF);
+      };
 
-      // Render ppm
-      auto ppm_col = id(color_gray);
-      if (id(ppm_level).has_state()) {                  
-         auto ppm_level_val = id(ppm_level).state;
-         
-         if (ppm_level_val == "Low") { ppm_col = id(color_white); }
-         if (ppm_level_val == "Medium") { ppm_col = id(color_yellow); }
-         if (ppm_level_val == "Elevated") { ppm_col = id(color_gold); }
-         if (ppm_level_val == "High") { ppm_col = id(color_red); }
-         if (ppm_level_val == "Extremely High") { ppm_col = id(color_red); }
-      }
-      it.image(82, 95, id(ppm_icon), ppm_col, COLOR_OFF);
-   
+      auto render_voc = [](display::Display &it) {
+        auto voc_col = id(color_gray);
+        if (id(voc_level).has_state()) {
+          auto voc_level_val = id(voc_level).state;
+          
+          if (voc_level_val == "Low") {
+            voc_col = id(color_white);
+          } else if (voc_level_val == "Medium") {
+            voc_col = id(color_yellow);
+          } else if (voc_level_val == "Elevated") {
+            voc_col = id(color_gold);
+          } else if (voc_level_val == "High" || voc_level_val == "Extremely High") {
+            voc_col = id(color_red);
+          }
+        }
+        it.image(42, 95, id(voc_icon), voc_col, COLOR_OFF);
+      };
+
+      auto render_ppm = [](display::Display &it) {
+        auto ppm_col = id(color_gray);
+        if (id(ppm_level).has_state()) {                  
+           auto ppm_level_val = id(ppm_level).state;
+           
+           if (ppm_level_val == "Low") {
+            ppm_col = id(color_white);
+           } else if (ppm_level_val == "Medium") {
+            ppm_col = id(color_yellow);
+           } else if (ppm_level_val == "Elevated") {
+            ppm_col = id(color_gold);
+           } else if (ppm_level_val == "High" || ppm_level_val == "Extremely High") {
+            ppm_col = id(color_red);
+           }
+        }
+        it.image(82, 95, id(ppm_icon), ppm_col, COLOR_OFF);
+      };
+
+      auto render_air_quality = [&render_co2, &render_voc, &render_ppm](display::Display &it) {
+        render_co2(it);
+        render_voc(it);
+        render_ppm(it);
+      };
+
+      auto render_main_content = [&render_battery_indicator, &render_wifi_indicator, &render_ha_api_indicator, &render_energy_saving_mode, &render_pir_occupancy, &render_temperature, &render_humidity, &render_time, &render_date, &render_waste_collection, &render_air_quality](display::Display &it) {
+        if (id(is_loading)) {          
+          return;
+        }
+
+        render_battery_indicator(it);
+        render_wifi_indicator(it);
+        render_ha_api_indicator(it);
+
+        if (id(sleep_mode_enabled) == true) {
+          render_energy_saving_mode(it);
+        } else {
+          render_pir_occupancy(it);
+        }
+
+        render_temperature(it);
+        render_humidity(it);
+        render_time(it);            
+        render_date(it);
+
+        render_waste_collection(it);
+        render_air_quality(it);
+      };
+
+      render_loading_screen(it);
+      render_main_content(it);
+
 image:
   - file: mdi:thermometer
     id: temp_icon
@@ -598,7 +627,7 @@ image:
     id: ppm_icon
     type: grayscale
     transparency: alpha_channel
-    resize: 40x40  
+    resize: 40x40
   - file: mdi:leaf
     id: energy_saving_icon
     type: grayscale
@@ -633,28 +662,17 @@ font:
   - file: "gfonts://Roboto"
     id: font_roboto_16
     size: 16
-    glyphs: [
-     "0123456789",
-     "%.: ",
-     "ConectdigWFHAPI"
-     ]
+    glyphs: ["0123456789", "%.: ", "ConectdigWFHAPI"]
   - file: "gfonts://Orbitron"
     id: font_orbitron_36
     size: 36
     bpp: 4
-    glyphs: [
-     "0123456789",
-     ":"
-     ]
+    glyphs: ["0123456789", ":"]
   - file: "gfonts://Orbitron"
     id: font_orbitron_16
     size: 16
     bpp: 4
-    glyphs: [
-     "0123456789",
-     "- .%°",
-     "SunMoTeWdhFriatCLg"
-     ]
+    glyphs: ["0123456789", "- .%°", "SunMoTeWdhFriatCLg"]
 
 binary_sensor:
   # Button Up
@@ -676,12 +694,12 @@ binary_sensor:
       allow_other_uses: true
       inverted: true
     name: "Button Down"
-    setup_priority: ${peripherals_boot_priority}  
-  # Charging from cable  
+    setup_priority: ${peripherals_boot_priority}
+  # Charging from cable
   - platform: template
     id: is_charging
     name: Charging From Cable
-    lambda: |-      
+    lambda: |-
       return id(battery_voltage_int).has_state() && id(battery_voltage_int).state > ${charging_voltage_threshold_v};
   # True when it is time to go to sleep (no one is in the room or it is between 1 and 8 o'clock)
   - platform: template
@@ -715,8 +733,8 @@ binary_sensor:
                  id(pir_occupancy).state == false)
              );
     on_press:
-      - script.execute: manage_deep_sleep       
-    on_release:      
+      - script.execute: manage_deep_sleep
+    on_release:
       - script.execute: manage_deep_sleep
   # True when sleep mode is enabled (device might be still awake, displays leaf icon on screen)
   - platform: template
@@ -740,9 +758,9 @@ binary_sensor:
   - platform: template
     name: Screen is On
     id: screen_is_on
-    icon: mdi:television    
+    icon: mdi:television
     lambda: return id(backlight).state || id(is_charging).state;
-    entity_category: diagnostic    
+    entity_category: diagnostic
 text_sensor:
   # Current time sensor (to be displayed on screen)
   - platform: template
@@ -752,74 +770,74 @@ text_sensor:
     update_interval: ${clock_time_update_interval}
     lambda: return id(ha_time).now().strftime("%H:%M");
     filters:
-     - lambda: |-
-         static std::string last_time;
-         if (x == last_time)
-           return {};
-         last_time = x;
-         return x;
+      - lambda: |-
+          static std::string last_time;
+          if (x == last_time)
+            return {};
+          last_time = x;
+          return x;
   # Current date sensor (to be displayed on screen)
   - platform: template
     name: "Current Date"
     id: current_date
     internal: true
     update_interval: ${clock_date_update_interval}
-    lambda: return id(ha_time).now().strftime("%Y-%m-%d %a"); 
+    lambda: return id(ha_time).now().strftime("%Y-%m-%d %a");
     filters:
-    - lambda: |-
-        static std::string last_date;
-        if (x == last_date)
-          return {};
-        last_date = x;
-        return x;
+      - lambda: |-
+          static std::string last_date;
+          if (x == last_date)
+            return {};
+          last_date = x;
+          return x;
   # VOC level sensor
   - platform: homeassistant
     id: voc_level
     entity_id: ${air_quality_voc_level_sensor_id}
     internal: true
     filters:
-    - lambda: |-
-        static std::string last_voc_level;
-        if (x == last_voc_level)
-          return {};
-        last_voc_level = x;
-        return x;
+      - lambda: |-
+          static std::string last_voc_level;
+          if (x == last_voc_level)
+            return {};
+          last_voc_level = x;
+          return x;
   # CO2 level sensor
   - platform: homeassistant
     id: co2_level
     entity_id: ${air_quality_co2_level_sensor_id}
     internal: true
     filters:
-    - lambda: |-
-        static std::string last_co2_level;
-        if (x == last_co2_level)
-          return {};
-        last_co2_level = x;
-        return x;
+      - lambda: |-
+          static std::string last_co2_level;
+          if (x == last_co2_level)
+            return {};
+          last_co2_level = x;
+          return x;
   # PPM level sensor
   - platform: homeassistant
     id: ppm_level
     entity_id: ${air_quality_ppm_level_sensor_id}
     internal: true
     filters:
-    - lambda: |-
-        static std::string last_ppm_level;
-        if (x == last_ppm_level)
-          return {};
-        last_ppm_level = x;
-        return x;       
+      - lambda: |-
+          static std::string last_ppm_level;
+          if (x == last_ppm_level)
+            return {};
+          last_ppm_level = x;
+          return x;
   # Person state sensor (to determine deep sleep duration)
   - platform: homeassistant
     id: person_state
     entity_id: ${person_sensor_id}
     internal: true
     filters:
-    - lambda: |-
-        static std::string last_person_state;
-        if (x == last_person_state)
-          return {};
-        last_person_state = x;
-        return x;          
+      - lambda: |-
+          static std::string last_person_state;
+          if (x == last_person_state)
+            return {};
+          last_person_state = x;
+          return x;
 sensor:
   - platform: uptime
     name: "Uptime"
@@ -835,12 +853,12 @@ sensor:
       number: GPIO4
     update_interval: 3sec
     unit_of_measurement: "V"
-    accuracy_decimals: 2    
+    accuracy_decimals: 2
     state_class: measurement
     device_class: voltage
     attenuation: 12db
     internal: true
-    on_value: 
+    on_value:
       then:
         - lambda: |-
             if (!id(uptime_sensor).has_state() || id(uptime_sensor).state < ${battery_voltage_update_uptime_sec_threshold}) {
@@ -848,28 +866,28 @@ sensor:
             }
 
             id(battery_voltage).publish_state(x);
-    filters:      
+    filters:
       - multiply: 2
       # Smooth out noise
       - sliding_window_moving_average:
           window_size: 10
           send_every: 10
       - or:
-        - throttle: 5min
-        - delta: 0.01
+          - throttle: 5min
+          - delta: 0.01
   # Battery voltage sensor (to be displayed on screen and published to Home Assistant)
   - platform: template
     id: battery_voltage
-    name: Battery Voltage   
+    name: Battery Voltage
     # Published by internal battery voltage sensor
     update_interval: never
     unit_of_measurement: "V"
-    accuracy_decimals: 2    
+    accuracy_decimals: 2
     state_class: measurement
-    device_class: voltage  
+    device_class: voltage
   # Battery level sensor (to be displayed on screen and published to Home Assistant)
-  - platform: template        
-    id: battery_level    
+  - platform: template
+    id: battery_level
     name: Battery Charge
     unit_of_measurement: "%"
     accuracy_decimals: 0
@@ -877,31 +895,31 @@ sensor:
     # Published by one of the internal battery level sensors
     update_interval: never
     device_class: battery
-    filters:            
+    filters:
       - lambda: |-
-         if (x > 100) return 100;
-         if (x < 0) return 0;
-         return x;
+          if (x > 100) return 100;
+          if (x < 0) return 0;
+          return x;
   # Internal battery level sensor (not charging)
-  - platform: template    
+  - platform: template
     lambda: |-
       return id(battery_voltage_int).state;
-    id: battery_level_int    
+    id: battery_level_int
     name: Battery Charge
     unit_of_measurement: "%"
     accuracy_decimals: 0
     state_class: measurement
     device_class: battery
     internal: true
-    filters:      
+    filters:
       - calibrate_linear:
-        # Values are determined by trial and error
-        - 3.52 -> 0.0
-        - 4.06 -> 100.0
+          # Values are determined by trial and error
+          - 3.52 -> 0.0
+          - 4.06 -> 100.0
       - or:
-        - throttle: 5min
-        - delta: 1
-    on_value: 
+          - throttle: 5min
+          - delta: 1
+    on_value:
       then:
         - lambda: |-
             if (!id(uptime_sensor).has_state() || id(uptime_sensor).state < ${battery_voltage_update_uptime_sec_threshold}) {
@@ -911,9 +929,9 @@ sensor:
             if (id(is_charging).state == false) {
               id(battery_level).publish_state(x);
             }
-            
+
   # Internal battery level sensor (charging)
-  - platform: template    
+  - platform: template
     lambda: |-
       return id(battery_voltage_int).state;
     id: battery_level_int_charging
@@ -923,15 +941,15 @@ sensor:
     state_class: measurement
     device_class: battery
     internal: true
-    filters:     
+    filters:
       # Values are determined by trial and error
       - calibrate_linear:
-        - 4.63 -> 0.0
-        - 4.83 -> 100.0
+          - 4.63 -> 0.0
+          - 4.83 -> 100.0
       - or:
-        - throttle: 5min
-        - delta: 1
-    on_value: 
+          - throttle: 5min
+          - delta: 1
+    on_value:
       then:
         - lambda: |-
             if (!id(uptime_sensor).has_state() || id(uptime_sensor).state < ${battery_voltage_update_uptime_sec_threshold}) {
@@ -948,10 +966,10 @@ sensor:
     update_interval: 60s
     entity_category: "diagnostic"
     unit_of_measurement: dBm
-    filters: 
+    filters:
       - or:
-        - throttle: 5min
-        - delta: 1
+          - throttle: 5min
+          - delta: 1
   # WiFi signal strength/RSSI sensor (percentage)
   - platform: copy
     source_id: wifi_signal_db
@@ -960,11 +978,11 @@ sensor:
     unit_of_measurement: "%"
     entity_category: "diagnostic"
     device_class: ""
-    filters: 
+    filters:
       - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
       - or:
-        - throttle: 5min
-        - delta: 1
+          - throttle: 5min
+          - delta: 1
   # Temperature sensor
   - platform: homeassistant
     id: room_temperature
@@ -973,8 +991,8 @@ sensor:
     internal: true
     filters:
       - or:
-        - throttle: 5min
-        - delta: 0.1     
+          - throttle: 5min
+          - delta: 0.1
   # Humidity sensor
   - platform: homeassistant
     id: room_humidity
@@ -983,8 +1001,8 @@ sensor:
     internal: true
     filters:
       - or:
-        - throttle: 5min
-        - delta: 1
+          - throttle: 5min
+          - delta: 1
   # Hausmull next collection sensor
   - platform: homeassistant
     id: hausmull
@@ -994,8 +1012,8 @@ sensor:
     internal: true
     filters:
       - or:
-        - throttle: 600min
-        - delta: 1
+          - throttle: 600min
+          - delta: 1
   # Biomull next collection sensor
   - platform: homeassistant
     id: biomull
@@ -1005,8 +1023,8 @@ sensor:
     internal: true
     filters:
       - or:
-        - throttle: 600min
-        - delta: 1
+          - throttle: 600min
+          - delta: 1
   # Papier next collection sensor
   - platform: homeassistant
     id: papier
@@ -1016,8 +1034,8 @@ sensor:
     internal: true
     filters:
       - or:
-        - throttle: 600min
-        - delta: 1
+          - throttle: 600min
+          - delta: 1
   # Gelbe Tonne next collection sensor
   - platform: homeassistant
     id: gelbe_tonne
@@ -1027,8 +1045,8 @@ sensor:
     internal: true
     filters:
       - or:
-        - throttle: 600min
-        - delta: 1
+          - throttle: 600min
+          - delta: 1
   # Pir occupancy last changed seconds sensor
   # This sensor is used to determine if device should go to sleep when no one is in the room
   - platform: homeassistant
@@ -1038,9 +1056,9 @@ sensor:
     internal: true
     filters:
       - or:
-        - throttle: 5min
-        - delta: 10
-  # Wakeup cause sensor  
+          - throttle: 5min
+          - delta: 10
+  # Wakeup cause sensor
   - platform: template
     name: "Wakeup Cause"
     id: wakeup_cause
@@ -1049,11 +1067,11 @@ sensor:
     entity_category: diagnostic
     filters:
       - or:
-        - throttle: 5min
-        - delta: 1
+          - throttle: 5min
+          - delta: 1
 switch:
   # Backlight switch
-  - platform: gpio    
+  - platform: gpio
     pin:
       number: GPIO15
       mode:
@@ -1101,22 +1119,22 @@ script:
       - if:
           condition:
             binary_sensor.is_on: is_deep_sleep_time
-          then:        
-            - lambda: id(sleep_mode_enabled) = true;      
-            - logger.log: "initiating sleep mode"            
+          then:
+            - lambda: id(sleep_mode_enabled) = true;
+            - logger.log: "initiating sleep mode"
             - if:
                 condition:
-                   lambda: return id(wakeup_cause).state != ESP_SLEEP_WAKEUP_TIMER;                  
-                then:                  
+                  lambda: return id(wakeup_cause).state != ESP_SLEEP_WAKEUP_TIMER;
+                then:
                   - logger.log: "device will go in deep sleep in ${deepsleep_delay} if conditions still met"
                   # Wait for 60 seconds when wakeup cause is not timer (e.g. button press)
                   - delay: ${deepsleep_delay}
-                else: 
-                   - logger.log: "device will go in deep sleep now if conditions still met"
+                else:
+                  - logger.log: "device will go in deep sleep now if conditions still met"
             - if:
                 condition:
                   binary_sensor.is_on: is_deep_sleep_time
-                then:            
+                then:
                   # Set sleep duration
                   - script.execute: set_sleep_duration
                   # Publish nessesary states
@@ -1125,16 +1143,16 @@ script:
                   - switch.turn_off: backlight
                   - lambda: |-
                       id(screen_is_on).publish_state(false);
-                  - logger.log: "entering deep sleep"            
+                  - logger.log: "entering deep sleep"
                   # Enter deep sleep
                   - deep_sleep.enter:
                       id: deep_sleep_1
                 else:
                   - deep_sleep.prevent:
                       id: deep_sleep_1
-                  - lambda: id(sleep_mode_enabled) = false;            
-                  - logger.log: "sleeping conditions are not met anymore, sleep has been cancelled"           
-          else:  
+                  - lambda: id(sleep_mode_enabled) = false;
+                  - logger.log: "sleeping conditions are not met anymore, sleep has been cancelled"
+          else:
             # Prevent deep sleep
             - deep_sleep.prevent:
                 id: deep_sleep_1
@@ -1144,106 +1162,106 @@ script:
   - id: set_sleep_duration
     then:
       - lambda: |-
-                // auto now = id(ha_time).now();
-                // auto target_time = now;
+          // auto now = id(ha_time).now();
+          // auto target_time = now;
 
-                // // Set target time to 08:00:00 using ESPTime's members.
-                // target_time.hour = 8;
-                // target_time.minute = 0;
-                // target_time.second = 0;
+          // // Set target time to 08:00:00 using ESPTime's members.
+          // target_time.hour = 8;
+          // target_time.minute = 0;
+          // target_time.second = 0;
 
-                // // Recalculate the timestamp for the modified ESPTime object.
-                // target_time.recalc_timestamp_local();  // or recalc_timestamp_utc() based on your requirements.
+          // // Recalculate the timestamp for the modified ESPTime object.
+          // target_time.recalc_timestamp_local();  // or recalc_timestamp_utc() based on your requirements.
 
-                // // If the target time today has already passed, add a day.
-                // if (now.timestamp >= target_time.timestamp) {
-                //   const time_t one_day_sec = 3600 * 24;
-                //   target_time.timestamp += one_day_sec;
-                // }
+          // // If the target time today has already passed, add a day.
+          // if (now.timestamp >= target_time.timestamp) {
+          //   const time_t one_day_sec = 3600 * 24;
+          //   target_time.timestamp += one_day_sec;
+          // }
 
-                // // Calculate sleep duration in milliseconds.
-                // uint32_t sleep_duration = (target_time.timestamp - now.timestamp) * 1000;
-                // ESP_LOGD("sleep", "Estimated sleep duration: %d", sleep_duration);
+          // // Calculate sleep duration in milliseconds.
+          // uint32_t sleep_duration = (target_time.timestamp - now.timestamp) * 1000;
+          // ESP_LOGD("sleep", "Estimated sleep duration: %d", sleep_duration);
 
-                // // Set the sleep duration for deep sleep.
-                // id(deep_sleep_1).set_sleep_duration(sleep_duration);
-                
-                // default sleep duration is five minutes
-                uint32_t sleep_duration = ${deepsleep_default_duration_ms};
+          // // Set the sleep duration for deep sleep.
+          // id(deep_sleep_1).set_sleep_duration(sleep_duration);
 
-                // if not occupied for thirty minutes
-                if (id(pir_occupancy_last_changed_seconds).state >= ${deepsleep_step_1_threshold_sec}) {
-                  sleep_duration = ${deepsleep_step_1_duration_ms};
-                }
+          // default sleep duration is five minutes
+          uint32_t sleep_duration = ${deepsleep_default_duration_ms};
 
-                // if not occupied for one hour
-                if (id(pir_occupancy_last_changed_seconds).state >= ${deepsleep_step_2_threshold_sec}) {
-                  sleep_duration = ${deepsleep_step_2_duration_ms};
-                }
+          // if not occupied for thirty minutes
+          if (id(pir_occupancy_last_changed_seconds).state >= ${deepsleep_step_1_threshold_sec}) {
+            sleep_duration = ${deepsleep_step_1_duration_ms};
+          }
 
-                // if not occupied for two hours
-                if (id(pir_occupancy_last_changed_seconds).state >= ${deepsleep_step_3_threshold_sec}) {
-                  sleep_duration = ${deepsleep_step_3_duration_ms};
-                }
+          // if not occupied for one hour
+          if (id(pir_occupancy_last_changed_seconds).state >= ${deepsleep_step_2_threshold_sec}) {
+            sleep_duration = ${deepsleep_step_2_duration_ms};
+          }
 
-                // if not occupied for four hours
-                if (
-                  id(pir_occupancy_last_changed_seconds).state >= ${deepsleep_step_4_threshold_sec}
-                  || id(person_state).state != "home"
-                  ) 
-                {
-                  sleep_duration = ${deepsleep_step_4_duration_ms};
-                }
+          // if not occupied for two hours
+          if (id(pir_occupancy_last_changed_seconds).state >= ${deepsleep_step_3_threshold_sec}) {
+            sleep_duration = ${deepsleep_step_3_duration_ms};
+          }
 
-                // If night sleep calculate overnight sleep duration instead
-                if (id(ha_time).now().hour >= ${deepsleep_night_sleep_start_hour} && id(ha_time).now().hour <= ${deepsleep_night_sleep_end_hour}) {
-                  // Get the current time from ha_time
-                  auto now = id(ha_time).now();
+          // if not occupied for four hours
+          if (
+            id(pir_occupancy_last_changed_seconds).state >= ${deepsleep_step_4_threshold_sec}
+            || id(person_state).state != "home"
+            ) 
+          {
+            sleep_duration = ${deepsleep_step_4_duration_ms};
+          }
 
-                  // Convert the ESPTime 'now' to a standard C tm structure.
-                  struct tm target_tm = now.to_c_tm();
-                
-                  // Update the target time to 08:00:00.
-                  target_tm.tm_hour = 8;
-                  target_tm.tm_min  = 0;
-                  target_tm.tm_sec  = 0;
+          // If night sleep calculate overnight sleep duration instead
+          if (id(ha_time).now().hour >= ${deepsleep_night_sleep_start_hour} && id(ha_time).now().hour <= ${deepsleep_night_sleep_end_hour}) {
+            // Get the current time from ha_time
+            auto now = id(ha_time).now();
 
-                  // Compute a new timestamp from the adjusted tm.
-                  time_t target_timestamp = mktime(&target_tm);
+            // Convert the ESPTime 'now' to a standard C tm structure.
+            struct tm target_tm = now.to_c_tm();
 
-                  // If today's target time has passed, add one day (86400 seconds).
-                  if (now.timestamp >= target_timestamp) {
-                    const time_t one_day_sec = 3600 * 24;
-                    target_timestamp += one_day_sec;
-                  }
+            // Update the target time to 08:00:00.
+            target_tm.tm_hour = 8;
+            target_tm.tm_min  = 0;
+            target_tm.tm_sec  = 0;
 
-                  // Calculate sleep duration in milliseconds.
-                  sleep_duration = (target_timestamp - now.timestamp) * 1000;
+            // Compute a new timestamp from the adjusted tm.
+            time_t target_timestamp = mktime(&target_tm);
 
-                  auto max_sleep_duration_ms = ${deepsleep_max_duration_ms};
+            // If today's target time has passed, add one day (86400 seconds).
+            if (now.timestamp >= target_timestamp) {
+              const time_t one_day_sec = 3600 * 24;
+              target_timestamp += one_day_sec;
+            }
 
-                  // limit sleep duration to one hour to avoid waking up issues
-                  if (sleep_duration > max_sleep_duration_ms) {
-                    sleep_duration = max_sleep_duration_ms;
-                  }
-                }
+            // Calculate sleep duration in milliseconds.
+            sleep_duration = (target_timestamp - now.timestamp) * 1000;
 
-                ESP_LOGD("sleep", "Estimated sleep duration: %d", sleep_duration);
+            auto max_sleep_duration_ms = ${deepsleep_max_duration_ms};
 
-                // Set the sleep duration.
-                id(deep_sleep_1).set_sleep_duration(sleep_duration);
-    
+            // limit sleep duration to deepsleep_max_duration_ms to avoid waking up issues
+            if (sleep_duration > max_sleep_duration_ms) {
+              sleep_duration = max_sleep_duration_ms;
+            }
+          }
+
+          ESP_LOGD("sleep", "Estimated sleep duration: %d", sleep_duration);
+
+          // Set the sleep duration.
+          id(deep_sleep_1).set_sleep_duration(sleep_duration);
+
 interval:
   - interval: 300ms
     setup_priority: ${interval_priority}
     id: loading_anim
     then:
-      # Update loading animation 
-      - if: 
+      # Update loading animation
+      - if:
           condition:
             # Update loading animation if device is loading and sleep mode is disabled or wakeup cause is not timer
             lambda: return id(is_loading) && (id(sleep_mode_enabled) == false || id(wakeup_cause).state != ESP_SLEEP_WAKEUP_TIMER);
-          then:                      
+          then:
             - lambda: |-
                 id(loading_anim_frame) = (id(loading_anim_frame) + 1) % 4;
             - component.update: disp
@@ -1257,32 +1275,30 @@ interval:
       - wait_until:
           lambda: |-
             return id(wakeup_cause).has_state();
-      # ================================================================
-      - if: 
+      - if:
           condition:
             lambda: return id(sleep_mode_enabled) == false || id(wakeup_cause).state != ESP_SLEEP_WAKEUP_TIMER;
-          then:        
+          then:
             # Turn on backlight if it is off after wakeup from deep sleep
             - if:
                 condition:
                   lambda: return id(backlight).state != id(backlight_on_bat).state;
                 then:
                   - switch.toggle:
-                      id: backlight       
+                      id: backlight
             # Update display if device is charging
             - if:
                 condition:
                   lambda: return id(is_charging).state && !id(is_loading);
-                then: 
+                then:
                   - component.update: disp
-  - interval: 5s    
+  - interval: 5s
     setup_priority: ${interval_priority}
     id: battery_update
     then:
       # Update display if device is not charging (on battery)
-      - if: 
+      - if:
           condition:
             lambda: return !id(is_charging).state && !id(is_loading) && (id(sleep_mode_enabled) == false || id(wakeup_cause).state != ESP_SLEEP_WAKEUP_TIMER);
-          then:                        
+          then:
             - component.update: disp
-    
