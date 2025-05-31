@@ -12,7 +12,7 @@ This repository contains a collection of ESPHome YAML configurations for various
   - [Air Quality Sensor 1](#air-quality-sensor-1)
   - [Bluetooth Proxy](#bluetooth-proxy)
   - [Info Screen](#info-screen)
-  - [Soil Sensor (Tuya)](#soil-sensor-tuya)
+  - [Soil Sensor](#soil-sensor)
 - [Secrets & Sensitive Data](#secrets--sensitive-data)
 - [Credits & Inspirations](#credits--inspirations)
 - [License](#license)
