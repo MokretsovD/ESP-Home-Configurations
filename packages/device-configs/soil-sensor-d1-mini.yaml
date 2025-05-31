@@ -1,0 +1,178 @@
+---
+substitutions:
+  deep_sleep_duration: 45min
+  deepsleep_delay: 2min
+  boot_script_priority: "-100"
+  ota_mode_delay: 10min
+
+esphome:
+  name: soil-sensor-tuyas
+  friendly_name: soil-sensor-tuyas
+  on_boot:
+    - priority: ${boot_script_priority}
+      # publish required states on boot
+      then:
+        - script.execute: manage_deep_sleep
+  on_shutdown:
+    priority: -10
+    then:
+      - delay: 1s
+
+esp8266:
+  board: d1_mini
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: ${esp_api_encryption_key}
+
+ota:
+  - platform: esphome
+    password: ${esp_ota_password}
+
+packages:
+  wifi: !include ../wifi.yaml
+
+wifi:
+  fast_connect: true
+
+captive_portal:
+
+debug:
+
+binary_sensor:
+  - platform: template
+    name: In Deep Sleep
+    id: in_deep_sleep
+    icon: mdi:sleep
+    entity_category: diagnostic
+    disabled_by_default: true
+  - platform: homeassistant
+    name: OTA Mode
+    id: ota_mode
+    entity_id: ${ota_update_entity_id}
+    entity_category: diagnostic
+    device_class: "update"
+    on_press:
+      - script.stop: manage_deep_sleep
+      - script.execute: manage_deep_sleep
+    on_release:
+      - script.stop: manage_deep_sleep
+      - script.execute: manage_deep_sleep
+
+text_sensor:
+  - platform: debug
+    reset_reason:
+      id: reset_reason
+      name: "Reset Reason"
+      entity_category: diagnostic
+
+sensor:
+  - platform: adc
+    pin: GPIO17 # A0
+    name: "Soil Sensor Voltage"
+    id: soil_sensor_voltage
+    update_interval: 500ms
+    unit_of_measurement: "V"
+    accuracy_decimals: 2
+    state_class: measurement
+    entity_category: "diagnostic"
+    device_class: voltage
+    filters:
+      - multiply: 2
+      # Smooth out noise
+      - sliding_window_moving_average:
+          window_size: 5
+          send_every: 5
+      - or:
+          - throttle: 5min
+          - delta: 0.01
+  - platform: template
+    id: soil_moisture
+    name: "Soil Moisture"
+    lambda: |-
+      return id(soil_sensor_voltage).state;
+    unit_of_measurement: "%"
+    device_class: moisture
+    accuracy_decimals: 0
+    filters:
+      - calibrate_linear:
+          - ${zero_calibration_voltage} -> 100.00
+          - ${full_calibration_voltage} -> 0.00
+      - lambda: return max(min(x, 100.0f), 0.0f);
+      - or:
+          - throttle: 5min
+          - delta: 1
+  # WiFi signal strength/RSSI sensor (dB)
+  - platform: wifi_signal
+    name: "RSSI"
+    id: wifi_signal_db
+    update_interval: 30s
+    entity_category: "diagnostic"
+    disabled_by_default: true
+    unit_of_measurement: dBm
+    filters:
+      - or:
+          - throttle: 5min
+          - delta: 1
+  # WiFi signal strength/RSSI sensor (percentage)
+  - platform: copy
+    source_id: wifi_signal_db
+    id: wifi_signal_proc
+    name: "WiFi Strength"
+    unit_of_measurement: "%"
+    entity_category: "diagnostic"
+    device_class: ""
+    filters:
+      - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
+      - or:
+          - throttle: 5min
+          - delta: 1
+
+deep_sleep:
+  id: deep_sleep_1
+  sleep_duration: ${deep_sleep_duration}
+
+#Script to manage deep sleep
+script:
+  - id: manage_deep_sleep
+    then:
+      - wait_until:
+          condition:
+            and:
+              - wifi.connected:
+              - api.connected:
+          timeout: 30s
+      - lambda: |-
+          id(in_deep_sleep).publish_state(false);
+      - wait_until:
+          lambda: |-
+            return id(soil_moisture).has_state();
+      - wait_until:
+          condition:
+            lambda: |-
+              return id(ota_mode).has_state();
+          timeout: 10s
+      - if:
+          condition:
+            lambda: return id(reset_reason).state != "Deep-Sleep Wake";
+          then:
+            - logger.log: "device will go in deep sleep in ${deepsleep_delay}"
+            # Wait for ${deepsleep_delay} seconds when wakeup cause is not timer (e.g. button press or manual reset)
+            - delay: ${deepsleep_delay}
+      - if:
+          condition:
+            lambda: |-
+              return id(ota_mode).state;
+          then:
+            - logger.log: "OTA mode is enabled, device will wait for ${ota_mode_delay} before going in deep sleep"
+            - delay: ${ota_mode_delay}
+          else:
+            - delay: 500ms
+            - logger.log: "measurements completed, device will go in deep sleep now"
+      - lambda: |-
+          id(in_deep_sleep).publish_state(true);
+      - deep_sleep.enter: deep_sleep_1
