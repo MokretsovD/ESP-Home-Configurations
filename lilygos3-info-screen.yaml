@@ -139,6 +139,9 @@ api:
           condition:
             lambda: return id(is_loading);
           then:
+            # Wait for WiFi signal to be available
+            - wait_until:
+                lambda: return id(wifi_signal_db).has_state();
             # Hold loading animation for one more second
             - delay: ${loading_anim_duration}
             # Set loading animation to false
@@ -338,36 +341,26 @@ display:
       };
 
       auto render_wifi_indicator = [](display::Display &it) {
-        if (!id(wifi_signal_db).has_state()) {
+        if (!id(wifi_signal_db).has_state() || id(wifi_status) == 0) {
+          it.image(3, 2, id(wifi_strength_alert_icon), id(color_red));
           return;
         }                
-        // Render Outer Shells
-        it.rectangle(3,17,5,5,id(color_white));
-        it.rectangle(10,12,5,10,id(color_white));
-        it.rectangle(16,7,5,15,id(color_white));
-        it.rectangle(22,2,5,20,id(color_white));
         
-        // Determine color and number of inner indicators
-        int signal_quart = ceil(id(wifi_signal_proc).state / 25);
-        auto wifi_sign_cl = id(color_green);
-         switch(signal_quart){
-          case 0:
-          case 1: wifi_sign_cl = id(color_red); break;
-          case 2: wifi_sign_cl = id(color_gold); break;
-        }
-         // Render inner indicators
-        if (signal_quart > 0) {
-          it.filled_rectangle(4,18,3,3,wifi_sign_cl);
-        }
-         if (signal_quart > 1) {
-          it.filled_rectangle(11,13,3,8,wifi_sign_cl);
-        }
-         if (signal_quart > 2) {
-          it.filled_rectangle(17,8,3,13,wifi_sign_cl);
-        }
-         if (signal_quart > 3) {
-          it.filled_rectangle(23,3,3,18,wifi_sign_cl);
-        }                
+        // Determine color and icon
+        int signal_quart = id(wifi_signal_quart).state;
+      
+        // Render inner indicators
+        if (signal_quart > 3) {
+          it.image(3, 2, id(wifi_strength_4_icon), id(color_green));
+        } else if (signal_quart > 2) {
+          it.image(3, 2, id(wifi_strength_3_icon), id(color_green));
+        } else if (signal_quart > 1) {
+          it.image(3, 2, id(wifi_strength_2_icon), id(color_gold));
+        } else if (signal_quart > 0) {
+          it.image(3, 2, id(wifi_strength_1_icon), id(color_red));
+        } else if (signal_quart == 0) {
+          it.image(3, 2, id(wifi_strength_outline_icon), id(color_red));
+        }      
       };
 
       auto render_ha_api_indicator = [](display::Display &it) {
@@ -378,11 +371,11 @@ display:
           ha_api_state_col = id(color_red);
         }
 
-        it.image(35, 2, id(ha_api_icon), ha_api_state_col);
+        it.image(30, 2, id(ha_api_icon), ha_api_state_col);
       };
 
       auto render_energy_saving_mode = [](display::Display &it) {      
-        it.image(62, 2, id(energy_saving_icon), id(color_green));
+        it.image(58, 2, id(energy_saving_icon), id(color_green));
       };
 
       auto render_pir_occupancy = [](display::Display &it) {
@@ -406,7 +399,7 @@ display:
           icon = id(walk_icon);
         } 
 
-        it.image(62, 2, icon, Color(r_c, g_c, b_c));
+        it.image(58, 2, icon, Color(r_c, g_c, b_c));
       };
 
       auto render_temperature = [](display::Display &it) {
@@ -658,6 +651,37 @@ image:
     type: grayscale
     transparency: alpha_channel
     resize: 22x22
+  - file: mdi:wifi-strength-alert-outline
+    id: wifi_strength_alert_icon
+    type: grayscale
+    transparency: alpha_channel
+    resize: 22x22
+  - file: mdi:wifi-strength-outline
+    id: wifi_strength_outline_icon
+    type: grayscale
+    transparency: alpha_channel
+    resize: 22x22
+  - file: mdi:wifi-strength-4
+    id: wifi_strength_4_icon
+    type: grayscale
+    transparency: alpha_channel
+    resize: 22x22
+  - file: mdi:wifi-strength-3
+    id: wifi_strength_3_icon
+    type: grayscale
+    transparency: alpha_channel
+    resize: 22x22
+  - file: mdi:wifi-strength-2
+    id: wifi_strength_2_icon
+    type: grayscale
+    transparency: alpha_channel
+    resize: 22x22
+  - file: mdi:wifi-strength-1
+    id: wifi_strength_1_icon
+    type: grayscale
+    transparency: alpha_channel
+    resize: 22x22
+
 font:
   - file: "gfonts://Roboto"
     id: font_roboto_16
@@ -983,6 +1007,18 @@ sensor:
       - or:
           - throttle: 5min
           - delta: 1
+  # WiFi signal quartile sensor (for display logic)
+  - platform: copy
+    source_id: wifi_signal_proc
+    id: wifi_signal_quart
+    name: "WiFi Signal Quartile"
+    unit_of_measurement: "quartile"
+    accuracy_decimals: 0
+    internal: true
+  #  update_interval: 60s  
+    filters:
+      - lambda: return ceil(x / 25.0);
+      - delta: 1
   # Temperature sensor
   - platform: homeassistant
     id: room_temperature
