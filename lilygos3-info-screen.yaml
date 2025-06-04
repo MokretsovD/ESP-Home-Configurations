@@ -28,9 +28,13 @@ substitutions:
 
   # battery
   charging_voltage_threshold_v: "4.3"
-  battery_voltage_update_uptime_sec_threshold: "60"
   battery_threshold_yellow: "50"
   battery_threshold_red: "10"
+  # Battery calibration values
+  battery_level_int_min_v: "3.52"
+  battery_level_int_max_v: "4.06"
+  battery_level_int_charging_min_v: "4.63"
+  battery_level_int_charging_max_v: "4.83"
 
   # occupancy
   occupancy_step_1_threshold_sec: "60 * 2" # two minutes
@@ -348,7 +352,7 @@ display:
         
         // Determine color and icon
         int signal_quart = id(wifi_signal_quart).state;
-      
+
         // Render inner indicators
         if (signal_quart > 3) {
           it.image(3, 2, id(wifi_strength_4_icon), id(color_green));
@@ -698,6 +702,12 @@ font:
     bpp: 4
     glyphs: ["0123456789", "- .%°", "SunMoTeWdhFriatCLg"]
 
+button:
+  - platform: factory_reset
+    name: Restart with Factory Default Settings
+    id: lilygos3_info_screen_factory_reset
+    entity_category: "diagnostic"
+
 binary_sensor:
   # Button Up
   - platform: gpio
@@ -875,7 +885,7 @@ sensor:
     name: Battery Voltage
     pin:
       number: GPIO4
-    update_interval: 3sec
+    update_interval: 2sec
     unit_of_measurement: "V"
     accuracy_decimals: 2
     state_class: measurement
@@ -885,17 +895,14 @@ sensor:
     on_value:
       then:
         - lambda: |-
-            if (!id(uptime_sensor).has_state() || id(uptime_sensor).state < ${battery_voltage_update_uptime_sec_threshold}) {
-              return;
-            }
-
             id(battery_voltage).publish_state(x);
     filters:
+      - skip_initial: 20
       - multiply: 2
       # Smooth out noise
       - sliding_window_moving_average:
-          window_size: 10
-          send_every: 10
+          window_size: 6
+          send_every: 3
       - or:
           - throttle: 5min
           - delta: 0.01
@@ -920,14 +927,12 @@ sensor:
     update_interval: never
     device_class: battery
     filters:
-      - lambda: |-
-          if (x > 100) return 100;
-          if (x < 0) return 0;
-          return x;
+      - clamp:
+          min_value: 0
+          max_value: 100
   # Internal battery level sensor (not charging)
-  - platform: template
-    lambda: |-
-      return id(battery_voltage_int).state;
+  - platform: copy
+    source_id: battery_voltage_int
     id: battery_level_int
     name: Battery Charge
     unit_of_measurement: "%"
@@ -936,28 +941,23 @@ sensor:
     device_class: battery
     internal: true
     filters:
+      - skip_initial: 1
       - calibrate_linear:
-          # Values are determined by trial and error
-          - 3.52 -> 0.0
-          - 4.06 -> 100.0
+          - ${battery_level_int_min_v} -> 0.0
+          - ${battery_level_int_max_v} -> 100.0
       - or:
           - throttle: 5min
           - delta: 1
     on_value:
       then:
         - lambda: |-
-            if (!id(uptime_sensor).has_state() || id(uptime_sensor).state < ${battery_voltage_update_uptime_sec_threshold}) {
-              return;
-            }
-
             if (id(is_charging).state == false) {
               id(battery_level).publish_state(x);
             }
 
   # Internal battery level sensor (charging)
-  - platform: template
-    lambda: |-
-      return id(battery_voltage_int).state;
+  - platform: copy
+    source_id: battery_voltage_int
     id: battery_level_int_charging
     name: Battery Charging Percentage
     unit_of_measurement: "%"
@@ -966,21 +966,18 @@ sensor:
     device_class: battery
     internal: true
     filters:
+      - skip_initial: 1
       # Values are determined by trial and error
       - calibrate_linear:
-          - 4.63 -> 0.0
-          - 4.83 -> 100.0
+          - ${battery_level_int_charging_min_v} -> 0.0
+          - ${battery_level_int_charging_max_v} -> 100.0
       - or:
           - throttle: 5min
           - delta: 1
     on_value:
       then:
         - lambda: |-
-            if (!id(uptime_sensor).has_state() || id(uptime_sensor).state < ${battery_voltage_update_uptime_sec_threshold}) {
-              return;
-            }
-
-            if (id(is_charging).state == true) {
+            if (id(is_charging).state == true ) {
               id(battery_level).publish_state(x);
             }
   # WiFi signal strength/RSSI sensor (dB)
@@ -1015,7 +1012,7 @@ sensor:
     unit_of_measurement: "quartile"
     accuracy_decimals: 0
     internal: true
-  #  update_interval: 60s  
+    #  update_interval: 60s
     filters:
       - lambda: return ceil(x / 25.0);
       - delta: 1
