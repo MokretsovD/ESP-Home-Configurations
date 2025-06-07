@@ -30,6 +30,7 @@ substitutions:
   charging_voltage_threshold_v: "4.3"
   battery_threshold_yellow: "50"
   battery_threshold_red: "10"
+  battery_voltage_spike_threshold_v: "0.1"
   # Battery calibration values
   battery_level_int_min_v: "3.52"
   battery_level_int_max_v: "4.06"
@@ -206,6 +207,10 @@ globals:
   # Loading animation frame
   - id: loading_anim_frame
     type: int
+    restore_value: false
+    initial_value: "0"
+  - id: last_battery_voltage
+    type: float
     restore_value: false
     initial_value: "0"
 
@@ -903,6 +908,19 @@ sensor:
       - sliding_window_moving_average:
           window_size: 6
           send_every: 3
+      - lambda: |-
+          if (x >= ${charging_voltage_threshold_v} && x < ${battery_level_int_charging_min_v}) {
+            return {};
+          }
+
+          bool is_voltage_spike = abs(x - id(last_battery_voltage)) > ${battery_voltage_spike_threshold_v};
+          id(last_battery_voltage) = x;
+
+          if (is_voltage_spike) {
+            return {};
+          }
+
+          return x;
       - or:
           - throttle: 5min
           - delta: 0.01
