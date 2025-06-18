@@ -1,0 +1,183 @@
+substitutions:
+  name: garden-watering-controller
+  friendly_name: garden-watering-controller
+  device_static_ip: !secret garden_watering_controller_wifi_manual_ip_static_ip
+  device_ap_ssid: !secret garden_watering_controller_wifi_ap_ssid
+  device_ap_password: !secret garden_watering_controller_wifi_ap_password
+  wifi_ssid: !secret wifi_ssid
+  wifi_password: !secret wifi_password
+  wifi_manual_ip_gateway: !secret wifi_manual_ip_gateway
+  wifi_manual_ip_subnet: !secret wifi_manual_ip_subnet
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret garden_watering_controller_esp_api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret garden_watering_controller_esp_ota_password
+
+packages:
+  wifi: !include packages/wifi.yaml
+
+captive_portal:
+
+web_server:
+
+i2c:
+  sda: 21
+  scl: 22
+  scan: True
+
+xl9535:
+  - id: xl9535_hub
+    address: 0x20
+
+switch:
+  - platform: gpio
+    id: a0
+    name: XL9535 A0
+    pin:
+      xl9535: xl9535_hub
+      number: 0
+      mode:
+        output: true
+      inverted: false
+  - platform: gpio
+    name: XL9535 A1
+    pin:
+      xl9535: xl9535_hub
+      number: 1
+      mode:
+        output: true
+      inverted: false
+  - platform: gpio
+    name: XL9535 A2
+    pin:
+      xl9535: xl9535_hub
+      number: 2
+      mode:
+        output: true
+      inverted: false
+  - platform: gpio
+    name: XL9535 A3
+    pin:
+      xl9535: xl9535_hub
+      number: 3
+      mode:
+        output: true
+      inverted: false
+  - platform: gpio
+    name: XL9535 A4
+    pin:
+      xl9535: xl9535_hub
+      number: 4
+      mode:
+        output: true
+      inverted: false
+  - platform: gpio
+    name: XL9535 A5
+    pin:
+      xl9535: xl9535_hub
+      number: 5
+      mode:
+        output: true
+      inverted: false
+  - platform: gpio
+    name: XL9535 A6
+    pin:
+      xl9535: xl9535_hub
+      number: 6
+      mode:
+        output: true
+      inverted: false
+  - platform: gpio
+    name: XL9535 A7
+    pin:
+      xl9535: xl9535_hub
+      number: 7
+      mode:
+        output: true
+      inverted: false
+sensor:
+  - platform: internal_temperature
+    name: "Internal Temperature"
+    entity_category: diagnostic
+    disabled_by_default: true
+  - platform: uptime
+    name: "Uptime"
+    id: uptime_sensor
+    update_interval: 10s
+    entity_category: diagnostic
+    disabled_by_default: true
+  - platform: wifi_signal
+    name: "RSSI"
+    id: wifi_signal_db
+    update_interval: 60s
+    entity_category: "diagnostic"
+    unit_of_measurement: dBm
+    filters:
+      - or:
+          - throttle: 5min
+          - delta: 1
+    disabled_by_default: true
+  # WiFi signal strength/RSSI sensor (percentage)
+  - platform: copy
+    source_id: wifi_signal_db
+    id: wifi_signal_proc
+    name: "WiFi Strength"
+    unit_of_measurement: "%"
+    entity_category: "diagnostic"
+    disabled_by_default: false
+    device_class: ""    
+    filters:
+      - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
+      - or:
+          - throttle: 5min
+          - delta: 1
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO27
+      inverted: False
+      mode:
+        input: true
+        pullup: true
+    name: Pump Switch
+    internal: False
+    disabled_by_default: false
+    id: pump_switch
+    filters:
+      - delayed_on: 100ms
+      - delayed_off: 100ms
+    # on_click:
+    #   then:
+    #     - if:
+    #         condition:           
+    #           - lambda: |-
+    #               return id(uptime_sensor).has_state() && id(uptime_sensor).state > 10;
+    #         then:
+    #           - switch.toggle: a0
+    #           - logger.log: "Toggled relay A0 (Main pump)"
+    #         else:
+    #           - logger.log: "Pump switch has not been activated yet, please try again in a few seconds..."
+    on_state:      
+      - lambda: |-
+          if (!id(uptime_sensor).has_state() || id(uptime_sensor).state < 10) {
+             ESP_LOGD("physical_switch", "Switch has not been activated yet, please try again in a few seconds...");
+             return;
+          }
+
+          id(a0).toggle();        
