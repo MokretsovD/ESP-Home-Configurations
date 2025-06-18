@@ -163,17 +163,6 @@ binary_sensor:
     filters:
       - delayed_on: 100ms
       - delayed_off: 100ms
-    # on_click:
-    #   then:
-    #     - if:
-    #         condition:
-    #           - lambda: |-
-    #               return id(uptime_sensor).has_state() && id(uptime_sensor).state > 10;
-    #         then:
-    #           - switch.toggle: a0
-    #           - logger.log: "Toggled relay A0 (Main pump)"
-    #         else:
-    #           - logger.log: "Pump switch has not been activated yet, please try again in a few seconds..."
     on_state:
       - lambda: |-
           if (!id(uptime_sensor).has_state() || id(uptime_sensor).state < 10) {
