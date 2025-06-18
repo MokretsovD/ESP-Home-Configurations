@@ -62,48 +62,91 @@ sensor:
   - platform: ads1115
     multiplexer: 'A0_GND'
     gain: 4.096
-    name: "Wasserstand Regenreservoir"
+    name: Sensor Spannung
+    id: sensor_voltage
+    update_interval: 1s
+    device_class: voltage
+    unit_of_measurement: V
+    accuracy_decimals: 3
+    entity_category: diagnostic
+    disabled_by_default: true
+# Messwerte glätten:
+    filters:
+      - sliding_window_moving_average:          
+          window_size: 30
+          send_every: 10
+          send_first_at: 10
+  - platform: copy
     id: levelraw
-    update_interval: 2s
+    source_id: sensor_voltage
+    name: "Wasserstand Regenreservoir"
     unit_of_measurement: cm
     accuracy_decimals: 1
     icon: "mdi:car-coolant-level"
-# Messwerte glätten:
+    entity_category: ""
     filters:
-      - sliding_window_moving_average:
-          window_size: 20
-          send_every: 20
 # Spannungen nach Messreihe in Füllhöhe umrechnen          
       - calibrate_linear:
-          - 0.325 -> 0.0
-          - 3.29 -> 200      
+          - 0.4 -> 0.0
+          - 1.28 -> 73
+          - 1.35 -> 77
+          - 1.723 -> 101
+        #  - 3.29 -> 200   
       - lambda: |-
          if (x < 0) return 0;
          return x;
+      - sliding_window_moving_average:          
+          window_size: 3
+          send_every: 1
       - or:
         - throttle: 5min
         - delta: 0.1    
-
 # Füllmenge nach Füllstandskurve berechnen
-  - platform: template
+  - platform: copy
     name: "Volume Regenreservoir"
-    lambda: |-
-      return id(levelraw).state;
-    
+    source_id: levelraw
+    entity_category: ""
     filters:
       - calibrate_linear:
           - 0 -> 0
-          - 1287 -> 4000
-          - 2000 -> 6215
+          - 128.5 -> 4000
+          - 200 -> 6215
       - lambda: |-
          if (x < 0) return 0;
          return x;
+      - sliding_window_moving_average:          
+          window_size: 3
+          send_every: 1
       - or:
         - throttle: 5min
         - delta: 0.5  
     unit_of_measurement: l
     accuracy_decimals: 1
-
+  - platform: wifi_signal
+    name: "RSSI"
+    id: wifi_signal_db
+    update_interval: 60s
+    entity_category: "diagnostic"
+    unit_of_measurement: dBm
+    filters:
+      - or:
+          - throttle: 5min
+          - delta: 1
+    disabled_by_default: true
+  # WiFi signal strength/RSSI sensor (percentage)
+  - platform: copy
+    source_id: wifi_signal_db
+    id: wifi_signal_proc
+    name: "WiFi Strength"
+    unit_of_measurement: "%"
+    entity_category: "diagnostic"
+    disabled_by_default: false
+    device_class: ""    
+    filters:
+      - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
+      - or:
+          - throttle: 5min
+          - delta: 1
 #    # 1-Wire Temperatursensor 
 
 #  - platform: dallas
