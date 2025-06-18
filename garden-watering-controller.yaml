@@ -1,3 +1,4 @@
+---
 substitutions:
   name: garden-watering-controller
   friendly_name: garden-watering-controller
@@ -141,7 +142,7 @@ sensor:
     unit_of_measurement: "%"
     entity_category: "diagnostic"
     disabled_by_default: false
-    device_class: ""    
+    device_class: ""
     filters:
       - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
       - or:
@@ -165,7 +166,7 @@ binary_sensor:
     # on_click:
     #   then:
     #     - if:
-    #         condition:           
+    #         condition:
     #           - lambda: |-
     #               return id(uptime_sensor).has_state() && id(uptime_sensor).state > 10;
     #         then:
@@ -173,11 +174,11 @@ binary_sensor:
     #           - logger.log: "Toggled relay A0 (Main pump)"
     #         else:
     #           - logger.log: "Pump switch has not been activated yet, please try again in a few seconds..."
-    on_state:      
+    on_state:
       - lambda: |-
           if (!id(uptime_sensor).has_state() || id(uptime_sensor).state < 10) {
              ESP_LOGD("physical_switch", "Switch has not been activated yet, please try again in a few seconds...");
              return;
           }
 
-          id(a0).toggle();        
+          id(a0).toggle();
