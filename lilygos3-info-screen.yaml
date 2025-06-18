@@ -27,7 +27,7 @@ substitutions:
   clock_date_update_interval: "5min"
 
   # battery
-  charging_voltage_threshold_v: "4.3"
+  charging_voltage_threshold_v: "4.15"
   battery_threshold_yellow: "50"
   battery_threshold_red: "10"
   battery_voltage_spike_threshold_v: "0.1"
