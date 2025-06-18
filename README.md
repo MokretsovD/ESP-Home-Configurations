@@ -13,6 +13,7 @@ This repository contains a collection of ESPHome YAML configurations for various
   - [Bluetooth Proxy](#bluetooth-proxy)
   - [Info Screen](#info-screen)
   - [Soil Sensor](#soil-sensor)
+  - [Garden Watering Controller](#garden-watering-controller)
 - [Secrets & Sensitive Data](#secrets--sensitive-data)
 - [Credits & Inspirations](#credits--inspirations)
 - [License](#license)
@@ -135,6 +136,21 @@ For more detailed installation and update instructions, refer to the official ES
   - OTA updates and Home Assistant API integration
 - **Board:** ESP8266 D1 Mini
 - **Common Config:** Uses shared configuration from `packages/device-configs/soil-sensor-d1-mini.yaml` for hardware and network setup.
+
+### Garden Watering Controller
+
+- **File:** `garden-watering-controller.yaml`
+- **Description:** ESP32-based garden watering controller (Work in Progress). Currently implements basic pump control with plans to expand using ESPHome's Sprinkler Controller component for full zone management.
+- **Features:**
+  - Direct main pump control via physical switch
+  - 8 GPIO outputs via XL9535 I/O expander (prepared for future zone control)
+  - Internal temperature monitoring
+  - WiFi signal strength monitoring
+  - Static IP and WiFi AP fallback
+  - OTA updates and Home Assistant API integration
+- **Board:** ESP32 DevKit
+- **Common Config:** Uses shared WiFi configuration from `packages/wifi.yaml`
+- **Future Plans:** Will be enhanced using [ESPHome's Sprinkler Controller component](https://esphome.io/components/sprinkler.html) for advanced zone management, scheduling, and automation features.
 
 ---
 
