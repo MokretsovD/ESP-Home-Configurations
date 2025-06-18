@@ -163,6 +163,7 @@ ota:
 
 packages:
   wifi: !include packages/wifi.yaml
+  wifi-signal-sensors: !include packages/wifi-signal-sensors.yaml
 
 wifi:
   fast_connect: true
@@ -998,30 +999,30 @@ sensor:
             if (id(is_charging).state == true ) {
               id(battery_level).publish_state(x);
             }
-  # WiFi signal strength/RSSI sensor (dB)
-  - platform: wifi_signal
-    name: "RSSI"
-    id: wifi_signal_db
-    update_interval: 60s
-    entity_category: "diagnostic"
-    unit_of_measurement: dBm
-    filters:
-      - or:
-          - throttle: 5min
-          - delta: 1
-  # WiFi signal strength/RSSI sensor (percentage)
-  - platform: copy
-    source_id: wifi_signal_db
-    id: wifi_signal_proc
-    name: "WiFi Strength"
-    unit_of_measurement: "%"
-    entity_category: "diagnostic"
-    device_class: ""
-    filters:
-      - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
-      - or:
-          - throttle: 5min
-          - delta: 1
+  # # WiFi signal strength/RSSI sensor (dB)
+  # - platform: wifi_signal
+  #   name: "RSSI"
+  #   id: wifi_signal_db
+  #   update_interval: 60s
+  #   entity_category: "diagnostic"
+  #   unit_of_measurement: dBm
+  #   filters:
+  #     - or:
+  #         - throttle: 5min
+  #         - delta: 1
+  # # WiFi signal strength/RSSI sensor (percentage)
+  # - platform: copy
+  #   source_id: wifi_signal_db
+  #   id: wifi_signal_proc
+  #   name: "WiFi Strength"
+  #   unit_of_measurement: "%"
+  #   entity_category: "diagnostic"
+  #   device_class: ""
+  #   filters:
+  #     - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
+  #     - or:
+  #         - throttle: 5min
+  #         - delta: 1
   # WiFi signal quartile sensor (for display logic)
   - platform: copy
     source_id: wifi_signal_proc

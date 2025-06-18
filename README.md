@@ -85,7 +85,9 @@ For more detailed installation and update instructions, refer to the official ES
   - Optional LED pulse indicator
   - Scheduled weekly restart
   - Home Assistant API integration
+  - WiFi signal strength monitoring via shared package
 - **Based on:** [be-jo.net Gaszähler mit ESPHome](https://be-jo.net/2022/02/home-assistant-gaszaehler-mit-esphome-auslesen-flashen-unter-wsl/)
+- **Common Config:** Uses shared WiFi and WiFi signal monitoring configuration from `packages/wifi.yaml` and `packages/wifi-signal-sensors.yaml`
 
 ### Water Level Reservoir (wasserstand-regenreservoir)
 
@@ -95,7 +97,9 @@ For more detailed installation and update instructions, refer to the official ES
   - Analog water level measurement
   - Volume calculation via calibration curve
   - I2C and optional Dallas temperature sensor support
+  - WiFi signal strength monitoring via shared package
 - **Based on:** [nachbelichtet.com Water Level in Cisterns](https://nachbelichtet.com/en/measure-water-level-in-cisterns-and-tanks-with-homeassistant-esphome-and-tl-136-pressure-sensor-update-2)
+- **Common Config:** Uses shared WiFi and WiFi signal monitoring configuration from `packages/wifi.yaml` and `packages/wifi-signal-sensors.yaml`
 
 ### Air Quality Sensor 1
 
@@ -105,7 +109,9 @@ For more detailed installation and update instructions, refer to the official ES
   - Multiple air quality sensors (SGP30, SGP41, PMS, etc.)
   - Display with dimming and status indicators
   - Home Assistant integration
+  - WiFi signal strength monitoring via shared package
 - **Based on:** [Tom's 3D SBR1 Sensor Box](https://go.toms3d.org/sbr1)
+- **Common Config:** Uses shared WiFi and WiFi signal monitoring configuration from `packages/wifi.yaml` and `packages/wifi-signal-sensors.yaml`
 
 ### Bluetooth Proxy
 
@@ -115,6 +121,8 @@ For more detailed installation and update instructions, refer to the official ES
   - BLE tracking
   - Safe mode and factory reset buttons
   - OTA and HTTP update support
+  - WiFi signal strength monitoring via shared package
+- **Common Config:** Uses shared WiFi and WiFi signal monitoring configuration from `packages/wifi.yaml` and `packages/wifi-signal-sensors.yaml`
 
 ### Info Screen
 
@@ -124,18 +132,25 @@ For more detailed installation and update instructions, refer to the official ES
   - Custom display layouts
   - Battery and WiFi status
   - Home Assistant API integration
+  - WiFi signal strength monitoring via shared package
+- **Common Config:** Uses shared WiFi and WiFi signal monitoring configuration from `packages/wifi.yaml` and `packages/wifi-signal-sensors.yaml`
 
 ### Soil Sensor
 
-- **File:** `soil-sensor-tuyas.yaml`
-- **Description:** Soil moisture sensor configuration for monitoring soil conditions and integrating with Home Assistant.
+
+#### Soil Sensor D1 Mini Package
+- **File:** `packages/device-configs/soil-sensor-d1-mini.yaml`
+- **Description:** Shared configuration package for ESP8266 D1 Mini-based soil moisture sensors. Provides consistent hardware setup, network configuration, and monitoring features.
 - **Features:**
   - Soil moisture measurement via analog voltage
   - Calibration support (zero and full voltage)
   - Static IP and WiFi AP fallback
   - OTA updates and Home Assistant API integration
+  - WiFi signal strength monitoring via shared package
 - **Board:** ESP8266 D1 Mini
-- **Common Config:** Uses shared configuration from `packages/device-configs/soil-sensor-d1-mini.yaml` for hardware and network setup.
+- **Common Config:** Uses shared WiFi and WiFi signal monitoring configuration from `packages/wifi.yaml` and `packages/wifi-signal-sensors.yaml`
+- **Used in:**
+  - `soil-sensor-tuyas.yaml` - Soil moisture monitoring implementation
 
 ### Garden Watering Controller
 
@@ -145,11 +160,11 @@ For more detailed installation and update instructions, refer to the official ES
   - Direct main pump control via physical switch
   - 8 GPIO outputs via XL9535 I/O expander (prepared for future zone control)
   - Internal temperature monitoring
-  - WiFi signal strength monitoring
+  - WiFi signal strength monitoring via shared package
   - Static IP and WiFi AP fallback
   - OTA updates and Home Assistant API integration
 - **Board:** ESP32 DevKit
-- **Common Config:** Uses shared WiFi configuration from `packages/wifi.yaml`
+- **Common Config:** Uses shared WiFi and WiFi signal monitoring configuration from `packages/wifi.yaml` and `packages/wifi-signal-sensors.yaml`
 - **Future Plans:** Will be enhanced using [ESPHome's Sprinkler Controller component](https://esphome.io/components/sprinkler.html) for advanced zone management, scheduling, and automation features.
 
 ---

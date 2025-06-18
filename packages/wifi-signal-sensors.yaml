@@ -1,0 +1,26 @@
+sensor:
+  - platform: wifi_signal
+    name: "RSSI"
+    id: wifi_signal_db
+    update_interval: 60s
+    entity_category: "diagnostic"
+    unit_of_measurement: dBm
+    filters:
+      - or:
+          - throttle: 5min
+          - delta: 1
+    disabled_by_default: true
+  # WiFi signal strength/RSSI sensor (percentage)
+  - platform: copy
+    source_id: wifi_signal_db
+    id: wifi_signal_proc
+    name: "WiFi Strength"
+    unit_of_measurement: "%"
+    entity_category: "diagnostic"
+    disabled_by_default: false
+    device_class: ""
+    filters:
+      - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
+      - or:
+          - throttle: 5min
+          - delta: 1

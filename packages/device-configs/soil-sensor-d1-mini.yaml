@@ -1,9 +1,10 @@
 ---
 substitutions:
-  deep_sleep_duration: 45min
+  deep_sleep_duration: 40min
   deepsleep_delay: 2min
   boot_script_priority: "-100"
   ota_mode_delay: 10min
+  connect_timeout: 10s
 
 esphome:
   name: soil-sensor-tuyas
@@ -35,6 +36,7 @@ ota:
 
 packages:
   wifi: !include ../wifi.yaml
+  wifi-signal-sensors: !include ../wifi-signal-sensors.yaml
 
 wifi:
   fast_connect: true
@@ -106,32 +108,7 @@ sensor:
       - or:
           - throttle: 5min
           - delta: 1
-  # WiFi signal strength/RSSI sensor (dB)
-  - platform: wifi_signal
-    name: "RSSI"
-    id: wifi_signal_db
-    update_interval: 30s
-    entity_category: "diagnostic"
-    disabled_by_default: true
-    unit_of_measurement: dBm
-    filters:
-      - or:
-          - throttle: 5min
-          - delta: 1
-  # WiFi signal strength/RSSI sensor (percentage)
-  - platform: copy
-    source_id: wifi_signal_db
-    id: wifi_signal_proc
-    name: "WiFi Strength"
-    unit_of_measurement: "%"
-    entity_category: "diagnostic"
-    device_class: ""
-    filters:
-      - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
-      - or:
-          - throttle: 5min
-          - delta: 1
-
+ 
 deep_sleep:
   id: deep_sleep_1
   sleep_duration: ${deep_sleep_duration}
@@ -145,7 +122,7 @@ script:
             and:
               - wifi.connected:
               - api.connected:
-          timeout: 30s
+          timeout: ${connect_timeout}
       - lambda: |-
           id(in_deep_sleep).publish_state(false);
       - wait_until:
@@ -155,7 +132,7 @@ script:
           condition:
             lambda: |-
               return id(ota_mode).has_state();
-          timeout: 10s
+          timeout: 5s
       - if:
           condition:
             lambda: return id(reset_reason).state != "Deep-Sleep Wake";
@@ -166,7 +143,7 @@ script:
       - if:
           condition:
             lambda: |-
-              return id(ota_mode).state;
+              return id(ota_mode).has_state() && id(ota_mode).state;
           then:
             - logger.log: "OTA mode is enabled, device will wait for ${ota_mode_delay} before going in deep sleep"
             - delay: ${ota_mode_delay}

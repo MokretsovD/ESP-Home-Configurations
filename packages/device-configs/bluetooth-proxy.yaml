@@ -28,6 +28,7 @@ ota:
 
 packages:
   wifi: !include ../wifi.yaml
+  wifi-signal-sensors: !include ../wifi-signal-sensors.yaml
 
 logger:
 improv_serial:
