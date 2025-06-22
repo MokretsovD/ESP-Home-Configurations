@@ -418,8 +418,36 @@ display:
           return;
         }
 
-        it.image(105, 2, id(temp_icon));
-        it.printf(125, 12, id(font_orbitron_16), id(color_white), COLOR_OFF, display::TextAlign::CENTER_LEFT, "%.1f°C", id(room_temperature).state);
+        auto temp = id(room_temperature).state;
+
+        // Calculate color based on temperature
+        int r = 255, g = 255, b = 255; // default white
+        if (temp <= 16) {
+          r = 0; g = 0; b = 255;
+        } else if (temp > 16 && temp < 20) {
+          // Blue to white
+          float t = (temp - 16) / 4.0f; // 0 at 16, 1 at 20
+          r = g = (int)(255 * t);
+          b = 255;
+        } else if (temp >= 20 && temp <= 23) {
+          r = g = b = 255;
+        } else if (temp > 23 && temp <= 26) {
+          // White to yellow (white to (255,255,0))
+          float t = (temp - 23) / 3.0f; // 0 at 23, 1 at 26
+          r = g = 255;
+          b = (int)(255 * (1.0f - t));
+        } else if (temp > 26 && temp < 30) {
+          // Yellow (255,255,0) to Red (255,0,0)
+          float t = (temp - 26) / 4.0f; // 0 at 26, 1 at 30
+          r = 255;
+          g = (int)(255 * (1.0f - t));
+          b = 0;
+        } else if (temp >= 30) {
+          r = 255; g = 0; b = 0;
+        }
+
+        it.image(105, 2, id(temp_icon), Color(r, g, b), COLOR_OFF);
+        it.printf(125, 12, id(font_orbitron_16), Color(r, g, b), COLOR_OFF, display::TextAlign::CENTER_LEFT, "%.1f°C", temp);
       };
 
       auto render_humidity = [](display::Display &it) {
@@ -448,6 +476,8 @@ display:
              || id(ha_time).now().hour >= 1) 
              && id(ha_time).now().hour < 6) {
           time_col = id(color_red);
+        } else if (id(ha_time).now().hour == 0 && id(ha_time).now().minute < 30) {
+          time_col = id(color_gold);
         }
 
         it.printf(2, 40, id(font_orbitron_36), time_col, id(current_time).state.c_str());
