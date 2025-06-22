@@ -4,8 +4,8 @@ This repository contains a collection of ESPHome YAML configurations for various
 
 ## Table of Contents
 
-- [Overview](#overview)
 - [Development Setup](#development-setup)
+- [Shared Packages](#shared-packages)
 - [Configurations](#configurations)
   - [Gas Meter (Gaszaehler)](#gas-meter-gaszaehler)
   - [Water Level Reservoir (wasserstand-regenreservoir)](#water-level-reservoir-wasserstand-regenreservoir)
@@ -73,6 +73,83 @@ For more detailed installation and update instructions, refer to the official ES
 
 ---
 
+## Shared Packages
+
+The `packages/` directory contains reusable configuration components that can be included in multiple device configurations. These packages help maintain consistency and reduce code duplication across different ESPHome devices.
+
+### WiFi Configuration (`wifi.yaml`)
+
+- **File:** `packages/wifi.yaml`
+- **Description:** Standardized WiFi configuration with static IP assignment and access point fallback.
+- **Features:**
+  - WiFi credentials from secrets
+  - Static IP configuration
+  - Access point fallback mode
+  - Consistent network setup across devices
+
+### WiFi Signal Monitoring (`wifi-signal-sensors.yaml`)
+
+- **File:** `packages/wifi-signal-sensors.yaml`
+- **Description:** Comprehensive WiFi signal strength monitoring with both dBm and percentage measurements.
+- **Features:**
+  - RSSI measurement in dBm
+  - WiFi strength percentage calculation
+  - Throttled updates (5-minute intervals)
+  - Diagnostic entity category
+  - Delta filtering for efficient updates
+
+### Factory Reset Button (`factory-reset-button.yaml`)
+
+- **File:** `packages/factory-reset-button.yaml`
+- **Description:** Standardized factory reset button configuration for device recovery.
+- **Features:**
+  - Factory reset functionality
+  - Diagnostic entity category
+  - Consistent naming and behavior
+
+### Internal Temperature Sensor - ESP32 (`internal-temp-sensor-esp32.yaml`)
+
+- **File:** `packages/internal-temp-sensor-esp32.yaml`
+- **Description:** Internal temperature monitoring for ESP32-based devices.
+- **Features:**
+  - ESP32 internal temperature sensor
+  - Diagnostic entity category
+  - Disabled by default (can be enabled as needed)
+
+### Device Configuration Packages
+
+#### Bluetooth Proxy Device Config (`device-configs/bluetooth-proxy.yaml`)
+
+- **File:** `packages/device-configs/bluetooth-proxy.yaml`
+- **Description:** Shared configuration package for ESP32-based Bluetooth proxy devices. Provides consistent hardware setup, network configuration, and monitoring features.
+- **Features:**
+  - BLE tracking capabilities
+  - Safe mode and factory reset buttons
+  - OTA and HTTP update support
+  - WiFi signal strength monitoring via shared package
+  - Static IP and WiFi AP fallback
+  - Home Assistant API integration
+- **Board:** ESP32
+- **Common Config:** Uses shared WiFi and WiFi signal monitoring configuration from `packages/wifi.yaml` and `packages/wifi-signal-sensors.yaml`
+- **Used in:** Multiple `bluetooth-proxy-*.yaml` configurations for different locations
+
+#### Soil Sensor D1 Mini Device Config (`device-configs/soil-sensor-d1-mini.yaml`)
+
+- **File:** `packages/device-configs/soil-sensor-d1-mini.yaml`
+- **Description:** Shared configuration package for ESP8266 D1 Mini-based soil moisture sensors. Provides consistent hardware setup, network configuration, and monitoring features.
+- **Features:**
+  - Soil moisture measurement via analog voltage
+  - Calibration support (zero and full voltage)
+  - Static IP and WiFi AP fallback
+  - OTA updates and Home Assistant API integration
+  - WiFi signal strength monitoring via shared package
+- **Board:** ESP8266 D1 Mini
+- **Common Config:** Uses shared WiFi and WiFi signal monitoring configuration from `packages/wifi.yaml` and `packages/wifi-signal-sensors.yaml`
+- **Used in:**
+  - `soil-sensor-tuyas.yaml` - Soil moisture monitoring implementation
+
+---
+
 ## Configurations
 
 ### Gas Meter (Gaszaehler)
@@ -115,14 +192,14 @@ For more detailed installation and update instructions, refer to the official ES
 
 ### Bluetooth Proxy
 
-- **Files:** `bluetooth-proxy-*.yaml`, `packages/device-configs/bluetooth-proxy.yaml`
+- **Files:** `bluetooth-proxy-*.yaml`
 - **Description:** ESP32-based Bluetooth proxies for extending Bluetooth coverage in Home Assistant.
 - **Features:**
   - BLE tracking
   - Safe mode and factory reset buttons
   - OTA and HTTP update support
   - WiFi signal strength monitoring via shared package
-- **Common Config:** Uses shared WiFi and WiFi signal monitoring configuration from `packages/wifi.yaml` and `packages/wifi-signal-sensors.yaml`
+- **Common Config:** Uses shared Bluetooth proxy device configuration from `packages/device-configs/bluetooth-proxy.yaml`
 
 ### Info Screen
 
@@ -137,20 +214,15 @@ For more detailed installation and update instructions, refer to the official ES
 
 ### Soil Sensor
 
-
-#### Soil Sensor D1 Mini Package
-- **File:** `packages/device-configs/soil-sensor-d1-mini.yaml`
-- **Description:** Shared configuration package for ESP8266 D1 Mini-based soil moisture sensors. Provides consistent hardware setup, network configuration, and monitoring features.
+- **File:** `soil-sensor-tuyas.yaml`
+- **Description:** Soil moisture monitoring implementation using ESP8266 D1 Mini.
 - **Features:**
   - Soil moisture measurement via analog voltage
   - Calibration support (zero and full voltage)
   - Static IP and WiFi AP fallback
   - OTA updates and Home Assistant API integration
   - WiFi signal strength monitoring via shared package
-- **Board:** ESP8266 D1 Mini
-- **Common Config:** Uses shared WiFi and WiFi signal monitoring configuration from `packages/wifi.yaml` and `packages/wifi-signal-sensors.yaml`
-- **Used in:**
-  - `soil-sensor-tuyas.yaml` - Soil moisture monitoring implementation
+- **Common Config:** Uses shared soil sensor D1 Mini device configuration from `packages/device-configs/soil-sensor-d1-mini.yaml`
 
 ### Garden Watering Controller
 

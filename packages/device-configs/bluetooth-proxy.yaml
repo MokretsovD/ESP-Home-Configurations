@@ -29,6 +29,7 @@ ota:
 packages:
   wifi: !include ../wifi.yaml
   wifi-signal-sensors: !include ../wifi-signal-sensors.yaml
+  internaltemp-sensor: !include ../internal-temp-sensor-esp32.yaml
 
 logger:
 improv_serial:

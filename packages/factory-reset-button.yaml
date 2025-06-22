@@ -1,0 +1,6 @@
+---
+button:
+  - platform: factory_reset
+    name: Restart with Factory Default Settings
+    id: lilygos3_info_screen_factory_reset
+    entity_category: "diagnostic"

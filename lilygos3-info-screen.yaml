@@ -163,7 +163,8 @@ ota:
 
 packages:
   wifi: !include packages/wifi.yaml
-  wifi-signal-sensors: !include packages/wifi-signal-sensors.yaml
+  wifi-signal-sensors: !include packages/wifi-signal-sensors.yaml  
+  factory-reset-button: !include packages/factory-reset-button.yaml
 
 wifi:
   fast_connect: true
@@ -707,12 +708,6 @@ font:
     size: 16
     bpp: 4
     glyphs: ["0123456789", "- .%°", "SunMoTeWdhFriatCLg"]
-
-button:
-  - platform: factory_reset
-    name: Restart with Factory Default Settings
-    id: lilygos3_info_screen_factory_reset
-    entity_category: "diagnostic"
 
 binary_sensor:
   # Button Up
