@@ -31,16 +31,17 @@ substitutions:
   battery_threshold_yellow: "50"
   battery_threshold_red: "10"
   battery_voltage_spike_threshold_v: "0.1"
+
   # Battery calibration values
-  battery_level_int_min_v: "3.52"
+  battery_level_int_min_v: "3.6"
   battery_level_int_max_v: "4.06"
   battery_level_int_charging_min_v: "4.63"
   battery_level_int_charging_max_v: "4.83"
 
   # occupancy
   occupancy_step_1_threshold_sec: "60 * 2" # two minutes
-  occupancy_step_2_threshold_sec: "60 * 4" # four minutes
-  occupancy_step_3_threshold_sec: "60 * 6" # six minutes
+  occupancy_step_2_threshold_sec: "60 * 5" # five minutes
+  occupancy_step_3_threshold_sec: "60 * 10" # ten minutes
 
   # humidity
   humidity_upper_threshold_yellow: "65"
@@ -53,8 +54,8 @@ substitutions:
   # deep sleep night mode, sleep from 1am to 8am
   deepsleep_night_sleep_start_hour: "1"
   deepsleep_night_sleep_end_hour: "8"
-  # deepsleep absence threshold, sleep after ten minutes of absence
-  deepsleep_absence_threshold_sec: "60 * 10" # ten minutes
+  # deepsleep absence threshold
+  deepsleep_absence_threshold_sec: "60 * 15" # fifteen minutes
 
   # deepsleep durations
   deepsleep_default_duration_ms: "60 * 5 * 1000" # five minutes
@@ -94,6 +95,11 @@ substitutions:
   biomull_sensor_id: sensor.biomull_next_collection
   papier_sensor_id: sensor.papier_next_collection
   gelbe_tonne_sensor_id: sensor.gelbe_tonne_next_collection
+
+  # outdoor temperature sensor
+  outdoor_temperature_sensor_id: sensor.gw1100a_outdoor_temperature
+  # wind beaufort sensor
+  wind_beaufort_sensor_id: sensor.wind_beaufort_recent_max
 
 esphome:
   name: lilygos3-info-screen
@@ -215,6 +221,10 @@ globals:
     type: float
     restore_value: false
     initial_value: "0"
+  - id: sleep_duration_ms
+    type: long
+    restore_value: no
+    initial_value: ${deepsleep_default_duration_ms}
 
 time:
   - platform: homeassistant
@@ -256,6 +266,10 @@ color:
     hex: "000000"
   - id: color_green
     hex: 00FF00
+  - id: color_corporate_blue
+    hex: 4EC5F1
+  - id: color_blue_700
+    hex: 1976D2
   - id: color_blue
     hex: 0000FF
   - id: color_dark_blue
@@ -414,7 +428,10 @@ display:
       };
 
       auto render_temperature = [](display::Display &it) {
-        if (!id(room_temperature).has_state()) {
+        if (!id(room_temperature).has_state() || isnan(id(room_temperature).state)) {
+          // Show icon and N/A if value is not available or not a number
+          it.image(105, 2, id(temp_icon), id(color_white), COLOR_OFF);
+          it.printf(125, 12, id(font_orbitron_16), id(color_white), COLOR_OFF, display::TextAlign::CENTER_LEFT, "N/A");
           return;
         }
 
@@ -451,7 +468,10 @@ display:
       };
 
       auto render_humidity = [](display::Display &it) {
-        if (!id(room_humidity).has_state()) {
+        if (!id(room_humidity).has_state() || isnan(id(room_humidity).state)) {
+          // Show icon and N/A if value is not available or not a number
+          it.image(190, 2, id(hum_icon), id(color_white), COLOR_OFF);
+          it.printf(210, 12, id(font_orbitron_16), id(color_white), COLOR_OFF, display::TextAlign::CENTER_LEFT, "N/A");
           return;
         }
 
@@ -609,10 +629,87 @@ display:
         render_ppm(it);
       };
 
-      auto render_main_content = [&render_battery_indicator, &render_wifi_indicator, &render_ha_api_indicator, &render_energy_saving_mode, &render_pir_occupancy, &render_temperature, &render_humidity, &render_time, &render_date, &render_waste_collection, &render_air_quality](display::Display &it) {
+      auto render_heat_alarm = [](display::Display &it) {
+        if (id(outdoor_temperature).has_state()) {
+          auto outdoor_temp = id(outdoor_temperature).state;
+
+          bool result = outdoor_temp < 0 || outdoor_temp > 27;
+
+          if (result) {
+            if (outdoor_temp <= -10) {
+              it.image(142, 40, id(snowflake_alert_icon), id(color_blue_700), COLOR_OFF);
+            } else if (outdoor_temp < 0) {
+              it.image(142, 40, id(snowflake_alert_icon), id(color_corporate_blue), COLOR_OFF);              
+            } else if (outdoor_temp > 32) {
+              it.image(142, 40, id(sun_thermometer_icon), id(color_red),  COLOR_OFF);
+            } else if (outdoor_temp > 27) {            
+              it.image(142, 40, id(sun_thermometer_icon), id(color_yellow),  COLOR_OFF);
+            }
+          }
+
+          return result;
+        }
+
+        return false;
+      };
+
+      auto render_wind_alert = [](display::Display &it, int &alarm_num) {
+        if (id(wind_beaufort).has_state()) {
+          float bft = id(wind_beaufort).state;
+          if (bft >= 4) {
+            auto wind_col = id(color_white);
+            if (bft >= 6) {
+              wind_col = id(color_red);
+            } else if (bft >= 5) {
+              wind_col = id(color_yellow);
+            }
+            // Draw wind icon at position depending on alarm_num
+            int x = (alarm_num == 0) ? 142 : 190;
+            int y = 40;
+            it.image(x, y, id(wind_icon), wind_col, COLOR_OFF);
+            alarm_num++;
+            return true;
+          }
+        }
+        return false;
+      };
+
+      auto render_alarms = [&render_heat_alarm, &render_wind_alert](display::Display &it) {
+        int alarm_num = 0;
+
+        if (render_heat_alarm(it)) {
+          alarm_num++;
+        }
+
+        render_wind_alert(it, alarm_num);
+      };
+
+      auto render_layout = [](display::Display &it) {
+        it.line(0, 30, it.get_width(), 30, id(color_white));
+        it.line(0, it.get_height() - 24, 160, it.get_height() - 24, id(color_white));
+        it.line(180, it.get_height() - 38, it.get_width(), it.get_height() - 38, id(color_white));
+        it.line(160, it.get_height() - 24, 180, it.get_height() - 38, id(color_white));
+      };
+
+      auto render_main_content = [
+        &render_layout,
+        &render_battery_indicator,
+        &render_wifi_indicator, 
+        &render_ha_api_indicator, 
+        &render_energy_saving_mode, 
+        &render_pir_occupancy, 
+        &render_temperature, 
+        &render_humidity, 
+        &render_time, 
+        &render_date, 
+        &render_waste_collection, 
+        &render_air_quality, 
+        &render_alarms](display::Display &it) {
         if (id(is_loading)) {          
           return;
         }
+
+        render_layout(it);
 
         render_battery_indicator(it);
         render_wifi_indicator(it);
@@ -631,6 +728,8 @@ display:
 
         render_waste_collection(it);
         render_air_quality(it);
+
+        render_alarms(it);
       };
 
       render_loading_screen(it);
@@ -722,6 +821,21 @@ image:
     type: grayscale
     transparency: alpha_channel
     resize: 22x22
+  - file: mdi:sun-thermometer
+    id: sun_thermometer_icon
+    type: grayscale
+    transparency: alpha_channel
+    resize: 40x40
+  - file: mdi:snowflake-alert
+    id: snowflake_alert_icon
+    type: grayscale
+    transparency: alpha_channel
+    resize: 40x40
+  - file: mdi:weather-windy
+    id: wind_icon
+    type: grayscale
+    transparency: alpha_channel
+    resize: 40x40
 
 font:
   - file: "gfonts://Roboto"
@@ -903,6 +1017,7 @@ text_sensor:
             return {};
           last_person_state = x;
           return x;
+
 sensor:
   - platform: uptime
     name: "Uptime"
@@ -1135,6 +1250,26 @@ sensor:
       - or:
           - throttle: 5min
           - delta: 10
+  # Outdoor temperature sensor
+  - platform: homeassistant
+    id: outdoor_temperature
+    entity_id: ${outdoor_temperature_sensor_id}
+    unit_of_measurement: °C
+    internal: true
+    filters:
+      - or:
+          - throttle: 5min
+          - delta: 0.1
+  # Wind beaufort sensor from Home Assistant
+  - platform: homeassistant
+    id: wind_beaufort
+    entity_id: ${wind_beaufort_sensor_id}
+    unit_of_measurement: "Bft"
+    internal: true
+    filters:
+      - or:
+          - throttle: 5min
+          - delta: 1
   # Wakeup cause sensor
   - platform: template
     name: "Wakeup Cause"
@@ -1146,6 +1281,13 @@ sensor:
       - or:
           - throttle: 5min
           - delta: 1
+    # Next wake up time (approximate)
+  - platform: template
+    name: "Next Wake Up Time"
+    id: next_wake_up_time
+    internal: false
+    entity_category: diagnostic
+    update_interval: never
 switch:
   # Backlight switch
   - platform: gpio
@@ -1214,6 +1356,12 @@ script:
                 then:
                   # Set sleep duration
                   - script.execute: set_sleep_duration
+                  # Publish next wake up timestamp
+                  - lambda: |-
+                      auto now = id(ha_time).now();
+                      uint32_t sleep_duration = id(sleep_duration_ms);
+                      time_t wakeup_timestamp = now.timestamp + (sleep_duration / 1000);
+                      id(next_wake_up_time).publish_state(wakeup_timestamp);
                   # Publish nessesary states
                   - lambda: |-
                       id(in_deep_sleep).publish_state(true);
@@ -1221,6 +1369,7 @@ script:
                   - lambda: |-
                       id(screen_is_on).publish_state(false);
                   - logger.log: "entering deep sleep"
+                  - delay: 500
                   # Enter deep sleep
                   - deep_sleep.enter:
                       id: deep_sleep_1
@@ -1325,6 +1474,7 @@ script:
 
           ESP_LOGD("sleep", "Estimated sleep duration: %d", sleep_duration);
 
+          id(sleep_duration_ms) = sleep_duration;
           // Set the sleep duration.
           id(deep_sleep_1).set_sleep_duration(sleep_duration);
 
