@@ -1369,7 +1369,7 @@ script:
                   - lambda: |-
                       id(screen_is_on).publish_state(false);
                   - logger.log: "entering deep sleep"
-                  - delay: 500
+                  - delay: 500ms
                   # Enter deep sleep
                   - deep_sleep.enter:
                       id: deep_sleep_1
