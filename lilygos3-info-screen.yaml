@@ -30,7 +30,7 @@ substitutions:
   charging_voltage_threshold_v: "4.15"
   battery_threshold_yellow: "50"
   battery_threshold_red: "10"
-  battery_voltage_spike_threshold_v: "0.1"
+  battery_voltage_spike_threshold_v: "0.06"
 
   # Battery calibration values
   battery_level_int_min_v: "3.6"
@@ -96,10 +96,12 @@ substitutions:
   papier_sensor_id: sensor.papier_next_collection
   gelbe_tonne_sensor_id: sensor.gelbe_tonne_next_collection
 
-  # outdoor temperature sensor
+  # weather
   outdoor_temperature_sensor_id: sensor.gw1100a_outdoor_temperature
-  # wind beaufort sensor
   wind_beaufort_sensor_id: sensor.wind_beaufort_recent_max
+  rain_index_sensor_id: sensor.gw1100a_rain_index_3_recent_max
+  rain_rate_sensor_id: sensor.gw1100a_rain_rate
+  lighting_strike_distance_sensor_id: sensor.lighting_strike_distance_recent_min
 
 esphome:
   name: lilygos3-info-screen
@@ -169,7 +171,7 @@ ota:
 
 packages:
   wifi: !include packages/wifi.yaml
-  wifi-signal-sensors: !include packages/wifi-signal-sensors.yaml  
+  wifi-signal-sensors: !include packages/wifi-signal-sensors.yaml
   factory-reset-button: !include packages/factory-reset-button.yaml
 
 wifi:
@@ -629,59 +631,210 @@ display:
         render_ppm(it);
       };
 
-      auto render_heat_alarm = [](display::Display &it) {
-        if (id(outdoor_temperature).has_state()) {
-          auto outdoor_temp = id(outdoor_temperature).state;
+      // Helper to calculate icon position based on alarm number (0-7)
+      auto get_alarm_icon_position = [](int alarm_num) -> std::pair<int, int> {
+        // 4 icons per row, 2 rows
+        int icons_per_row = 4;
+        int icon_spacing_x = 48; // horizontal spacing between icons
+        int icon_spacing_y = 48; // vertical spacing between rows
+        int icon_size = 40;      // icon size (for centering)
+        int start_x = 142;       // leftmost x position
+        int start_y = 40;        // y position of first row
+        int row = alarm_num / icons_per_row;
+        int col = alarm_num % icons_per_row;
+        int x = start_x + col * icon_spacing_x;
+        int y = start_y + row * icon_spacing_y;
+        return {x, y};
+      };
 
-          bool result = outdoor_temp < 0 || outdoor_temp > 27;
+      auto render_rain_index_alert = [&get_alarm_icon_position](display::Display &it, int alarm_num) -> bool {
+        static int last_alarm_num = -1;
+        static std::pair<int, int> last_position;
+        static float last_rain_index = -1000.0f;
+        static uint8_t last_r = 0, last_g = 0, last_b = 0;
 
-          if (result) {
-            if (outdoor_temp <= -10) {
-              it.image(142, 40, id(snowflake_alert_icon), id(color_blue_700), COLOR_OFF);
-            } else if (outdoor_temp < 0) {
-              it.image(142, 40, id(snowflake_alert_icon), id(color_corporate_blue), COLOR_OFF);              
-            } else if (outdoor_temp > 32) {
-              it.image(142, 40, id(sun_thermometer_icon), id(color_red),  COLOR_OFF);
-            } else if (outdoor_temp > 27) {            
-              it.image(142, 40, id(sun_thermometer_icon), id(color_yellow),  COLOR_OFF);
-            }
-          }
-
-          return result;
+        // Update icon position only if alarm_num changes
+        if (alarm_num != last_alarm_num) {
+          last_position = get_alarm_icon_position(alarm_num);
+          last_alarm_num = alarm_num;
         }
 
+        if (id(rain_index).has_state() && id(rain_index).state >= 1.2) {
+          float val = id(rain_index).state;
+          // Update color only if rain_index changes
+          if (val != last_rain_index) {
+            if (val >= 2.5) {
+              last_r = 255; last_g = 0; last_b = 0;
+            } else if (val >= 1.85) {
+              float t = (val - 1.85) / (2.5 - 1.85);
+              last_r = 255;
+              last_g = 255 * (1.0f - t);
+              last_b = 0;
+            } else {
+              float t = (val - 1.2) / (1.85 - 1.2);
+              last_r = 255;
+              last_g = 255;
+              last_b = 255 * (1.0f - t);
+            }
+            last_rain_index = val;
+          }
+          it.image(last_position.first, last_position.second, id(weather_pouring_icon), Color(last_r, last_g, last_b), COLOR_OFF);
+          return true;
+        }
         return false;
       };
 
-      auto render_wind_alert = [](display::Display &it, int &alarm_num) {
+      auto render_heat_alarm = [&get_alarm_icon_position](display::Display &it, int alarm_num) -> bool {
+        static int last_alarm_num = -1;
+        static std::pair<int, int> last_position;
+        static float last_outdoor_temp = -1000.0f;
+        static int last_result = -1; // 0: false, 1: true
+        static esphome::Color last_color;
+        static int last_icon = 0;
+
+        if (alarm_num != last_alarm_num) {
+          last_position = get_alarm_icon_position(alarm_num);
+          last_alarm_num = alarm_num;
+        }
+
+        if (id(outdoor_temperature).has_state()) {
+          auto outdoor_temp = id(outdoor_temperature).state;
+          bool result = outdoor_temp < 0 || outdoor_temp > 27;
+          if (outdoor_temp != last_outdoor_temp || result != last_result) {
+            if (outdoor_temp <= -10) {
+              last_color = id(color_blue_700);
+              last_icon = 1;
+            } else if (outdoor_temp < 0) {
+              last_color = id(color_corporate_blue);
+              last_icon = 1;
+            } else if (outdoor_temp > 32) {
+              last_color = id(color_red);
+              last_icon = 2;
+            } else if (outdoor_temp > 27) {
+              last_color = id(color_yellow);
+              last_icon = 2;
+            }
+            last_outdoor_temp = outdoor_temp;
+            last_result = result;
+          }
+          if (result) {
+            if (last_icon == 1) {
+              it.image(last_position.first, last_position.second, id(snowflake_alert_icon), last_color, COLOR_OFF);
+            } else if (last_icon == 2) {
+              it.image(last_position.first, last_position.second, id(sun_thermometer_icon), last_color, COLOR_OFF);
+            }
+          }
+          return result;
+        }
+        return false;
+      };
+
+      auto render_wind_alert = [&get_alarm_icon_position](display::Display &it, int alarm_num) -> bool {
+        static int last_alarm_num = -1;
+        static std::pair<int, int> last_position;
+        static float last_bft = -1000.0f;
+        static esphome::Color last_color;
+        if (alarm_num != last_alarm_num) {
+          last_position = get_alarm_icon_position(alarm_num);
+          last_alarm_num = alarm_num;
+        }
         if (id(wind_beaufort).has_state()) {
           float bft = id(wind_beaufort).state;
-          if (bft >= 4) {
-            auto wind_col = id(color_white);
+          if (bft != last_bft) {
+            last_color = id(color_white);
             if (bft >= 6) {
-              wind_col = id(color_red);
+              last_color = id(color_red);
             } else if (bft >= 5) {
-              wind_col = id(color_yellow);
+              last_color = id(color_yellow);
             }
-            // Draw wind icon at position depending on alarm_num
-            int x = (alarm_num == 0) ? 142 : 190;
-            int y = 40;
-            it.image(x, y, id(wind_icon), wind_col, COLOR_OFF);
-            alarm_num++;
+            last_bft = bft;
+          }
+          if (bft >= 4) {
+            it.image(last_position.first, last_position.second, id(wind_icon), last_color, COLOR_OFF);
             return true;
           }
         }
         return false;
       };
 
-      auto render_alarms = [&render_heat_alarm, &render_wind_alert](display::Display &it) {
-        int alarm_num = 0;
-
-        if (render_heat_alarm(it)) {
-          alarm_num++;
+      auto render_rain_rate_alert = [&get_alarm_icon_position](display::Display &it, int alarm_num) -> bool {
+        static int last_alarm_num = -1;
+        static std::pair<int, int> last_position;
+        static float last_val = -1000.0f;
+        static uint8_t last_r = 0, last_g = 0, last_b = 0;
+        if (alarm_num != last_alarm_num) {
+          last_position = get_alarm_icon_position(alarm_num);
+          last_alarm_num = alarm_num;
         }
+        if (id(rain_rate).has_state() && id(rain_rate).state > 0) {
+          float val = id(rain_rate).state;
+          if (val != last_val) {
+            if (val >= 8.0) {
+              last_r = 0; last_g = 0; last_b = 255;
+            } else {
+              float t = val / 8.0f;
+              last_r = 200 * (1.0f - t);
+              last_g = 220 * (1.0f - t);
+              last_b = 255;
+            }
+            last_val = val;
+          }
+          it.image(last_position.first, last_position.second, id(weather_pouring_icon), Color(last_r, last_g, last_b), COLOR_OFF);
+          return true;
+        }
+        return false;
+      };
 
-        render_wind_alert(it, alarm_num);
+      auto render_lightning_alert = [&get_alarm_icon_position](display::Display &it, int alarm_num) -> bool {
+        static int last_alarm_num = -1;
+        static std::pair<int, int> last_position;
+        static float last_val = -1000.0f;
+        static uint8_t last_r = 0, last_g = 0, last_b = 0;
+        if (alarm_num != last_alarm_num) {
+          last_position = get_alarm_icon_position(alarm_num);
+          last_alarm_num = alarm_num;
+        }
+        if (id(lightning_strike_distance).has_state() && id(lightning_strike_distance).state < 18) {
+          float val = id(lightning_strike_distance).state;
+          if (val != last_val) {
+            float t = val / 18.0f;
+            last_r = 255;
+            last_g = 255 * t;
+            last_b = 0;
+            last_val = val;
+          }
+          it.image(last_position.first, last_position.second, id(weather_lightning_rainy_icon), Color(last_r, last_g, last_b), COLOR_OFF);
+          return true;
+        }
+        return false;
+      };
+
+      auto render_rain_alarm = [&render_rain_rate_alert, &render_lightning_alert, &render_rain_index_alert](display::Display &it, int alarm_num) -> bool {
+        // 1. Rain rate takes highest priority
+        if (render_rain_rate_alert(it, alarm_num)) return true;
+
+        // 2. Lightning distance
+        if (render_lightning_alert(it, alarm_num)) return true;
+
+        // 3. Rain index
+        if (render_rain_index_alert(it, alarm_num)) return true;
+
+        return false;
+      };
+
+      auto render_alarms = [&render_heat_alarm, &render_wind_alert, &render_rain_alarm](display::Display &it) {
+        // List of alarm lambdas to call in order
+        std::vector<std::function<bool(display::Display&, int)>> alarm_renderers = {
+          render_heat_alarm,
+          render_wind_alert,
+          render_rain_alarm
+        };
+        int alarm_num = 0;
+        for (auto &render_alarm : alarm_renderers) {
+          if (render_alarm(it, alarm_num)) {
+            alarm_num++;
+          }
+        }
       };
 
       auto render_layout = [](display::Display &it) {
@@ -836,6 +989,16 @@ image:
     type: grayscale
     transparency: alpha_channel
     resize: 40x40
+  - file: mdi:weather-pouring
+    id: weather_pouring_icon
+    type: grayscale
+    transparency: alpha_channel
+    resize: 40x40
+  - file: mdi:weather-lightning-rainy
+    id: weather_lightning_rainy_icon
+    type: grayscale
+    transparency: alpha_channel
+    resize: 40x40
 
 font:
   - file: "gfonts://Roboto"
@@ -851,7 +1014,7 @@ font:
     id: font_orbitron_16
     size: 16
     bpp: 4
-    glyphs: ["0123456789", "- .%°", "SunMoTeWdhFriatCLg"]
+    glyphs: ["0123456789", "- .%°/", "SunMoTeWdhFriatCLgNA"]
 
 binary_sensor:
   # Button Up
@@ -1043,25 +1206,27 @@ sensor:
         - lambda: |-
             id(battery_voltage).publish_state(x);
     filters:
-      - skip_initial: 20
+      - skip_initial: 10 #20
       - multiply: 2
+      - lambda: |-
+          auto last_battery_voltage_value = id(last_battery_voltage);
+
+          if (x >= ${charging_voltage_threshold_v} && x < ${battery_level_int_charging_min_v}) {
+            return last_battery_voltage_value;
+          }
+
+          bool is_voltage_spike = abs(x - last_battery_voltage_value) >= ${battery_voltage_spike_threshold_v};
+          id(last_battery_voltage) = x;
+
+          if (is_voltage_spike) {
+            return last_battery_voltage_value > 0 ? last_battery_voltage_value : x;
+          }
+
+          return x;
       # Smooth out noise
       - sliding_window_moving_average:
           window_size: 6
           send_every: 3
-      - lambda: |-
-          if (x >= ${charging_voltage_threshold_v} && x < ${battery_level_int_charging_min_v}) {
-            return {};
-          }
-
-          bool is_voltage_spike = abs(x - id(last_battery_voltage)) > ${battery_voltage_spike_threshold_v};
-          id(last_battery_voltage) = x;
-
-          if (is_voltage_spike) {
-            return {};
-          }
-
-          return x;
       - or:
           - throttle: 5min
           - delta: 0.01
@@ -1139,30 +1304,6 @@ sensor:
             if (id(is_charging).state == true ) {
               id(battery_level).publish_state(x);
             }
-  # # WiFi signal strength/RSSI sensor (dB)
-  # - platform: wifi_signal
-  #   name: "RSSI"
-  #   id: wifi_signal_db
-  #   update_interval: 60s
-  #   entity_category: "diagnostic"
-  #   unit_of_measurement: dBm
-  #   filters:
-  #     - or:
-  #         - throttle: 5min
-  #         - delta: 1
-  # # WiFi signal strength/RSSI sensor (percentage)
-  # - platform: copy
-  #   source_id: wifi_signal_db
-  #   id: wifi_signal_proc
-  #   name: "WiFi Strength"
-  #   unit_of_measurement: "%"
-  #   entity_category: "diagnostic"
-  #   device_class: ""
-  #   filters:
-  #     - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
-  #     - or:
-  #         - throttle: 5min
-  #         - delta: 1
   # WiFi signal quartile sensor (for display logic)
   - platform: copy
     source_id: wifi_signal_proc
@@ -1286,8 +1427,40 @@ sensor:
     name: "Next Wake Up Time"
     id: next_wake_up_time
     internal: false
+    # unit_of_measurement: "ms"
+    accuracy_decimals: 0
+    state_class: measurement
+    device_class: timestamp
     entity_category: diagnostic
     update_interval: never
+  # Rain index sensor from Home Assistant
+  - platform: homeassistant
+    id: rain_index
+    entity_id: ${rain_index_sensor_id}
+    internal: true
+    filters:
+      - or:
+          - throttle: 5min
+          - delta: 0.1
+  # Rain rate sensor from Home Assistant
+  - platform: homeassistant
+    id: rain_rate
+    entity_id: ${rain_rate_sensor_id}
+    internal: true
+    filters:
+      - or:
+          - throttle: 5min
+          - delta: 0.1
+  # Lightning strike distance sensor from Home Assistant
+  - platform: homeassistant
+    id: lightning_strike_distance
+    entity_id: ${lighting_strike_distance_sensor_id}
+    internal: true
+    filters:
+      - or:
+          - throttle: 5min
+          - delta: 1
+
 switch:
   # Backlight switch
   - platform: gpio
