@@ -1225,8 +1225,8 @@ sensor:
           return x;
       # Smooth out noise
       - sliding_window_moving_average:
-          window_size: 6
-          send_every: 3
+          window_size: 20
+          send_every: 5
       - or:
           - throttle: 5min
           - delta: 0.01
