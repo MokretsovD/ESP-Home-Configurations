@@ -89,6 +89,7 @@ sensor:
       # Spannungen nach Messreihe in Füllhöhe umrechnen
       - calibrate_linear:
           - 0.4 -> 0.0
+          - 0.865 -> 46
           - 1.186 -> 66.5
           - 1.28 -> 73
           - 1.35 -> 77
