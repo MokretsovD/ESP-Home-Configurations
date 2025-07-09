@@ -253,6 +253,10 @@ globals:
     type: float
     restore_value: no
     initial_value: "0"
+  - id: screen_is_out_of_sync
+    type: bool
+    restore_value: no
+    initial_value: "true"
 
 time:
   - platform: homeassistant
@@ -726,7 +730,7 @@ display:
           float val = id(rain_index).state;
           // Update color only if rain_index changes
           if (val != last_rain_index) {
-            // Rain index >= 2.5 indicates severe rain - show red
+            // Rain index >= 2.5 indicates high probability - show red
             if (val >= 2.5) {
               last_r = 255; last_g = 0; last_b = 0;
             }
@@ -1109,6 +1113,10 @@ binary_sensor:
   - platform: template
     id: is_charging
     name: Charging From Cable
+    on_state:
+      then:
+        - lambda: |-
+            id(screen_is_out_of_sync) = true;
     # No lambda here; state is published from battery_level sensor
   # True when it is time to go to sleep (no one is in the room or it is between 1 and 8 o'clock)
   - platform: template
@@ -1151,6 +1159,10 @@ binary_sensor:
     icon: mdi:leaf
     name: In power saving mode
     lambda: return id(sleep_mode_enabled) == true;
+    on_state:
+      then:
+        - lambda: |-
+            id(screen_is_out_of_sync) = true;
   # True when device is in deep sleep (to track in Home Assistant)
   - platform: template
     id: in_deep_sleep
@@ -1177,6 +1189,10 @@ text_sensor:
     id: current_time
     internal: true
     update_interval: ${clock_time_update_interval}
+    on_value:
+      then:
+        - lambda: |-
+            id(screen_is_out_of_sync) = true;
     lambda: return id(ha_time).now().strftime("%H:%M");
     filters:
       - lambda: |-
@@ -1191,6 +1207,10 @@ text_sensor:
     id: current_date
     internal: true
     update_interval: ${clock_date_update_interval}
+    on_value:
+      then:
+        - lambda: |-
+            id(screen_is_out_of_sync) = true;
     lambda: return id(ha_time).now().strftime("%Y-%m-%d %a");
     filters:
       - lambda: |-
@@ -1204,6 +1224,10 @@ text_sensor:
     id: voc_level
     entity_id: ${air_quality_voc_level_sensor_id}
     internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(screen_is_out_of_sync) = true;
     filters:
       - lambda: |-
           static std::string last_voc_level;
@@ -1216,6 +1240,10 @@ text_sensor:
     id: co2_level
     entity_id: ${air_quality_co2_level_sensor_id}
     internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(screen_is_out_of_sync) = true;
     filters:
       - lambda: |-
           static std::string last_co2_level;
@@ -1228,6 +1256,10 @@ text_sensor:
     id: ppm_level
     entity_id: ${air_quality_ppm_level_sensor_id}
     internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(screen_is_out_of_sync) = true;
     filters:
       - lambda: |-
           static std::string last_ppm_level;
@@ -1402,6 +1434,10 @@ sensor:
     state_class: measurement
     device_class: battery
     update_interval: never
+    on_value:
+      then:
+        - lambda: |-
+            id(screen_is_out_of_sync) = true;
     lambda: |-
       if (!id(battery_voltage_int).has_state()) {
         return {};
@@ -1438,6 +1474,10 @@ sensor:
     unit_of_measurement: "quartile"
     accuracy_decimals: 0
     internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(screen_is_out_of_sync) = true;
     #  update_interval: 60s
     filters:
       - lambda: return ceil(x / 25.0);
@@ -1469,6 +1509,10 @@ sensor:
     entity_id: ${hausmull_sensor_id}
     unit_of_measurement: d
     internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(screen_is_out_of_sync) = true;
     filters:
       - or:
           - throttle: 600min
@@ -1480,6 +1524,10 @@ sensor:
     entity_id: ${biomull_sensor_id}
     unit_of_measurement: d
     internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(screen_is_out_of_sync) = true;
     filters:
       - or:
           - throttle: 600min
@@ -1491,6 +1539,10 @@ sensor:
     unit_of_measurement: d
     entity_id: ${papier_sensor_id}
     internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(screen_is_out_of_sync) = true;
     filters:
       - or:
           - throttle: 600min
@@ -1502,6 +1554,10 @@ sensor:
     unit_of_measurement: d
     entity_id: ${gelbe_tonne_sensor_id}
     internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(screen_is_out_of_sync) = true;
     filters:
       - or:
           - throttle: 600min
@@ -1513,10 +1569,14 @@ sensor:
     entity_id: ${pir_occupancy_last_changed_sensor_id}
     unit_of_measurement: s
     internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(screen_is_out_of_sync) = true;
     filters:
       - or:
           - throttle: 5min
-          - delta: 10
+          - delta: 20
   # Outdoor temperature sensor
   - platform: homeassistant
     id: outdoor_temperature
@@ -1533,6 +1593,14 @@ sensor:
     entity_id: ${wind_beaufort_sensor_id}
     unit_of_measurement: "Bft"
     internal: true
+    on_value:
+      then:
+        - if:
+            condition:
+              lambda: return x > 3;
+            then:
+              - lambda: |-
+                  id(screen_is_out_of_sync) = true;            
     filters:
       - or:
           - throttle: 5min
@@ -1564,6 +1632,14 @@ sensor:
     id: rain_index
     entity_id: ${rain_index_sensor_id}
     internal: true
+    on_value:
+      then:
+        - if:
+            condition:
+              lambda: return x > 1.85;
+            then:
+              - lambda: |-
+                  id(screen_is_out_of_sync) = true; 
     filters:
       - or:
           - throttle: 5min
@@ -1573,6 +1649,10 @@ sensor:
     id: rain_rate
     entity_id: ${rain_rate_sensor_id}
     internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(screen_is_out_of_sync) = true;
     filters:
       - or:
           - throttle: 5min
@@ -1582,6 +1662,14 @@ sensor:
     id: lightning_strike_distance
     entity_id: ${lighting_strike_distance_sensor_id}
     internal: true
+    on_value:
+      then:
+        - if:
+            condition:
+              lambda: return x < 15;
+            then:
+              - lambda: |-
+                  id(screen_is_out_of_sync) = true;
     filters:
       - or:
           - throttle: 5min
@@ -1815,8 +1903,10 @@ interval:
             # Update display if device is charging
             - if:
                 condition:
-                  lambda: return id(is_charging).state && !id(is_loading);
+                  lambda: return id(screen_is_out_of_sync) == true && id(is_charging).state && !id(is_loading);
                 then:
+                  - lambda: |-
+                      id(screen_is_out_of_sync) = false;
                   - component.update: disp
   - interval: 5s
     setup_priority: ${interval_priority}
@@ -1825,6 +1915,8 @@ interval:
       # Update display if device is not charging (on battery)
       - if:
           condition:
-            lambda: return !id(is_charging).state && !id(is_loading) && (id(sleep_mode_enabled) == false || id(wakeup_cause).state != ESP_SLEEP_WAKEUP_TIMER);
+            lambda: return id(screen_is_out_of_sync) == true && !id(is_charging).state && !id(is_loading) && (id(sleep_mode_enabled) == false || id(wakeup_cause).state != ESP_SLEEP_WAKEUP_TIMER);
           then:
+            - lambda: |-
+                id(screen_is_out_of_sync) = false;
             - component.update: disp
