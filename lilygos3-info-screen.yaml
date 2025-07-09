@@ -32,11 +32,11 @@ substitutions:
   # Battery level threshold for red warning indicator (%)
   battery_threshold_red: "10"
   # Maximum allowed voltage difference between consecutive readings to detect spikes (V)
-  battery_voltage_spike_threshold_v: "0.04"
+  battery_voltage_spike_threshold_v: "0.02"
   # Maximum allowed rate of voltage change per minute (V/min)
-  battery_voltage_rate_limit_v_per_min: "0.012"
+  battery_voltage_rate_limit_v_per_min: "0.01"
   # Voltage rate threshold above which the battery is considered to be charging (V/min)
-  battery_charging_rate_threshold_v_per_min: "0.006"
+  battery_charging_rate_threshold_v_per_min: "0.005"
 
   # Battery voltage calibration values to calculate battery level (%)
   # Minimum battery voltage when discharging (V) - 0%
@@ -242,6 +242,14 @@ globals:
     restore_value: no
     initial_value: "0"
   - id: last_battery_publish_voltage
+    type: float
+    restore_value: no
+    initial_value: "0"
+  - id: last_battery_filtered_publish_time
+    type: uint32_t
+    restore_value: no
+    initial_value: "0"
+  - id: last_battery_filtered_publish_voltage
     type: float
     restore_value: no
     initial_value: "0"
@@ -1250,10 +1258,10 @@ sensor:
   # Internal battery voltage sensor
   - platform: adc
     id: battery_voltage_int
-    name: Battery Voltage
+    name: Battery Voltage Internal
     pin:
       number: GPIO4
-    update_interval: 2sec
+    update_interval: 4sec
     unit_of_measurement: "V"
     accuracy_decimals: 2
     state_class: measurement
@@ -1263,16 +1271,17 @@ sensor:
     on_value:
       then:
         - lambda: |-
+            id(battery_voltage_change).publish_state(x);
             id(battery_voltage).publish_state(x);
         - component.update: battery_level
     filters:
-      - skip_initial: 10 #20
+      - skip_initial: 5 #20
       - multiply: 2
       # Smooth out noise
       - sliding_window_moving_average:
           window_size: 20
-          send_every: 10
-          send_first_at: 5
+          send_every: 5
+          send_first_at: 3
       - lambda: |-
           if (x > ${battery_level_int_max_v} && x < ${battery_level_int_charging_min_v}) {
             return {};
@@ -1282,7 +1291,7 @@ sensor:
       - lambda: |-
           auto last_battery_voltage_value = id(last_battery_voltage);
 
-          bool is_voltage_spike = abs(x - last_battery_voltage_value) >= ${battery_voltage_spike_threshold_v};
+          bool is_voltage_spike = fabs(x - last_battery_voltage_value) >= ${battery_voltage_spike_threshold_v};
           id(last_battery_voltage) = x;
 
           if (is_voltage_spike) {
@@ -1296,6 +1305,9 @@ sensor:
           float last_voltage = id(last_battery_publish_voltage);
           uint32_t last_time = id(last_battery_publish_time);
 
+          id(last_battery_publish_time) = now;
+          id(last_battery_publish_voltage) = x; 
+
           // If this is the first value, always publish
           if (last_time == 0) {
             return x;
@@ -1303,21 +1315,22 @@ sensor:
 
           // Calculate time difference in minutes
           float dt_min = (now - last_time) / 60.0;
+
+          // Unable to calculate delta t
+          // Avoid division by zero, return empty value
           if (dt_min <= 0) {
-            dt_min = 1.0 / 60.0; // avoid division by zero
+            return {};
           }
 
           // Calculate voltage difference
-          float dv = x - last_voltage; // fabs(x - last_voltage);
+          float dv = fabs(x - last_voltage);
 
           // Calculate rate of change (V/min)
           float rate = dv / dt_min;
-
-          id(last_battery_publish_time) = now;
-          id(last_battery_publish_voltage) = x;
-          id(battery_voltage_change).publish_state(rate);
+         
           // Only publish if rate is less than the configured limit
-          if (fabs(rate) < ${battery_voltage_rate_limit_v_per_min}) {
+          if (rate < ${battery_voltage_rate_limit_v_per_min}) {
+            // id(battery_voltage_change).publish_state(rate);
             return x;
           } else {
             return {};
@@ -1337,16 +1350,49 @@ sensor:
     state_class: measurement
     device_class: voltage
   # Battery voltage change rate sensor (to be published to Home Assistant)
+  # This sensor value is published by internal battery voltage sensor
   - platform: template
     id: battery_voltage_change
     name: Battery Voltage Change Rate
-    # Published by internal battery voltage sensor
     update_interval: never
     unit_of_measurement: "V/min"
     entity_category: diagnostic
     disabled_by_default: true
     accuracy_decimals: 4
     state_class: measurement
+    filters:
+      - lambda: |-
+          uint32_t now = millis() / 1000;
+          float last_voltage = id(last_battery_filtered_publish_voltage);
+          uint32_t last_time = id(last_battery_filtered_publish_time);
+
+          id(last_battery_filtered_publish_time) = now;
+          id(last_battery_filtered_publish_voltage) = x;
+
+          // If this is the first value, always publish
+          if (last_time == 0) {
+            return 0;
+          }
+
+          // Calculate time difference in minutes
+          float dt_min = (now - last_time) / 60.0;
+          if (dt_min <= 0) {
+            // Unable to calculate delta t
+            // Avoid division by zero, return empty value
+            return {};
+          }
+
+          // Calculate voltage difference
+          float dv = x - last_voltage;
+
+          // Calculate rate of change (V/min)
+          float rate = dv / dt_min;
+
+          if (rate > 1.0 || rate < -1.0) {
+            return {};
+          }
+
+          return rate;
   # Battery level sensor (to be displayed on screen and published to Home Assistant)
   - platform: template
     id: battery_level
@@ -1383,9 +1429,7 @@ sensor:
       - clamp:
           min_value: 0
           max_value: 100
-      - or:
-          - throttle: 5min
-          - delta: 1
+      - delta: 1
   # WiFi signal quartile sensor (for display logic)
   - platform: copy
     source_id: wifi_signal_proc
