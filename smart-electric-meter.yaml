@@ -1,0 +1,394 @@
+---
+substitutions:
+  name: smart-electric-meter
+  friendly_name: Smart Electric Meter
+  device_static_ip: !secret smart_electric_meter_wifi_manual_ip_static_ip
+  device_ap_ssid: !secret smart_electric_meter_wifi_ap_ssid
+  device_ap_password: !secret smart_electric_meter_wifi_ap_password
+  wifi_ssid: !secret wifi_ssid
+  wifi_password: !secret wifi_password
+  wifi_manual_ip_gateway: !secret wifi_manual_ip_gateway
+  wifi_manual_ip_subnet: !secret wifi_manual_ip_subnet
+  mqtt_broker: !secret mqtt_broker
+  mqtt_username: !secret mqtt_username
+  mqtt_password: !secret mqtt_password
+  mqtt_topic_prefix: tele/tasmota_3D87A3
+
+  # Validation constants for meter readings
+  max_realistic_power: "17250.0"    # 17.25kW (25A * 3 phases * 230V)
+  max_absolute_power: "34500.0"     # 34.5kW (2x realistic power as absolute limit)
+  max_power_change: "3000.0"        # 3kW max power change per reading
+  max_energy_total: "100000.0"      # 100,000 kWh reasonable lifetime maximum
+  max_energy_change: "100.0"        # 100 kWh max energy change per reading
+  min_energy_value: "0.0"           # Minimum energy value (kWh)
+  min_power_value: "0.0"            # Minimum power value (W)
+
+  # OBIS codes for smart meter readings
+  obis_total_consumption: "1-0:1.8.0*255"    # Total energy consumption (kWh)
+  obis_consumption_1d: "1-0:1.8.0*96"        # Energy consumption last 1 day (kWh)
+  obis_consumption_7d: "1-0:1.8.0*97"        # Energy consumption last 7 days (kWh)
+  obis_consumption_30d: "1-0:1.8.0*98"       # Energy consumption last 30 days (kWh)
+  obis_consumption_365d: "1-0:1.8.0*99"      # Energy consumption last 365 days (kWh)
+  obis_total_feed_in: "1-0:2.8.0*255"        # Total energy feed-in (kWh)
+  obis_current_power: "1-0:16.7.0*255"       # Current power consumption (W)
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+  min_version: 2024.6.0
+
+external_components:
+  - source: 
+      type: local
+      path: components
+
+esp8266:
+  board: d1_mini
+
+preferences:
+  flash_write_interval: 5min
+
+# Enable debug logging
+logger:
+  level: DEBUG
+
+# Enable OTA updates
+ota:
+  - platform: esphome
+    password: !secret smart_electric_meter_esp_ota_password
+
+# WiFi and signal sensors via packages
+packages:
+  wifi: !include packages/wifi.yaml
+  wifi-signal-sensors: !include packages/wifi-signal-sensors.yaml
+  factory-reset-button: !include packages/factory-reset-button.yaml
+
+captive_portal:
+
+# MQTT (no API)
+# mqtt:
+#   broker: ${mqtt_broker}
+#   username: ${mqtt_username}
+#   password: ${mqtt_password}
+#   topic_prefix: ${mqtt_topic_prefix}
+#   birth_message:
+#     topic: ${mqtt_topic_prefix}/LWT
+#     payload: Online
+#   will_message:
+#     topic: ${mqtt_topic_prefix}/LWT
+#     payload: Offline
+#   discovery: true
+#   id: mqttclient
+
+web_server:
+
+# Global variables for validation state tracking
+globals:
+  - id: prev_total_consumption
+    type: float
+    initial_value: "-1.0"
+  - id: prev_consumption_1d
+    type: float
+    initial_value: "-1.0"
+  - id: prev_consumption_7d
+    type: float
+    initial_value: "-1.0"
+  - id: prev_consumption_30d
+    type: float
+    initial_value: "-1.0"
+  - id: prev_consumption_365d
+    type: float
+    initial_value: "-1.0"
+  - id: prev_total_feed_in
+    type: float
+    initial_value: "-1.0"
+  - id: prev_current_power
+    type: float
+    initial_value: "-1.0"
+
+# UART for IR head
+uart:
+  rx_pin: D2 #D7
+  baud_rate: 9600   # 2400, 1200, 4800, 9600
+  id: uart_bus
+#  parity: NONE     # Common for smart meters
+#  data_bits: 8     # Common for smart meters
+  parity: EVEN     # Common for smart meters
+  data_bits: 7     # Common for smart meters
+  stop_bits: 1
+  rx_buffer_size: 1024
+  # debug:
+  #   direction: RX
+  #   dummy_receiver: false
+  #   after:
+  #     delimiter: "\n"
+  #   sequence:
+  #     - lambda: UARTDebug::log_string(direction, bytes);
+
+# --- Custom UART/text sensor approach for ASCII OBIS output ---
+text_sensor:
+  - platform: uart_line_reader
+    uart_id: uart_bus
+    name: "OBIS Raw Line"
+    id: obis_raw_line
+    filters:
+    #   # Add validation filter
+    #   - lambda: |-
+    #       // Only process lines that look like valid OBIS codes
+    #       if (x.length() < 10) return {};
+    #       if (x.find("1-0:") != 0 && x.find("0-0:") != 0) return {};
+    #       if (x.find("*") == std::string::npos) return {};
+    #       if (x.find("(") == std::string::npos) return {};
+    #       return x;
+      - lambda: |-
+          if (x.length() < 10) return {};
+          if (x[0] != '0' && x[0] != '1') return {};
+          if (x.find('*') == std::string::npos ||
+              x.find('(') == std::string::npos ||
+              x.find(')') == std::string::npos) return {};
+          return x;
+    on_value:
+      then:
+        - lambda: |-
+            // Using ESPHome globals for validation state tracking
+            
+            // Validation constants from substitutions (absolute limits now handled by clamp filters)
+            const float MAX_POWER_CHANGE = ${max_power_change}; // 3kW max power change per reading
+            const float MAX_ENERGY_CHANGE = ${max_energy_change}; // 100 kWh max energy change per reading
+            
+            // Use ESPHome's built-in parse_number function
+            auto parse_float = [](const std::string &str) -> float {
+              auto n = parse_number<float>(str);
+              return n.has_value() ? n.value() : NAN;
+            };
+            
+            // Parse OBIS value from line, return NAN if not found or invalid
+            auto parse_obis_value = [&](const std::string &line, const std::string &obis) -> float {
+              size_t pos = line.find(obis);
+              if (pos == std::string::npos) {
+                // ESP_LOGW("meter", "OBIS code %s not found in line: %s", obis.c_str(), line.c_str());
+                return NAN;
+              }
+              
+              size_t start = line.find('(', pos);
+              if (start == std::string::npos) {
+                ESP_LOGW("meter", "Opening parenthesis not found for %s in line: %s", obis.c_str(), line.c_str());
+                return NAN;
+              }
+              
+              size_t end = line.find('*', start);
+              if (end == std::string::npos || end <= start) {
+                ESP_LOGW("meter", "Asterisk delimiter not found or invalid for %s in line: %s", obis.c_str(), line.c_str());
+                return NAN;
+              }
+              
+              std::string value_str = line.substr(start+1, end-start-1);
+              float value = parse_float(value_str);
+              if (isnan(value)) {
+                ESP_LOGW("meter", "Invalid float format for %s: '%s'", obis.c_str(), value_str.c_str());
+              }
+              return value;
+            };
+            
+            // Validate and update energy sensors (kWh) - clamp filters handle min/max bounds
+            auto update_energy_sensor = [&](const std::string &line, const std::string &obis, auto &sensor, float &prev_value) {
+              float value = parse_obis_value(line, obis);
+              if (isnan(value)) return; // Parse failed
+              
+              // Validate: energy must be evergrowing (or first reading)
+              if (prev_value >= 0 && value < prev_value) {
+                ESP_LOGW("meter", "Rejected %s: %.4f kWh (less than previous %.4f kWh)", obis.c_str(), value, prev_value);
+                return;
+              }
+              
+              // Validate: energy change must be reasonable
+              if (prev_value >= 0 && (value - prev_value) > MAX_ENERGY_CHANGE) {
+                ESP_LOGW("meter", "Rejected %s: %.4f kWh (change %.4f kWh > limit %.0f kWh)", obis.c_str(), value, value - prev_value, MAX_ENERGY_CHANGE);
+                return;
+              }
+              
+              // All validations passed - clamp filter will handle min/max bounds
+              sensor->publish_state(value);
+              prev_value = value;
+              ESP_LOGD("meter", "Updated %s: %.4f kWh", obis.c_str(), value);
+            };
+            
+            // Validate and update power sensors (W) - clamp filters handle min/max bounds
+            auto update_power_sensor = [&](const std::string &line, const std::string &obis, auto &sensor, float &prev_value) {
+              float value = parse_obis_value(line, obis);
+              if (isnan(value)) return; // Parse failed
+              
+              // Validate: power change must be reasonable (or first reading)
+              if (prev_value >= 0 && abs(value - prev_value) > MAX_POWER_CHANGE) {
+                ESP_LOGW("meter", "Rejected %s: %.0f W (change %.0f W > limit %.0f W)", obis.c_str(), value, abs(value - prev_value), MAX_POWER_CHANGE);
+                return;
+              }
+              
+              // All validations passed - clamp filter will handle min/max bounds
+              sensor->publish_state(value);
+              prev_value = value;
+              ESP_LOGD("meter", "Updated %s: %.0f W", obis.c_str(), value);
+            };
+            
+            // auto validate_obis_frame = [](const std::string &line) -> bool {
+            //   if (line.length() < 10 || line.length() > 100) return false;
+            //   if (line.find("1-0:") != 0 && line.find("0-0:") != 0) return false;
+            //   if (line.find("*") == std::string::npos) return false;
+            //   if (line.find("(") == std::string::npos) return false;
+            //   if (line.find(")") == std::string::npos) return false;
+            //   return true;
+            // };
+
+            // Update energy sensors (kWh) with comprehensive validation
+            update_energy_sensor(x, "${obis_total_consumption}", id(total_consumption), id(prev_total_consumption));
+            update_energy_sensor(x, "${obis_consumption_1d}", id(consumption_1d), id(prev_consumption_1d));
+            update_energy_sensor(x, "${obis_consumption_7d}", id(consumption_7d), id(prev_consumption_7d));
+            update_energy_sensor(x, "${obis_consumption_30d}", id(consumption_30d), id(prev_consumption_30d));
+            update_energy_sensor(x, "${obis_consumption_365d}", id(consumption_365d), id(prev_consumption_365d));
+            update_energy_sensor(x, "${obis_total_feed_in}", id(total_feed_in), id(prev_total_feed_in));
+            
+            // Update power sensor (W) with spike protection
+            update_power_sensor(x, "${obis_current_power}", id(current_power), id(prev_current_power));
+
+sensor:
+  - platform: template
+    name: "Total Consumption"
+    id: total_consumption
+    unit_of_measurement: kWh
+    accuracy_decimals: 4
+    device_class: energy
+    state_class: total_increasing
+    filters:
+      - clamp:
+          min_value: ${min_energy_value}
+          max_value: ${max_energy_total}
+  - platform: template
+    name: "Consumption 1 Day"
+    id: consumption_1d
+    unit_of_measurement: kWh
+    accuracy_decimals: 4
+    device_class: energy
+    state_class: total_increasing
+    filters:
+      - clamp:
+          min_value: ${min_energy_value}
+          max_value: ${max_energy_total}
+  - platform: template
+    name: "Consumption 7 Days"
+    id: consumption_7d
+    unit_of_measurement: kWh
+    accuracy_decimals: 4
+    device_class: energy
+    state_class: total_increasing
+    filters:
+      - clamp:
+          min_value: ${min_energy_value}
+          max_value: ${max_energy_total}
+  - platform: template
+    name: "Consumption 30 Days"
+    id: consumption_30d
+    unit_of_measurement: kWh
+    accuracy_decimals: 4
+    device_class: energy
+    state_class: total_increasing
+    filters:
+      - clamp:
+          min_value: ${min_energy_value}
+          max_value: ${max_energy_total}
+  - platform: template
+    name: "Consumption 365 Days"
+    id: consumption_365d
+    unit_of_measurement: kWh
+    accuracy_decimals: 4
+    device_class: energy
+    state_class: total_increasing
+    filters:
+      - clamp:
+          min_value: ${min_energy_value}
+          max_value: ${max_energy_total}
+  - platform: template
+    name: "Current Power"
+    id: current_power
+    unit_of_measurement: W
+    accuracy_decimals: 0
+    device_class: power
+    state_class: measurement
+    filters:
+      - clamp:
+          min_value: ${min_power_value}
+          max_value: ${max_absolute_power}
+  - platform: template
+    name: "Total Feed-in"
+    id: total_feed_in
+    unit_of_measurement: kWh
+    accuracy_decimals: 4
+    device_class: energy
+    state_class: total_increasing
+    filters:
+      - clamp:
+          min_value: ${min_energy_value}
+          max_value: ${max_energy_total}
+  # Nice to have: uptime sensor
+  - platform: uptime
+    name: "Uptime"
+    id: uptime_sensor
+    update_interval: 60s
+    entity_category: diagnostic
+    disabled_by_default: true
+
+  # - platform: template
+  #   name: "OBIS Valid Frame Rate"
+  #   id: obis_valid_frame_rate
+  #   unit_of_measurement: "%"
+  #   accuracy_decimals: 1
+  #   entity_category: diagnostic
+    
+  # - platform: template
+  #   name: "OBIS Corruption Count"
+  #   id: obis_corruption_count
+  #   entity_category: diagnostic
+
+button:
+  # Reset validation state - using button instead of switch
+  - platform: template
+    name: "Reset Validation State"
+    id: reset_validation_state
+    icon: "mdi:backup-restore"
+    entity_category: diagnostic
+    disabled_by_default: true
+    on_press:
+      - lambda: |-
+          id(prev_total_consumption) = -1.0;
+          id(prev_consumption_1d) = -1.0;
+          id(prev_consumption_7d) = -1.0;
+          id(prev_consumption_30d) = -1.0;
+          id(prev_consumption_365d) = -1.0;
+          id(prev_total_feed_in) = -1.0;
+          id(prev_current_power) = -1.0;
+          ESP_LOGI("meter", "Validation state reset - all previous values cleared");
+
+# Optionally, add a debug text sensor for SML raw data (for troubleshooting)
+# text_sensor:
+#   - platform: sml
+#     name: "SML Raw Data"
+#     sml_id: mysml
+#     # obis_code: "1-0:1.8.0*255"
+#     obis_code: "1-0:1.8.0"
+#     format: hex
+#     icon: "mdi:code-tags"
+#     entity_category: diagnostic
+#   - platform: template
+#     name: "SML Raw Telegram"
+#     id: sml_raw_telegram
+#     icon: "mdi:code-braces"
+#     entity_category: diagnostic
+
+# Optionally, add a status LED (uncomment and set pin if desired)
+# output:
+#   - platform: gpio
+#     pin: D4
+#     id: status_led
+# status_led:
+#   pin:
+#     number: D4
+#     inverted: true
