@@ -1,0 +1,12 @@
+name: uart_line_reader
+version: "1.0.0"
+description: UART line reader text-sensor component
+
+files:
+  - uart_line_reader.h
+  - uart_line_reader.cpp
+  - text_sensor.py
+  - __init__.py
+
+components:
+  - text_sensor 
