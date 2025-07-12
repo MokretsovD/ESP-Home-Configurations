@@ -111,7 +111,7 @@ mqtt:
   discovery: true
   id: mqttclient
 
-web_server:
+# web_server:
 
 # Global variables for validation state tracking
 globals:
@@ -166,6 +166,7 @@ uart:
   data_bits: 7 # Common for smart meters
   stop_bits: 1
   rx_buffer_size: 1024
+  # Enable UART debug output
   # debug:
   #   direction: RX
   #   dummy_receiver: false
@@ -421,6 +422,9 @@ text_sensor:
 # -----------------------------------------------------------------------------
 # Handshake logic: keep the meter in printable IEC-62056-21 ASCII mode
 # -----------------------------------------------------------------------------
+
+# Never tested this, not sure this actually works, but added it here for reference for counters that
+# require handshake before sending any data.
 
 # script:
 #   - id: meter_handshake
