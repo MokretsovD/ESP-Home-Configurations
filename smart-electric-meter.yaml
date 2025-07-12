@@ -19,7 +19,7 @@ substitutions:
   max_absolute_power: "34500.0"     # 34.5kW (2x realistic power as absolute limit)
   max_power_change: "3000.0"        # 3kW max power change per reading
   max_energy_total: "100000.0"      # 100,000 kWh reasonable lifetime maximum
-  max_energy_change: "100.0"        # 100 kWh max energy change per reading
+  max_energy_change: "1.0"          # 1 kWh max energy change per reading
   min_energy_value: "0.0"           # Minimum energy value (kWh)
   min_power_value: "0.0"            # Minimum power value (W)
 
@@ -31,6 +31,37 @@ substitutions:
   obis_consumption_365d: "1-0:1.8.0*99"      # Energy consumption last 365 days (kWh)
   obis_total_feed_in: "1-0:2.8.0*255"        # Total energy feed-in (kWh)
   obis_current_power: "1-0:16.7.0*255"       # Current power consumption (W)
+
+  # Additional OBIS codes for comprehensive meter reading
+  obis_serial_number: "1-0:96.1.0*255"       # Serial number/identification
+  obis_consumption_t1: "1-0:1.8.1*255"       # Energy consumption T1 (kWh)
+  obis_consumption_t2: "1-0:1.8.2*255"       # Energy consumption T2 (kWh)
+  obis_voltage_l1: "1-0:32.7.0*255"          # Voltage L1 (V)
+  obis_voltage_l2: "1-0:52.7.0*255"          # Voltage L2 (V)
+  obis_voltage_l3: "1-0:72.7.0*255"          # Voltage L3 (V)
+  obis_current_l1: "1-0:31.7.0*255"          # Current L1 (A)
+  obis_current_l2: "1-0:51.7.0*255"          # Current L2 (A)
+  obis_current_l3: "1-0:71.7.0*255"          # Current L3 (A)
+  obis_phase_angle_ul2_ul1: "1-0:81.7.1*255" # Phase angle UL2:UL1 (deg)
+  obis_phase_angle_ul3_ul1: "1-0:81.7.2*255" # Phase angle UL3:UL1 (deg)
+  obis_phase_angle_il1_ul1: "1-0:81.7.4*255" # Phase angle IL1:UL1 (deg)
+  obis_phase_angle_il2_ul2: "1-0:81.7.15*255" # Phase angle IL2:UL2 (deg)
+  obis_phase_angle_il3_ul3: "1-0:81.7.26*255" # Phase angle IL3:UL3 (deg)
+  obis_frequency: "1-0:14.7.0*255"           # Network frequency (Hz)
+  obis_consumption_since_reset: "1-0:1.8.0*100" # Energy since last reset (kWh)
+  obis_firmware_version: "1-0:0.2.0*255"     # Firmware version info
+  obis_parameter_crc: "1-0:96.90.2*255"      # Parameter CRC checksum
+  obis_status_register: "1-0:97.97.0*255"    # Status register
+
+  # Additional validation constants
+  max_voltage: "280.0"          # 280V (max reasonable voltage)
+  min_voltage: "0.0"            # 0V (min voltage)
+  max_current: "30.0"           # 30A (max reasonable current)
+  min_current: "0.0"            # 0A (min current)
+  max_frequency: "52.0"         # 55Hz (max frequency)
+  min_frequency: "48.0"         # 45Hz (min frequency)
+  max_phase_angle: "360.0"      # 360° (max phase angle)
+  min_phase_angle: "-360.0"     # -360° (min phase angle)
 
 esphome:
   name: ${name}
@@ -66,19 +97,19 @@ packages:
 captive_portal:
 
 # MQTT (no API)
-# mqtt:
-#   broker: ${mqtt_broker}
-#   username: ${mqtt_username}
-#   password: ${mqtt_password}
-#   topic_prefix: ${mqtt_topic_prefix}
-#   birth_message:
-#     topic: ${mqtt_topic_prefix}/LWT
-#     payload: Online
-#   will_message:
-#     topic: ${mqtt_topic_prefix}/LWT
-#     payload: Offline
-#   discovery: true
-#   id: mqttclient
+mqtt:
+  broker: ${mqtt_broker}
+  username: ${mqtt_username}
+  password: ${mqtt_password}
+  topic_prefix: ${mqtt_topic_prefix}
+  birth_message:
+    topic: ${mqtt_topic_prefix}/LWT
+    payload: Online
+  will_message:
+    topic: ${mqtt_topic_prefix}/LWT
+    payload: Offline
+  discovery: true
+  id: mqttclient
 
 web_server:
 
@@ -105,6 +136,24 @@ globals:
   - id: prev_current_power
     type: float
     initial_value: "-1.0"
+  # Additional global variables for additional OBIS codes (only for sensors that need validation)
+  - id: prev_consumption_t1
+    type: float
+    initial_value: "-1.0"
+  - id: prev_consumption_t2
+    type: float
+    initial_value: "-1.0"
+  - id: prev_consumption_since_reset
+    type: float
+    initial_value: "-1.0"
+    
+  # Global variables for communication quality tracking
+  - id: total_frames_received
+    type: int
+    initial_value: "0"
+  - id: corruption_count
+    type: int
+    initial_value: "0"
 
 # UART for IR head
 uart:
@@ -131,25 +180,25 @@ text_sensor:
     uart_id: uart_bus
     name: "OBIS Raw Line"
     id: obis_raw_line
+    internal: true
     filters:
-    #   # Add validation filter
-    #   - lambda: |-
-    #       // Only process lines that look like valid OBIS codes
-    #       if (x.length() < 10) return {};
-    #       if (x.find("1-0:") != 0 && x.find("0-0:") != 0) return {};
-    #       if (x.find("*") == std::string::npos) return {};
-    #       if (x.find("(") == std::string::npos) return {};
-    #       return x;
       - lambda: |-
           if (x.length() < 10) return {};
           if (x[0] != '0' && x[0] != '1') return {};
           if (x.find('*') == std::string::npos ||
               x.find('(') == std::string::npos ||
               x.find(')') == std::string::npos) return {};
+
           return x;
     on_value:
       then:
         - lambda: |-
+            // Track OBIS telegram processing for quality metrics
+            id(total_frames_received)++;
+            
+            // Flag to track if corruption occurred in this telegram
+            bool telegram_corrupted = false;
+            
             // Using ESPHome globals for validation state tracking
             
             // Validation constants from substitutions (absolute limits now handled by clamp filters)
@@ -163,22 +212,25 @@ text_sensor:
             };
             
             // Parse OBIS value from line, return NAN if not found or invalid
+            // Sets telegram_corrupted flag if OBIS code is found but malformed
             auto parse_obis_value = [&](const std::string &line, const std::string &obis) -> float {
               size_t pos = line.find(obis);
               if (pos == std::string::npos) {
-                // ESP_LOGW("meter", "OBIS code %s not found in line: %s", obis.c_str(), line.c_str());
+                // OBIS code not found - this is normal, not corruption
                 return NAN;
               }
               
               size_t start = line.find('(', pos);
               if (start == std::string::npos) {
                 ESP_LOGW("meter", "Opening parenthesis not found for %s in line: %s", obis.c_str(), line.c_str());
+                telegram_corrupted = true; // Found OBIS code but malformed
                 return NAN;
               }
               
               size_t end = line.find('*', start);
               if (end == std::string::npos || end <= start) {
                 ESP_LOGW("meter", "Asterisk delimiter not found or invalid for %s in line: %s", obis.c_str(), line.c_str());
+                telegram_corrupted = true; // Found OBIS code but malformed
                 return NAN;
               }
               
@@ -186,6 +238,7 @@ text_sensor:
               float value = parse_float(value_str);
               if (isnan(value)) {
                 ESP_LOGW("meter", "Invalid float format for %s: '%s'", obis.c_str(), value_str.c_str());
+                telegram_corrupted = true; // Found OBIS code but invalid value
               }
               return value;
             };
@@ -193,17 +246,22 @@ text_sensor:
             // Validate and update energy sensors (kWh) - clamp filters handle min/max bounds
             auto update_energy_sensor = [&](const std::string &line, const std::string &obis, auto &sensor, float &prev_value) {
               float value = parse_obis_value(line, obis);
-              if (isnan(value)) return; // Parse failed
+              if (isnan(value)) {
+                // OBIS code not found or already marked as corrupted in parse_obis_value
+                return;
+              }
               
               // Validate: energy must be evergrowing (or first reading)
               if (prev_value >= 0 && value < prev_value) {
                 ESP_LOGW("meter", "Rejected %s: %.4f kWh (less than previous %.4f kWh)", obis.c_str(), value, prev_value);
+                telegram_corrupted = true; // Invalid energy value - corrupted telegram
                 return;
               }
               
               // Validate: energy change must be reasonable
               if (prev_value >= 0 && (value - prev_value) > MAX_ENERGY_CHANGE) {
                 ESP_LOGW("meter", "Rejected %s: %.4f kWh (change %.4f kWh > limit %.0f kWh)", obis.c_str(), value, value - prev_value, MAX_ENERGY_CHANGE);
+                telegram_corrupted = true; // Unreasonable energy change - corrupted telegram
                 return;
               }
               
@@ -216,11 +274,15 @@ text_sensor:
             // Validate and update power sensors (W) - clamp filters handle min/max bounds
             auto update_power_sensor = [&](const std::string &line, const std::string &obis, auto &sensor, float &prev_value) {
               float value = parse_obis_value(line, obis);
-              if (isnan(value)) return; // Parse failed
+              if (isnan(value)) {
+                // OBIS code not found or already marked as corrupted in parse_obis_value
+                return;
+              }
               
               // Validate: power change must be reasonable (or first reading)
               if (prev_value >= 0 && abs(value - prev_value) > MAX_POWER_CHANGE) {
                 ESP_LOGW("meter", "Rejected %s: %.0f W (change %.0f W > limit %.0f W)", obis.c_str(), value, abs(value - prev_value), MAX_POWER_CHANGE);
+                telegram_corrupted = true; // Unreasonable power change - corrupted telegram
                 return;
               }
               
@@ -229,15 +291,6 @@ text_sensor:
               prev_value = value;
               ESP_LOGD("meter", "Updated %s: %.0f W", obis.c_str(), value);
             };
-            
-            // auto validate_obis_frame = [](const std::string &line) -> bool {
-            //   if (line.length() < 10 || line.length() > 100) return false;
-            //   if (line.find("1-0:") != 0 && line.find("0-0:") != 0) return false;
-            //   if (line.find("*") == std::string::npos) return false;
-            //   if (line.find("(") == std::string::npos) return false;
-            //   if (line.find(")") == std::string::npos) return false;
-            //   return true;
-            // };
 
             // Update energy sensors (kWh) with comprehensive validation
             update_energy_sensor(x, "${obis_total_consumption}", id(total_consumption), id(prev_total_consumption));
@@ -249,6 +302,153 @@ text_sensor:
             
             // Update power sensor (W) with spike protection
             update_power_sensor(x, "${obis_current_power}", id(current_power), id(prev_current_power));
+
+            // Update additional energy sensors
+            update_energy_sensor(x, "${obis_consumption_t1}", id(consumption_t1), id(prev_consumption_t1));
+            update_energy_sensor(x, "${obis_consumption_t2}", id(consumption_t2), id(prev_consumption_t2));
+            update_energy_sensor(x, "${obis_consumption_since_reset}", id(consumption_since_reset), id(prev_consumption_since_reset));
+            
+            // Generic function to update numeric sensors (no validation needed - clamp filters handle bounds)
+            auto update_numeric_sensor = [&](const std::string &line, const std::string &obis, auto &sensor, const char* unit) {
+              float value = parse_obis_value(line, obis);
+              if (isnan(value)) {
+                // OBIS code not found or already marked as corrupted in parse_obis_value
+                return;
+              }
+              
+              // Update sensor (clamp filter will handle bounds)
+              sensor->publish_state(value);
+              ESP_LOGD("meter", "Updated %s: %.3f %s", obis.c_str(), value, unit);
+            };
+            
+            // Parse and publish text sensor values (no validation needed)
+            auto update_text_sensor = [&](const std::string &line, const std::string &obis, auto &sensor) {
+              size_t pos = line.find(obis);
+              if (pos == std::string::npos) return;
+              
+              size_t start = line.find('(', pos);
+              if (start == std::string::npos) return;
+              
+              size_t end = line.find(')', start);
+              if (end == std::string::npos || end <= start) return;
+              
+              std::string value_str = line.substr(start+1, end-start-1);
+              sensor->publish_state(value_str);
+              ESP_LOGD("meter", "Updated %s: %s", obis.c_str(), value_str.c_str());
+            };
+            
+            // Update voltage sensors
+            update_numeric_sensor(x, "${obis_voltage_l1}", id(voltage_l1), "V");
+            update_numeric_sensor(x, "${obis_voltage_l2}", id(voltage_l2), "V");
+            update_numeric_sensor(x, "${obis_voltage_l3}", id(voltage_l3), "V");
+            
+            // Update current sensors
+            update_numeric_sensor(x, "${obis_current_l1}", id(current_l1), "A");
+            update_numeric_sensor(x, "${obis_current_l2}", id(current_l2), "A");
+            update_numeric_sensor(x, "${obis_current_l3}", id(current_l3), "A");
+            
+            // Update frequency sensor
+            update_numeric_sensor(x, "${obis_frequency}", id(frequency), "Hz");
+            
+            // Update phase angle sensors
+            update_numeric_sensor(x, "${obis_phase_angle_ul2_ul1}", id(phase_angle_ul2_ul1), "deg");
+            update_numeric_sensor(x, "${obis_phase_angle_ul3_ul1}", id(phase_angle_ul3_ul1), "deg");
+            update_numeric_sensor(x, "${obis_phase_angle_il1_ul1}", id(phase_angle_il1_ul1), "deg");
+            update_numeric_sensor(x, "${obis_phase_angle_il2_ul2}", id(phase_angle_il2_ul2), "deg");
+            update_numeric_sensor(x, "${obis_phase_angle_il3_ul3}", id(phase_angle_il3_ul3), "deg");
+            
+            // Update text sensors
+            update_text_sensor(x, "${obis_serial_number}", id(serial_number));
+            update_text_sensor(x, "${obis_firmware_version}", id(firmware_version));
+            update_text_sensor(x, "${obis_parameter_crc}", id(parameter_crc));
+            update_text_sensor(x, "${obis_status_register}", id(status_register));
+            
+            // Count corrupted telegrams (only once per telegram)
+            if (telegram_corrupted) {
+              id(corruption_count)++;
+            }
+
+  # Additional text sensors for meter information
+  - platform: template
+    name: "Serial Number"
+    id: serial_number
+    icon: "mdi:identifier"
+    entity_category: diagnostic
+    filters:
+      - lambda: |-
+          static std::string last_serial;
+          if (x == last_serial)
+            return {};
+          last_serial = x;
+          return x;
+  - platform: template
+    name: "Firmware Version"
+    id: firmware_version
+    icon: "mdi:information-outline"
+    entity_category: diagnostic
+    filters:
+      - lambda: |-
+          static std::string last_firmware;
+          if (x == last_firmware)
+            return {};
+          last_firmware = x;
+          return x;
+  - platform: template
+    name: "Parameter CRC"
+    id: parameter_crc
+    icon: "mdi:checksum"
+    entity_category: diagnostic
+    filters:
+      - lambda: |-
+          static std::string last_crc;
+          if (x == last_crc)
+            return {};
+          last_crc = x;
+          return x;
+  - platform: template
+    name: "Status Register"
+    id: status_register
+    icon: "mdi:alert-circle-outline"
+    entity_category: diagnostic
+    filters:
+      - lambda: |-
+          static std::string last_status;
+          if (x == last_status)
+            return {};
+          last_status = x;
+          return x;
+
+# -----------------------------------------------------------------------------
+# Handshake logic: keep the meter in printable IEC-62056-21 ASCII mode
+# -----------------------------------------------------------------------------
+
+# script:
+#   - id: meter_handshake
+#     mode: queued
+#     then:
+#       # Give the UART some time after boot / Wi-Fi reconnects
+#       - delay: 3s
+#       # 1) "/?!\r\n" – enquiry according to IEC-62056-21
+#       - uart.write: "/?!\r\n"
+#       # 2) Wait for the meter to answer with the identification string
+#       - delay: 300ms
+#       # 3) ACK + mode/baud selector (0 6 0 => mode C, 9600 Bd, normal wait-time)
+#       - lambda: |-
+#           constexpr uint8_t ack[] = {0x06, '0', '6', '0', '\r', '\n'};
+#           id(uart_bus).write_array(ack, sizeof(ack));
+
+# # Execute once after every reboot and repeat regularly (meter falls back to
+# # idle mode after a few minutes without traffic).
+
+# on_boot:
+#   priority: -10
+#   then:
+#     - script.execute: meter_handshake
+
+# interval:
+#   - interval: 15min
+#     then:
+#       - script.execute: meter_handshake
 
 sensor:
   - platform: template
@@ -262,6 +462,9 @@ sensor:
       - clamp:
           min_value: ${min_energy_value}
           max_value: ${max_energy_total}
+      - or:
+        - throttle: 5min
+        - delta: 0.0001
   - platform: template
     name: "Consumption 1 Day"
     id: consumption_1d
@@ -273,6 +476,9 @@ sensor:
       - clamp:
           min_value: ${min_energy_value}
           max_value: ${max_energy_total}
+      - or:
+        - throttle: 5min
+        - delta: 0.0001
   - platform: template
     name: "Consumption 7 Days"
     id: consumption_7d
@@ -284,6 +490,9 @@ sensor:
       - clamp:
           min_value: ${min_energy_value}
           max_value: ${max_energy_total}
+      - or:
+        - throttle: 5min
+        - delta: 0.0001
   - platform: template
     name: "Consumption 30 Days"
     id: consumption_30d
@@ -295,6 +504,9 @@ sensor:
       - clamp:
           min_value: ${min_energy_value}
           max_value: ${max_energy_total}
+      - or:
+        - throttle: 5min
+        - delta: 0.0001
   - platform: template
     name: "Consumption 365 Days"
     id: consumption_365d
@@ -306,6 +518,9 @@ sensor:
       - clamp:
           min_value: ${min_energy_value}
           max_value: ${max_energy_total}
+      - or:
+        - throttle: 5min
+        - delta: 0.0001
   - platform: template
     name: "Current Power"
     id: current_power
@@ -317,6 +532,9 @@ sensor:
       - clamp:
           min_value: ${min_power_value}
           max_value: ${max_absolute_power}
+      - or:
+        - throttle: 5min
+        - delta: 1
   - platform: template
     name: "Total Feed-in"
     id: total_feed_in
@@ -328,6 +546,9 @@ sensor:
       - clamp:
           min_value: ${min_energy_value}
           max_value: ${max_energy_total}
+      - or:
+        - throttle: 5min
+        - delta: 0.0001
   # Nice to have: uptime sensor
   - platform: uptime
     name: "Uptime"
@@ -336,17 +557,261 @@ sensor:
     entity_category: diagnostic
     disabled_by_default: true
 
-  # - platform: template
-  #   name: "OBIS Valid Frame Rate"
-  #   id: obis_valid_frame_rate
-  #   unit_of_measurement: "%"
-  #   accuracy_decimals: 1
-  #   entity_category: diagnostic
-    
-  # - platform: template
-  #   name: "OBIS Corruption Count"
-  #   id: obis_corruption_count
-  #   entity_category: diagnostic
+  # Additional energy sensors
+  - platform: template
+    name: "Consumption T1"
+    id: consumption_t1
+    unit_of_measurement: kWh
+    accuracy_decimals: 4
+    device_class: energy
+    state_class: total_increasing
+    filters:
+      - clamp:
+          min_value: ${min_energy_value}
+          max_value: ${max_energy_total}
+      - or:
+        - throttle: 5min
+        - delta: 0.0001
+  - platform: template
+    name: "Consumption T2"
+    id: consumption_t2
+    unit_of_measurement: kWh
+    accuracy_decimals: 4
+    device_class: energy
+    state_class: total_increasing
+    filters:
+      - clamp:
+          min_value: ${min_energy_value}
+          max_value: ${max_energy_total}
+      - or:
+        - throttle: 5min
+        - delta: 0.0001
+  - platform: template
+    name: "Consumption Since Reset"
+    id: consumption_since_reset
+    unit_of_measurement: kWh
+    accuracy_decimals: 4
+    device_class: energy
+    state_class: total_increasing
+    filters:
+      - clamp:
+          min_value: ${min_energy_value}
+          max_value: ${max_energy_total}
+      - or:
+        - throttle: 5min
+        - delta: 0.0001
+  # Voltage sensors
+  - platform: template
+    name: "Voltage L1"
+    id: voltage_l1
+    unit_of_measurement: V
+    accuracy_decimals: 1
+    device_class: voltage
+    state_class: measurement
+    filters:
+      - clamp:
+          min_value: ${min_voltage}
+          max_value: ${max_voltage}
+      - or:
+          - throttle: 5min
+          - delta: 0.1
+  - platform: template
+    name: "Voltage L2"
+    id: voltage_l2
+    unit_of_measurement: V
+    accuracy_decimals: 1
+    device_class: voltage
+    state_class: measurement
+    filters:
+      - clamp:
+          min_value: ${min_voltage}
+          max_value: ${max_voltage}
+      - or:
+          - throttle: 5min
+          - delta: 0.1
+  - platform: template
+    name: "Voltage L3"
+    id: voltage_l3
+    unit_of_measurement: V
+    accuracy_decimals: 1
+    device_class: voltage
+    state_class: measurement
+    filters:
+      - clamp:
+          min_value: ${min_voltage}
+          max_value: ${max_voltage}
+      - or:
+          - throttle: 5min
+          - delta: 0.1
+
+  # Current sensors
+  - platform: template
+    name: "Current L1"
+    id: current_l1
+    unit_of_measurement: A
+    accuracy_decimals: 2
+    device_class: current
+    state_class: measurement
+    filters:
+      - clamp:
+          min_value: ${min_current}
+          max_value: ${max_current}
+      - or:
+          - throttle: 5min
+          - delta: 0.01
+  - platform: template
+    name: "Current L2"
+    id: current_l2
+    unit_of_measurement: A
+    accuracy_decimals: 2
+    device_class: current
+    state_class: measurement
+    filters:
+      - clamp:
+          min_value: ${min_current}
+          max_value: ${max_current}
+      - or:
+          - throttle: 5min
+          - delta: 0.01
+  - platform: template
+    name: "Current L3"
+    id: current_l3
+    unit_of_measurement: A
+    accuracy_decimals: 2
+    device_class: current
+    state_class: measurement
+    filters:
+      - clamp:
+          min_value: ${min_current}
+          max_value: ${max_current}
+      - or:
+          - throttle: 5min
+          - delta: 0.01
+
+  # Frequency sensor
+  - platform: template
+    name: "Frequency"
+    id: frequency
+    unit_of_measurement: Hz
+    accuracy_decimals: 1
+    device_class: frequency
+    state_class: measurement
+    filters:
+      - clamp:
+          min_value: ${min_frequency}
+          max_value: ${max_frequency}
+      - or:
+          - throttle: 5min
+          - delta: 0.1
+
+  # Phase angle sensors
+  - platform: template
+    name: "Phase Angle UL2:UL1"
+    id: phase_angle_ul2_ul1
+    unit_of_measurement: "°"
+    accuracy_decimals: 0
+    icon: "mdi:angle-acute"
+    state_class: measurement
+    filters:
+      - clamp:
+          min_value: ${min_phase_angle}
+          max_value: ${max_phase_angle}
+      - or:
+          - throttle: 5min
+          - delta: 1.0
+  - platform: template
+    name: "Phase Angle UL3:UL1"
+    id: phase_angle_ul3_ul1
+    unit_of_measurement: "°"
+    accuracy_decimals: 0
+    icon: "mdi:angle-acute"
+    state_class: measurement
+    filters:
+      - clamp:
+          min_value: ${min_phase_angle}
+          max_value: ${max_phase_angle}
+      - or:
+          - throttle: 5min
+          - delta: 1.0
+  - platform: template
+    name: "Phase Angle IL1:UL1"
+    id: phase_angle_il1_ul1
+    unit_of_measurement: "°"
+    accuracy_decimals: 0
+    icon: "mdi:angle-acute"
+    state_class: measurement
+    filters:
+      - clamp:
+          min_value: ${min_phase_angle}
+          max_value: ${max_phase_angle}
+      - or:
+          - throttle: 5min
+          - delta: 1.0
+  - platform: template
+    name: "Phase Angle IL2:UL2"
+    id: phase_angle_il2_ul2
+    unit_of_measurement: "°"
+    accuracy_decimals: 0
+    icon: "mdi:angle-acute"
+    state_class: measurement
+    filters:
+      - clamp:
+          min_value: ${min_phase_angle}
+          max_value: ${max_phase_angle}
+      - or:
+          - throttle: 5min
+          - delta: 1.0
+  - platform: template
+    name: "Phase Angle IL3:UL3"
+    id: phase_angle_il3_ul3
+    unit_of_measurement: "°"
+    accuracy_decimals: 0
+    icon: "mdi:angle-acute"
+    state_class: measurement
+    filters:
+      - clamp:
+          min_value: ${min_phase_angle}
+          max_value: ${max_phase_angle}
+      - or:
+          - throttle: 5min
+          - delta: 1.0
+
+  # Communication quality sensors
+  - platform: template
+    name: "OBIS Valid Frame Rate"
+    id: obis_valid_frame_rate
+    unit_of_measurement: "%"
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 1s
+    lambda: |-
+      int total_telegrams = id(total_frames_received);
+      int corruption_events = id(corruption_count);
+      
+      // Overflow protection for both counters - reduce proportionally to maintain ratio
+      if (total_telegrams >= 10000 || corruption_events >= 10000) {
+        int new_total = total_telegrams / 2;
+        int new_corruption = corruption_events / 2;
+        ESP_LOGI("meter", "Counter overflow protection triggered - reducing counters from %d/%d to %d/%d", 
+                 total_telegrams, corruption_events, new_total, new_corruption);
+        id(total_frames_received) = new_total;
+        id(corruption_count) = new_corruption;
+        // Recalculate with new values
+        total_telegrams = new_total;
+        corruption_events = new_corruption;
+      }
+      
+      if (total_telegrams == 0) return 0.0;
+      int successfully_processed = total_telegrams - corruption_events;
+      if (successfully_processed < 0) successfully_processed = 0;
+      
+      return (float(successfully_processed) / float(total_telegrams)) * 100.0;
+    filters:
+      - or:
+          - throttle: 2min
+          - delta: 0.1   
+
 
 button:
   # Reset validation state - using button instead of switch
@@ -365,7 +830,27 @@ button:
           id(prev_consumption_365d) = -1.0;
           id(prev_total_feed_in) = -1.0;
           id(prev_current_power) = -1.0;
-          ESP_LOGI("meter", "Validation state reset - all previous values cleared");
+          // Reset additional energy sensors (only ones that need validation)
+          id(prev_consumption_t1) = -1.0;
+          id(prev_consumption_t2) = -1.0;
+          id(prev_consumption_since_reset) = -1.0;
+          // Reset communication quality counters
+          id(total_frames_received) = 0;
+          id(corruption_count) = 0;
+          ESP_LOGI("meter", "Validation state and communication quality counters reset");
+
+  # Reset communication quality counters only
+  - platform: template
+    name: "Reset Communication Quality"
+    id: reset_communication_quality
+    icon: "mdi:refresh"
+    entity_category: diagnostic
+    disabled_by_default: true
+    on_press:
+      - lambda: |-
+          id(total_frames_received) = 0;
+          id(corruption_count) = 0;
+          ESP_LOGI("meter", "Communication quality counters reset");
 
 # Optionally, add a debug text sensor for SML raw data (for troubleshooting)
 # text_sensor:
