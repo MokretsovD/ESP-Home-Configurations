@@ -1,0 +1,43 @@
+---
+sensor:
+  # WiFi connect count sensor
+  - platform: template
+    name: "WiFi Connect Count"
+    id: wifi_connect_count
+    unit_of_measurement: ""
+    accuracy_decimals: 0
+    entity_category: "diagnostic"
+    disabled_by_default: true
+    lambda: return id(wifi_connect_counter);
+    icon: "mdi:wifi-check"
+    state_class: "total"
+
+text_sensor:
+  # IP address sensor
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+      id: ip_address
+      entity_category: "diagnostic"
+      disabled_by_default: true
+      icon: "mdi:ip-network"
+    # WiFi SSID sensor
+    ssid:
+      name: "WiFi SSID"
+      id: wifi_ssid
+      entity_category: "diagnostic"
+      disabled_by_default: true
+      icon: "mdi:wifi"
+
+# Global variable for WiFi connect count
+globals:
+  - id: wifi_connect_counter
+    type: int
+    initial_value: "0"
+
+# WiFi event handling for connect count
+wifi:
+  on_connect:
+    - lambda: |-
+        id(wifi_connect_counter)++;
+        ESP_LOGI("wifi", "WiFi connected, count: %d", id(wifi_connect_counter)); 
