@@ -18,6 +18,7 @@ substitutions:
   max_realistic_power: "17250.0" # 17.25kW (25A * 3 phases * 230V)
   max_absolute_power: "34500.0" # 34.5kW (2x realistic power as absolute limit)
   max_power_change: "3000.0" # 3kW max power change per reading
+  max_current_change: "13.0" # 13A max current change per reading (derived from 3kW/230V)
   max_energy_total: "100000.0" # 100,000 kWh reasonable lifetime maximum
   max_energy_change: "1.0" # 1 kWh max energy change per reading
   min_energy_value: "0.0" # Minimum energy value (kWh)
@@ -151,6 +152,16 @@ globals:
   - id: prev_consumption_since_reset
     type: float
     initial_value: "-1.0"
+  # Global variables for current spike protection
+  - id: prev_current_l1
+    type: float
+    initial_value: "-1.0"
+  - id: prev_current_l2
+    type: float
+    initial_value: "-1.0"
+  - id: prev_current_l3
+    type: float
+    initial_value: "-1.0"
 
   # Global variables for communication quality tracking
   - id: total_frames_received
@@ -214,6 +225,7 @@ text_sensor:
 
             // Validation constants from substitutions (absolute limits now handled by clamp filters)
             const float MAX_POWER_CHANGE = ${max_power_change}; // 3kW max power change per reading
+            const float MAX_CURRENT_CHANGE = ${max_current_change}; // 13A max current change per reading
             const float MAX_ENERGY_CHANGE = ${max_energy_change}; // 100 kWh max energy change per reading
 
             // Use ESPHome's built-in parse_number function
@@ -282,25 +294,36 @@ text_sensor:
               ESP_LOGD("meter", "Updated %s: %.4f kWh", obis.c_str(), value);
             };
 
-            // Validate and update power sensors (W) - clamp filters handle min/max bounds
-            auto update_power_sensor = [&](const std::string &line, const std::string &obis, auto &sensor, float &prev_value) {
+            // Generic function to validate and update sensors with spike protection
+            auto update_spike_protected_sensor = [&](const std::string &line, const std::string &obis, auto &sensor, float &prev_value, 
+                                                     float max_change, const char* unit) {
               float value = parse_obis_value(line, obis);
               if (isnan(value)) {
                 // OBIS code not found or already marked as corrupted in parse_obis_value
                 return;
               }
               
-              // Validate: power change must be reasonable (or first reading)
-              if (prev_value >= 0 && abs(value - prev_value) > MAX_POWER_CHANGE) {
-                ESP_LOGW("meter", "Rejected %s: %.0f W (change %.0f W > limit %.0f W)", obis.c_str(), value, abs(value - prev_value), MAX_POWER_CHANGE);
-                telegram_corrupted = true; // Unreasonable power change - corrupted telegram
+              // Validate: change must be reasonable (or first reading)
+              if (prev_value >= 0 && abs(value - prev_value) > max_change) {
+                ESP_LOGW("meter", "Rejected %s: %g %s (change %g %s > limit %g %s)", 
+                         obis.c_str(), value, unit, abs(value - prev_value), unit, max_change, unit);
+                telegram_corrupted = true; // Unreasonable change - corrupted telegram
                 return;
               }
               
               // All validations passed - clamp filter will handle min/max bounds
               sensor->publish_state(value);
               prev_value = value;
-              ESP_LOGD("meter", "Updated %s: %.0f W", obis.c_str(), value);
+              ESP_LOGD("meter", "Updated %s: %g %s", obis.c_str(), value, unit);
+            };
+
+            // Convenience wrappers for specific sensor types
+            auto update_power_sensor = [&](const std::string &line, const std::string &obis, auto &sensor, float &prev_value) {
+              update_spike_protected_sensor(line, obis, sensor, prev_value, MAX_POWER_CHANGE, "W");
+            };
+
+            auto update_current_sensor = [&](const std::string &line, const std::string &obis, auto &sensor, float &prev_value) {
+              update_spike_protected_sensor(line, obis, sensor, prev_value, MAX_CURRENT_CHANGE, "A");
             };
 
             // Update energy sensors (kWh) with comprehensive validation
@@ -353,10 +376,10 @@ text_sensor:
             update_numeric_sensor(x, "${obis_voltage_l2}", id(voltage_l2), "V");
             update_numeric_sensor(x, "${obis_voltage_l3}", id(voltage_l3), "V");
 
-            // Update current sensors
-            update_numeric_sensor(x, "${obis_current_l1}", id(current_l1), "A");
-            update_numeric_sensor(x, "${obis_current_l2}", id(current_l2), "A");
-            update_numeric_sensor(x, "${obis_current_l3}", id(current_l3), "A");
+            // Update current sensors with spike protection
+            update_current_sensor(x, "${obis_current_l1}", id(current_l1), id(prev_current_l1));
+            update_current_sensor(x, "${obis_current_l2}", id(current_l2), id(prev_current_l2));
+            update_current_sensor(x, "${obis_current_l3}", id(current_l3), id(prev_current_l3));
 
             // Update frequency sensor
             update_numeric_sensor(x, "${obis_frequency}", id(frequency), "Hz");
@@ -859,6 +882,10 @@ button:
           id(prev_consumption_t1) = -1.0;
           id(prev_consumption_t2) = -1.0;
           id(prev_consumption_since_reset) = -1.0;
+          // Reset current sensor previous values
+          id(prev_current_l1) = -1.0;
+          id(prev_current_l2) = -1.0;
+          id(prev_current_l3) = -1.0;
           
           ESP_LOGI("meter", "Validation state counters reset");
 
