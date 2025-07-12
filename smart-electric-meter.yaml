@@ -15,53 +15,53 @@ substitutions:
   mqtt_topic_prefix: tele/tasmota_3D87A3
 
   # Validation constants for meter readings
-  max_realistic_power: "17250.0"    # 17.25kW (25A * 3 phases * 230V)
-  max_absolute_power: "34500.0"     # 34.5kW (2x realistic power as absolute limit)
-  max_power_change: "3000.0"        # 3kW max power change per reading
-  max_energy_total: "100000.0"      # 100,000 kWh reasonable lifetime maximum
-  max_energy_change: "1.0"          # 1 kWh max energy change per reading
-  min_energy_value: "0.0"           # Minimum energy value (kWh)
-  min_power_value: "0.0"            # Minimum power value (W)
+  max_realistic_power: "17250.0" # 17.25kW (25A * 3 phases * 230V)
+  max_absolute_power: "34500.0" # 34.5kW (2x realistic power as absolute limit)
+  max_power_change: "3000.0" # 3kW max power change per reading
+  max_energy_total: "100000.0" # 100,000 kWh reasonable lifetime maximum
+  max_energy_change: "1.0" # 1 kWh max energy change per reading
+  min_energy_value: "0.0" # Minimum energy value (kWh)
+  min_power_value: "0.0" # Minimum power value (W)
 
   # OBIS codes for smart meter readings
-  obis_total_consumption: "1-0:1.8.0*255"    # Total energy consumption (kWh)
-  obis_consumption_1d: "1-0:1.8.0*96"        # Energy consumption last 1 day (kWh)
-  obis_consumption_7d: "1-0:1.8.0*97"        # Energy consumption last 7 days (kWh)
-  obis_consumption_30d: "1-0:1.8.0*98"       # Energy consumption last 30 days (kWh)
-  obis_consumption_365d: "1-0:1.8.0*99"      # Energy consumption last 365 days (kWh)
-  obis_total_feed_in: "1-0:2.8.0*255"        # Total energy feed-in (kWh)
-  obis_current_power: "1-0:16.7.0*255"       # Current power consumption (W)
+  obis_total_consumption: "1-0:1.8.0*255" # Total energy consumption (kWh)
+  obis_consumption_1d: "1-0:1.8.0*96" # Energy consumption last 1 day (kWh)
+  obis_consumption_7d: "1-0:1.8.0*97" # Energy consumption last 7 days (kWh)
+  obis_consumption_30d: "1-0:1.8.0*98" # Energy consumption last 30 days (kWh)
+  obis_consumption_365d: "1-0:1.8.0*99" # Energy consumption last 365 days (kWh)
+  obis_total_feed_in: "1-0:2.8.0*255" # Total energy feed-in (kWh)
+  obis_current_power: "1-0:16.7.0*255" # Current power consumption (W)
 
   # Additional OBIS codes for comprehensive meter reading
-  obis_serial_number: "1-0:96.1.0*255"       # Serial number/identification
-  obis_consumption_t1: "1-0:1.8.1*255"       # Energy consumption T1 (kWh)
-  obis_consumption_t2: "1-0:1.8.2*255"       # Energy consumption T2 (kWh)
-  obis_voltage_l1: "1-0:32.7.0*255"          # Voltage L1 (V)
-  obis_voltage_l2: "1-0:52.7.0*255"          # Voltage L2 (V)
-  obis_voltage_l3: "1-0:72.7.0*255"          # Voltage L3 (V)
-  obis_current_l1: "1-0:31.7.0*255"          # Current L1 (A)
-  obis_current_l2: "1-0:51.7.0*255"          # Current L2 (A)
-  obis_current_l3: "1-0:71.7.0*255"          # Current L3 (A)
+  obis_serial_number: "1-0:96.1.0*255" # Serial number/identification
+  obis_consumption_t1: "1-0:1.8.1*255" # Energy consumption T1 (kWh)
+  obis_consumption_t2: "1-0:1.8.2*255" # Energy consumption T2 (kWh)
+  obis_voltage_l1: "1-0:32.7.0*255" # Voltage L1 (V)
+  obis_voltage_l2: "1-0:52.7.0*255" # Voltage L2 (V)
+  obis_voltage_l3: "1-0:72.7.0*255" # Voltage L3 (V)
+  obis_current_l1: "1-0:31.7.0*255" # Current L1 (A)
+  obis_current_l2: "1-0:51.7.0*255" # Current L2 (A)
+  obis_current_l3: "1-0:71.7.0*255" # Current L3 (A)
   obis_phase_angle_ul2_ul1: "1-0:81.7.1*255" # Phase angle UL2:UL1 (deg)
   obis_phase_angle_ul3_ul1: "1-0:81.7.2*255" # Phase angle UL3:UL1 (deg)
   obis_phase_angle_il1_ul1: "1-0:81.7.4*255" # Phase angle IL1:UL1 (deg)
   obis_phase_angle_il2_ul2: "1-0:81.7.15*255" # Phase angle IL2:UL2 (deg)
   obis_phase_angle_il3_ul3: "1-0:81.7.26*255" # Phase angle IL3:UL3 (deg)
-  obis_frequency: "1-0:14.7.0*255"           # Network frequency (Hz)
+  obis_frequency: "1-0:14.7.0*255" # Network frequency (Hz)
   obis_consumption_since_reset: "1-0:1.8.0*100" # Energy since last reset (kWh)
-  obis_firmware_version: "1-0:0.2.0*255"     # Firmware version info
-  obis_parameter_crc: "1-0:96.90.2*255"      # Parameter CRC checksum
-  obis_status_register: "1-0:97.97.0*255"    # Status register
+  obis_firmware_version: "1-0:0.2.0*255" # Firmware version info
+  obis_parameter_crc: "1-0:96.90.2*255" # Parameter CRC checksum
+  obis_status_register: "1-0:97.97.0*255" # Status register
 
   # Additional validation constants
-  max_voltage: "280.0"          # 280V (max reasonable voltage)
-  min_voltage: "0.0"            # 0V (min voltage)
-  max_current: "30.0"           # 30A (max reasonable current)
-  min_current: "0.0"            # 0A (min current)
-  max_frequency: "52.0"         # 55Hz (max frequency)
-  min_frequency: "48.0"         # 45Hz (min frequency)
-  max_phase_angle: "360.0"      # 360° (max phase angle)
-  min_phase_angle: "-360.0"     # -360° (min phase angle)
+  max_voltage: "280.0" # 280V (max reasonable voltage)
+  min_voltage: "0.0" # 0V (min voltage)
+  max_current: "30.0" # 30A (max reasonable current)
+  min_current: "0.0" # 0A (min current)
+  max_frequency: "52.0" # 55Hz (max frequency)
+  min_frequency: "48.0" # 45Hz (min frequency)
+  max_phase_angle: "360.0" # 360° (max phase angle)
+  min_phase_angle: "-360.0" # -360° (min phase angle)
 
 esphome:
   name: ${name}
@@ -69,7 +69,7 @@ esphome:
   min_version: 2024.6.0
 
 external_components:
-  - source: 
+  - source:
       type: local
       path: components
 
@@ -146,7 +146,7 @@ globals:
   - id: prev_consumption_since_reset
     type: float
     initial_value: "-1.0"
-    
+
   # Global variables for communication quality tracking
   - id: total_frames_received
     type: int
@@ -158,12 +158,12 @@ globals:
 # UART for IR head
 uart:
   rx_pin: D2 #D7
-  baud_rate: 9600   # 2400, 1200, 4800, 9600
+  baud_rate: 9600 # 2400, 1200, 4800, 9600
   id: uart_bus
-#  parity: NONE     # Common for smart meters
-#  data_bits: 8     # Common for smart meters
-  parity: EVEN     # Common for smart meters
-  data_bits: 7     # Common for smart meters
+  #  parity: NONE     # Common for smart meters
+  #  data_bits: 8     # Common for smart meters
+  parity: EVEN # Common for smart meters
+  data_bits: 7 # Common for smart meters
   stop_bits: 1
   rx_buffer_size: 1024
   # debug:
@@ -195,22 +195,22 @@ text_sensor:
         - lambda: |-
             // Track OBIS telegram processing for quality metrics
             id(total_frames_received)++;
-            
+
             // Flag to track if corruption occurred in this telegram
             bool telegram_corrupted = false;
-            
+
             // Using ESPHome globals for validation state tracking
-            
+
             // Validation constants from substitutions (absolute limits now handled by clamp filters)
             const float MAX_POWER_CHANGE = ${max_power_change}; // 3kW max power change per reading
             const float MAX_ENERGY_CHANGE = ${max_energy_change}; // 100 kWh max energy change per reading
-            
+
             // Use ESPHome's built-in parse_number function
             auto parse_float = [](const std::string &str) -> float {
               auto n = parse_number<float>(str);
               return n.has_value() ? n.value() : NAN;
             };
-            
+
             // Parse OBIS value from line, return NAN if not found or invalid
             // Sets telegram_corrupted flag if OBIS code is found but malformed
             auto parse_obis_value = [&](const std::string &line, const std::string &obis) -> float {
@@ -242,7 +242,7 @@ text_sensor:
               }
               return value;
             };
-            
+
             // Validate and update energy sensors (kWh) - clamp filters handle min/max bounds
             auto update_energy_sensor = [&](const std::string &line, const std::string &obis, auto &sensor, float &prev_value) {
               float value = parse_obis_value(line, obis);
@@ -270,7 +270,7 @@ text_sensor:
               prev_value = value;
               ESP_LOGD("meter", "Updated %s: %.4f kWh", obis.c_str(), value);
             };
-            
+
             // Validate and update power sensors (W) - clamp filters handle min/max bounds
             auto update_power_sensor = [&](const std::string &line, const std::string &obis, auto &sensor, float &prev_value) {
               float value = parse_obis_value(line, obis);
@@ -299,7 +299,7 @@ text_sensor:
             update_energy_sensor(x, "${obis_consumption_30d}", id(consumption_30d), id(prev_consumption_30d));
             update_energy_sensor(x, "${obis_consumption_365d}", id(consumption_365d), id(prev_consumption_365d));
             update_energy_sensor(x, "${obis_total_feed_in}", id(total_feed_in), id(prev_total_feed_in));
-            
+
             // Update power sensor (W) with spike protection
             update_power_sensor(x, "${obis_current_power}", id(current_power), id(prev_current_power));
 
@@ -307,7 +307,7 @@ text_sensor:
             update_energy_sensor(x, "${obis_consumption_t1}", id(consumption_t1), id(prev_consumption_t1));
             update_energy_sensor(x, "${obis_consumption_t2}", id(consumption_t2), id(prev_consumption_t2));
             update_energy_sensor(x, "${obis_consumption_since_reset}", id(consumption_since_reset), id(prev_consumption_since_reset));
-            
+
             // Generic function to update numeric sensors (no validation needed - clamp filters handle bounds)
             auto update_numeric_sensor = [&](const std::string &line, const std::string &obis, auto &sensor, const char* unit) {
               float value = parse_obis_value(line, obis);
@@ -320,7 +320,7 @@ text_sensor:
               sensor->publish_state(value);
               ESP_LOGD("meter", "Updated %s: %.3f %s", obis.c_str(), value, unit);
             };
-            
+
             // Parse and publish text sensor values (no validation needed)
             auto update_text_sensor = [&](const std::string &line, const std::string &obis, auto &sensor) {
               size_t pos = line.find(obis);
@@ -336,33 +336,33 @@ text_sensor:
               sensor->publish_state(value_str);
               ESP_LOGD("meter", "Updated %s: %s", obis.c_str(), value_str.c_str());
             };
-            
+
             // Update voltage sensors
             update_numeric_sensor(x, "${obis_voltage_l1}", id(voltage_l1), "V");
             update_numeric_sensor(x, "${obis_voltage_l2}", id(voltage_l2), "V");
             update_numeric_sensor(x, "${obis_voltage_l3}", id(voltage_l3), "V");
-            
+
             // Update current sensors
             update_numeric_sensor(x, "${obis_current_l1}", id(current_l1), "A");
             update_numeric_sensor(x, "${obis_current_l2}", id(current_l2), "A");
             update_numeric_sensor(x, "${obis_current_l3}", id(current_l3), "A");
-            
+
             // Update frequency sensor
             update_numeric_sensor(x, "${obis_frequency}", id(frequency), "Hz");
-            
+
             // Update phase angle sensors
             update_numeric_sensor(x, "${obis_phase_angle_ul2_ul1}", id(phase_angle_ul2_ul1), "deg");
             update_numeric_sensor(x, "${obis_phase_angle_ul3_ul1}", id(phase_angle_ul3_ul1), "deg");
             update_numeric_sensor(x, "${obis_phase_angle_il1_ul1}", id(phase_angle_il1_ul1), "deg");
             update_numeric_sensor(x, "${obis_phase_angle_il2_ul2}", id(phase_angle_il2_ul2), "deg");
             update_numeric_sensor(x, "${obis_phase_angle_il3_ul3}", id(phase_angle_il3_ul3), "deg");
-            
+
             // Update text sensors
             update_text_sensor(x, "${obis_serial_number}", id(serial_number));
             update_text_sensor(x, "${obis_firmware_version}", id(firmware_version));
             update_text_sensor(x, "${obis_parameter_crc}", id(parameter_crc));
             update_text_sensor(x, "${obis_status_register}", id(status_register));
-            
+
             // Count corrupted telegrams (only once per telegram)
             if (telegram_corrupted) {
               id(corruption_count)++;
@@ -463,8 +463,8 @@ sensor:
           min_value: ${min_energy_value}
           max_value: ${max_energy_total}
       - or:
-        - throttle: 5min
-        - delta: 0.0001
+          - throttle: 5min
+          - delta: 0.0001
   - platform: template
     name: "Consumption 1 Day"
     id: consumption_1d
@@ -477,8 +477,8 @@ sensor:
           min_value: ${min_energy_value}
           max_value: ${max_energy_total}
       - or:
-        - throttle: 5min
-        - delta: 0.0001
+          - throttle: 5min
+          - delta: 0.0001
   - platform: template
     name: "Consumption 7 Days"
     id: consumption_7d
@@ -491,8 +491,8 @@ sensor:
           min_value: ${min_energy_value}
           max_value: ${max_energy_total}
       - or:
-        - throttle: 5min
-        - delta: 0.0001
+          - throttle: 5min
+          - delta: 0.0001
   - platform: template
     name: "Consumption 30 Days"
     id: consumption_30d
@@ -505,8 +505,8 @@ sensor:
           min_value: ${min_energy_value}
           max_value: ${max_energy_total}
       - or:
-        - throttle: 5min
-        - delta: 0.0001
+          - throttle: 5min
+          - delta: 0.0001
   - platform: template
     name: "Consumption 365 Days"
     id: consumption_365d
@@ -519,8 +519,8 @@ sensor:
           min_value: ${min_energy_value}
           max_value: ${max_energy_total}
       - or:
-        - throttle: 5min
-        - delta: 0.0001
+          - throttle: 5min
+          - delta: 0.0001
   - platform: template
     name: "Current Power"
     id: current_power
@@ -533,8 +533,8 @@ sensor:
           min_value: ${min_power_value}
           max_value: ${max_absolute_power}
       - or:
-        - throttle: 5min
-        - delta: 1
+          - throttle: 5min
+          - delta: 1
   - platform: template
     name: "Total Feed-in"
     id: total_feed_in
@@ -547,8 +547,8 @@ sensor:
           min_value: ${min_energy_value}
           max_value: ${max_energy_total}
       - or:
-        - throttle: 5min
-        - delta: 0.0001
+          - throttle: 5min
+          - delta: 0.0001
   # Nice to have: uptime sensor
   - platform: uptime
     name: "Uptime"
@@ -570,8 +570,8 @@ sensor:
           min_value: ${min_energy_value}
           max_value: ${max_energy_total}
       - or:
-        - throttle: 5min
-        - delta: 0.0001
+          - throttle: 5min
+          - delta: 0.0001
   - platform: template
     name: "Consumption T2"
     id: consumption_t2
@@ -584,8 +584,8 @@ sensor:
           min_value: ${min_energy_value}
           max_value: ${max_energy_total}
       - or:
-        - throttle: 5min
-        - delta: 0.0001
+          - throttle: 5min
+          - delta: 0.0001
   - platform: template
     name: "Consumption Since Reset"
     id: consumption_since_reset
@@ -598,8 +598,8 @@ sensor:
           min_value: ${min_energy_value}
           max_value: ${max_energy_total}
       - or:
-        - throttle: 5min
-        - delta: 0.0001
+          - throttle: 5min
+          - delta: 0.0001
   # Voltage sensors
   - platform: template
     name: "Voltage L1"
@@ -788,7 +788,7 @@ sensor:
     lambda: |-
       int total_telegrams = id(total_frames_received);
       int corruption_events = id(corruption_count);
-      
+
       // Overflow protection for both counters - reduce proportionally to maintain ratio
       if (total_telegrams >= 10000 || corruption_events >= 10000) {
         int new_total = total_telegrams / 2;
@@ -801,17 +801,16 @@ sensor:
         total_telegrams = new_total;
         corruption_events = new_corruption;
       }
-      
+
       if (total_telegrams == 0) return 0.0;
       int successfully_processed = total_telegrams - corruption_events;
       if (successfully_processed < 0) successfully_processed = 0;
-      
+
       return (float(successfully_processed) / float(total_telegrams)) * 100.0;
     filters:
       - or:
           - throttle: 2min
-          - delta: 0.1   
-
+          - delta: 0.1
 
 button:
   # Reset validation state - using button instead of switch
