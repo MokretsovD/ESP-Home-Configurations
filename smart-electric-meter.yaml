@@ -966,21 +966,6 @@ button:
           id(wifi_connect_counter) = 0;
           ESP_LOGI("meter", "Communication quality and connection counters reset");
 
-# Optionally, add a debug text sensor for SML raw data (for troubleshooting)
-# text_sensor:
-#   - platform: sml
-#     name: "SML Raw Data"
-#     sml_id: mysml
-#     # obis_code: "1-0:1.8.0*255"
-#     obis_code: "1-0:1.8.0"
-#     format: hex
-#     icon: "mdi:code-tags"
-#     entity_category: diagnostic
-#   - platform: template
-#     name: "SML Raw Telegram"
-#     id: sml_raw_telegram
-#     icon: "mdi:code-braces"
-#     entity_category: diagnostic
 
 # Optionally, add a status LED (uncomment and set pin if desired)
 # output:
