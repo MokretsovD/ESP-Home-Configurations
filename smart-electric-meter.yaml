@@ -92,6 +92,7 @@ ota:
 packages:
   wifi: !include packages/wifi.yaml
   wifi-signal-sensors: !include packages/wifi-signal-sensors.yaml
+  wifi-diagnostic-sensors: !include packages/wifi-diagnostic-sensors.yaml
   factory-reset-button: !include packages/factory-reset-button.yaml
 
 captive_portal:
@@ -110,6 +111,10 @@ mqtt:
     payload: Offline
   discovery: true
   id: mqttclient
+  on_connect:
+    - lambda: |-
+        id(mqtt_connect_counter)++;
+        ESP_LOGI("mqtt", "MQTT connected, count: %d", id(mqtt_connect_counter));
 
 # web_server:
 
@@ -152,6 +157,11 @@ globals:
     type: int
     initial_value: "0"
   - id: corruption_count
+    type: int
+    initial_value: "0"
+
+  # Global variable for MQTT connect count
+  - id: mqtt_connect_counter
     type: int
     initial_value: "0"
 
@@ -816,6 +826,18 @@ sensor:
           - throttle: 2min
           - delta: 0.1
 
+  # MQTT connect count sensor
+  - platform: template
+    name: "MQTT Connect Count"
+    id: mqtt_connect_count
+    unit_of_measurement: ""
+    accuracy_decimals: 0
+    entity_category: "diagnostic"
+    disabled_by_default: true
+    icon: "mdi:mqtt"
+    state_class: "total"
+    lambda: return id(mqtt_connect_counter);
+
 button:
   # Reset validation state - using button instead of switch
   - platform: template
@@ -837,10 +859,8 @@ button:
           id(prev_consumption_t1) = -1.0;
           id(prev_consumption_t2) = -1.0;
           id(prev_consumption_since_reset) = -1.0;
-          // Reset communication quality counters
-          id(total_frames_received) = 0;
-          id(corruption_count) = 0;
-          ESP_LOGI("meter", "Validation state and communication quality counters reset");
+          
+          ESP_LOGI("meter", "Validation state counters reset");
 
   # Reset communication quality counters only
   - platform: template
@@ -853,7 +873,10 @@ button:
       - lambda: |-
           id(total_frames_received) = 0;
           id(corruption_count) = 0;
-          ESP_LOGI("meter", "Communication quality counters reset");
+          // Reset connection counters
+          id(mqtt_connect_counter) = 0;
+          id(wifi_connect_counter) = 0;
+          ESP_LOGI("meter", "Communication quality and connection counters reset");
 
 # Optionally, add a debug text sensor for SML raw data (for troubleshooting)
 # text_sensor:
