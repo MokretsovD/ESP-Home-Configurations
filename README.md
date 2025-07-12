@@ -5,8 +5,10 @@ This repository contains a collection of ESPHome YAML configurations for various
 ## Table of Contents
 
 - [Development Setup](#development-setup)
+- [Custom Components](#custom-components)
 - [Shared Packages](#shared-packages)
 - [Configurations](#configurations)
+  - [Smart Electric Meter](#smart-electric-meter)
   - [Gas Meter (Gaszaehler)](#gas-meter-gaszaehler)
   - [Water Level Reservoir (wasserstand-regenreservoir)](#water-level-reservoir-wasserstand-regenreservoir)
   - [Air Quality Sensor 1](#air-quality-sensor-1)
@@ -73,6 +75,33 @@ For more detailed installation and update instructions, refer to the official ES
 
 ---
 
+## Custom Components
+
+This repository includes custom ESPHome components that extend the platform's capabilities beyond the built-in components.
+
+### UART Line Reader (`uart_line_reader`)
+
+- **Location:** `components/uart_line_reader/`
+- **Description:** Custom text sensor component that reads line-based data from UART interfaces, specifically designed for parsing structured data from smart meters and similar devices.
+- **Features:**
+  - Line-based UART data reading with configurable delimiters
+  - Built-in filtering and validation capabilities
+  - Optimized for OBIS protocol parsing from smart meters
+  - Supports various UART configurations (baud rate, parity, data bits)
+  - Memory-efficient streaming data processing
+- **Used by:** 
+  - `packages/electricity-meter.yaml` - For reading OBIS data from smart electric meters
+  - `smart-electric-meter.yaml` - Smart meter implementation
+- **Usage:** Include in your configuration with:
+  ```yaml
+  external_components:
+    - source:
+        type: local
+        path: components
+  ```
+
+---
+
 ## Shared Packages
 
 The `packages/` directory contains reusable configuration components that can be included in multiple device configurations. These packages help maintain consistency and reduce code duplication across different ESPHome devices.
@@ -116,6 +145,24 @@ The `packages/` directory contains reusable configuration components that can be
   - Diagnostic entity category
   - Disabled by default (can be enabled as needed)
 
+### Electricity Meter (`electricity-meter.yaml`)
+
+- **File:** `packages/electricity-meter.yaml`
+- **Description:** Comprehensive package for reading OBIS-compliant smart electric meters via optical interface (IR head) or serial connection.
+- **Features:**
+  - OBIS protocol support for energy consumption, power, voltage, current, frequency, and phase angles
+  - Data validation and spike protection to filter corrupted readings
+  - Communication quality monitoring and corruption statistics
+  - Text sensor filtering (requires 3 consecutive identical readings)
+  - Comprehensive energy sensors (total, daily, weekly, monthly, yearly consumption)
+  - Reset controls for validation state and communication quality
+  - Highly configurable via substitutions (OBIS codes, validation parameters, UART settings)
+- **Requirements:** 
+  - Custom `uart_line_reader` component (see [Custom Components](#custom-components))
+  - IR head or serial connection to smart meter
+- **Documentation:** See `packages/README-electricity-meter.md` for detailed usage instructions
+- **Example:** See `packages/examples/example-electric-meter-usage.yaml`
+
 ### Device Configuration Packages
 
 #### Bluetooth Proxy Device Config (`device-configs/bluetooth-proxy.yaml`)
@@ -151,6 +198,24 @@ The `packages/` directory contains reusable configuration components that can be
 ---
 
 ## Configurations
+
+### Smart Electric Meter
+
+- **File:** `smart-electric-meter.yaml`
+- **Description:** ESP8266-based smart electric meter reader using optical interface (IR head) to read OBIS-compliant electric meters.
+- **Features:**
+  - OBIS protocol support for comprehensive meter readings
+  - Energy consumption tracking (total, daily, weekly, monthly, yearly)
+  - Real-time power, voltage, current, and frequency monitoring
+  - Phase angle measurements for three-phase systems
+  - Data validation and corruption filtering
+  - Communication quality monitoring
+  - MQTT integration for Home Assistant
+  - WiFi signal strength monitoring via shared package
+- **Board:** ESP8266 D1 Mini
+- **Hardware:** Requires IR head for optical interface communication
+- **Dependencies:** Uses custom `uart_line_reader` component (see [Custom Components](#custom-components))
+- **Common Config:** Uses shared electricity meter package from `packages/electricity-meter.yaml` and WiFi configuration from `packages/wifi.yaml`
 
 ### Gas Meter (Gaszaehler)
 

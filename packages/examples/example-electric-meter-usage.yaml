@@ -1,0 +1,117 @@
+---
+# Example Electric Meter Configuration
+# This demonstrates how to use the electric-meter package with different settings
+
+substitutions:
+  name: my-electric-meter
+  friendly_name: My Electric Meter
+  device_static_ip: 192.168.1.100
+  device_ap_ssid: "MyMeter-AP"
+  device_ap_password: "mypassword123"
+  wifi_ssid: "MyWiFiNetwork"
+  wifi_password: "mywifipass"
+  wifi_manual_ip_gateway: 192.168.1.1
+  wifi_manual_ip_subnet: 255.255.255.0
+
+  # UART Configuration - adjust these for your meter
+  uart_rx_pin: "D5"           # Change to your RX pin
+  uart_baud_rate: "2400"      # Common alternatives: 1200, 2400, 4800, 9600
+  uart_parity: "NONE"         # Common alternatives: EVEN, ODD, NONE
+  uart_data_bits: "8"         # Common alternatives: 7, 8
+  uart_stop_bits: "1"         # Usually 1
+  uart_rx_buffer_size: "512"  # Adjust if needed
+
+  # OBIS codes - these are specific to your meter model
+  # Check your meter's documentation for the correct codes
+  obis_total_consumption: "1-0:1.8.0*255"
+  obis_consumption_1d: "1-0:1.8.0*96"
+  obis_consumption_7d: "1-0:1.8.0*97"
+  obis_consumption_30d: "1-0:1.8.0*98"
+  obis_consumption_365d: "1-0:1.8.0*99"
+  obis_current_power: "1-0:16.7.0*255"
+  obis_consumption_t1: "1-0:1.8.1*255"
+  obis_consumption_t2: "1-0:1.8.2*255"
+  obis_voltage_l1: "1-0:32.7.0*255"
+  obis_voltage_l2: "1-0:52.7.0*255"
+  obis_voltage_l3: "1-0:72.7.0*255"
+  obis_current_l1: "1-0:31.7.0*255"
+  obis_current_l2: "1-0:51.7.0*255"
+  obis_current_l3: "1-0:71.7.0*255"
+  obis_frequency: "1-0:14.7.0*255"
+  obis_phase_angle_ul2_ul1: "1-0:81.7.1*255"
+  obis_phase_angle_ul3_ul1: "1-0:81.7.2*255"
+  obis_phase_angle_il1_ul1: "1-0:81.7.4*255"
+  obis_phase_angle_il2_ul2: "1-0:81.7.15*255"
+  obis_phase_angle_il3_ul3: "1-0:81.7.26*255"
+  obis_serial_number: "1-0:96.1.0*255"
+  obis_firmware_version: "1-0:0.2.0*255"
+  obis_parameter_crc: "1-0:96.90.2*255"
+  obis_status_register: "1-0:97.97.0*255"
+  obis_consumption_since_reset: "1-0:1.8.0*100"
+
+  # Validation constants - adjust for your installation
+  max_power_change: "5000.0"    # 5kW max power change per reading
+  max_current_change: "20.0"    # 20A max current change per reading
+  max_energy_change: "2.0"      # 2 kWh max energy change per reading
+  max_energy_total: "200000.0"  # 200,000 kWh lifetime maximum
+  max_absolute_power: "50000.0" # 50kW absolute maximum
+  min_energy_value: "0.0"
+  min_power_value: "0.0"
+  max_voltage: "280.0"          # 280V max voltage
+  min_voltage: "180.0"          # 180V min voltage (adjust for your grid)
+  max_current: "40.0"           # 40A max current
+  min_current: "0.0"
+  max_frequency: "55.0"         # 55Hz max frequency
+  min_frequency: "45.0"         # 45Hz min frequency
+  max_phase_angle: "360.0"
+  min_phase_angle: "-360.0"
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+  min_version: 2024.6.0
+
+# Required for uart_line_reader component used by electricity-meter package
+# Uncomment if you have the custom components directory:
+# external_components:
+#   - source:
+#       type: local
+#       path: components
+
+esp8266:
+  board: nodemcu  # or d1_mini, wemos_d1_mini32, etc.
+
+# Enable logging
+logger:
+  level: INFO  # Change to DEBUG for more verbose logging
+
+# Enable Home Assistant API
+api:
+  password: "your_api_password"
+
+# Enable OTA updates
+ota:
+  - platform: esphome
+    password: "your_ota_password"
+
+# WiFi configuration
+wifi:
+  ssid: ${wifi_ssid}
+  password: ${wifi_password}
+  manual_ip:
+    static_ip: ${device_static_ip}
+    gateway: ${wifi_manual_ip_gateway}
+    subnet: ${wifi_manual_ip_subnet}
+  ap:
+    ssid: ${device_ap_ssid}
+    password: ${device_ap_password}
+
+# Import the electricity meter package
+packages:
+  electricity-meter: !include ../electricity-meter.yaml
+
+# Optional: Add a status LED
+status_led:
+  pin:
+    number: D4
+    inverted: true 
