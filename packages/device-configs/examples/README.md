@@ -4,7 +4,7 @@ This directory contains example configurations demonstrating how to use the vari
 
 ## Available Examples
 
-- **`example-electric-meter-usage.yaml`** - Complete example showing how to use the electricity meter package with different settings and configurations
+- **`example-electric-meter-usage.yaml`** - Complete example showing how to use the electricity meter device config package with different settings and configurations
 
 ## How to Use Examples
 

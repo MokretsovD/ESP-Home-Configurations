@@ -198,7 +198,7 @@ The package includes several validation mechanisms:
 
 ## Example Configuration
 
-See `packages/examples/example-electric-meter-usage.yaml` for a complete example configuration.
+See `packages/device-configs/examples/example-electric-meter-usage.yaml` for a complete example configuration.
 
 ## Compatibility
 

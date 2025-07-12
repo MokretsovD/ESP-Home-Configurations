@@ -13,6 +13,10 @@ substitutions:
   mqtt_username: !secret mqtt_username
   mqtt_password: !secret mqtt_password
   mqtt_topic_prefix: tele/tasmota_3D87A3
+  mqtt_discovery: "true"
+  mqtt_lwt_topic_suffix: "/LWT"
+  mqtt_lwt_online_payload: "Online"
+  mqtt_lwt_offline_payload: "Offline"
 
   # UART Configuration
   uart_rx_pin: "D2"
@@ -97,53 +101,20 @@ ota:
   - platform: esphome
     password: !secret smart_electric_meter_esp_ota_password
 
-# WiFi and signal sensors via packages
+# WiFi, MQTT, and other packages
 packages:
   wifi: !include packages/wifi.yaml
   wifi-signal-sensors: !include packages/wifi-signal-sensors.yaml
   wifi-diagnostic-sensors: !include packages/wifi-diagnostic-sensors.yaml
   factory-reset-button: !include packages/factory-reset-button.yaml
-  electricity-meter: !include packages/electricity-meter.yaml
+  mqtt: !include packages/mqtt.yaml
+  mqtt-diagnostic-sensors: !include packages/mqtt-diagnostic-sensors.yaml
+  electricity-meter: !include packages/device-configs/electricity-meter.yaml
 
 captive_portal:
 
-# MQTT (no API)
-mqtt:
-  broker: ${mqtt_broker}
-  username: ${mqtt_username}
-  password: ${mqtt_password}
-  topic_prefix: ${mqtt_topic_prefix}
-  birth_message:
-    topic: ${mqtt_topic_prefix}/LWT
-    payload: Online
-  will_message:
-    topic: ${mqtt_topic_prefix}/LWT
-    payload: Offline
-  discovery: true
-  id: mqttclient
-  on_connect:
-    - lambda: |-
-        id(mqtt_connect_counter)++;
-        ESP_LOGI("mqtt", "MQTT connected, count: %d", id(mqtt_connect_counter));
-
-# Global variable for MQTT connect count
-globals:
-  - id: mqtt_connect_counter
-    type: int
-    initial_value: "0"
-
-# MQTT connect count sensor
+# Additional sensors for this device
 sensor:
-  - platform: template
-    name: "MQTT Connect Count"
-    id: mqtt_connect_count
-    unit_of_measurement: ""
-    accuracy_decimals: 0
-    entity_category: "diagnostic"
-    disabled_by_default: true
-    icon: "mdi:mqtt"
-    state_class: "total"
-    lambda: return id(mqtt_connect_counter);
   # Nice to have: uptime sensor
   - platform: uptime
     name: "Uptime"
@@ -152,7 +123,7 @@ sensor:
     entity_category: diagnostic
     disabled_by_default: true
 
-# Reset communication quality counters including MQTT
+# Reset communication quality counters for all systems
 button:
   - platform: template
     name: "Reset All Communication Quality"

@@ -12,6 +12,12 @@ substitutions:
   wifi_password: "mywifipass"
   wifi_manual_ip_gateway: 192.168.1.1
   wifi_manual_ip_subnet: 255.255.255.0
+  
+  # MQTT Configuration
+  mqtt_broker: "192.168.1.50"        # Your MQTT broker IP/hostname
+  mqtt_username: "esphome"           # Your MQTT username
+  mqtt_password: "your_mqtt_password" # Your MQTT password
+  mqtt_topic_prefix: "esphome/my-electric-meter" # MQTT topic prefix for this device
 
   # UART Configuration - adjust these for your meter
   uart_rx_pin: "D5"           # Change to your RX pin
@@ -106,8 +112,17 @@ wifi:
     ssid: ${device_ap_ssid}
     password: ${device_ap_password}
 
-# Import the electricity meter package
+  # Import packages
 packages:
+  # WiFi configuration (you'll need to create this or use existing)
+  # wifi: !include ../../wifi.yaml
+  # wifi-signal-sensors: !include ../../wifi-signal-sensors.yaml
+  
+  # MQTT configuration
+  mqtt: !include ../../mqtt.yaml
+  mqtt-diagnostic-sensors: !include ../../mqtt-diagnostic-sensors.yaml
+  
+  # Electricity meter package
   electricity-meter: !include ../electricity-meter.yaml
 
 # Optional: Add a status LED

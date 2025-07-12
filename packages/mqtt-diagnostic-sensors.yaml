@@ -1,0 +1,30 @@
+---
+# MQTT Diagnostic Sensors Package
+# Provides MQTT connection monitoring and diagnostic information.
+# This package complements the main mqtt.yaml package.
+
+sensor:
+  # MQTT connect count sensor
+  - platform: template
+    name: "MQTT Connect Count"
+    id: mqtt_connect_count
+    unit_of_measurement: ""
+    accuracy_decimals: 0
+    entity_category: "diagnostic"
+    disabled_by_default: true
+    icon: "mdi:mqtt"
+    state_class: "total"
+    lambda: return id(mqtt_connect_counter);
+
+# Global variable for MQTT connect count
+globals:
+  - id: mqtt_connect_counter
+    type: int
+    initial_value: "0"
+
+# MQTT event handling for connect count
+mqtt:
+  on_connect:
+    - lambda: |-
+        id(mqtt_connect_counter)++;
+        ESP_LOGI("mqtt", "MQTT connected, count: %d", id(mqtt_connect_counter)); 

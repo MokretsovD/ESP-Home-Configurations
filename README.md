@@ -136,6 +136,33 @@ The `packages/` directory contains reusable configuration components that can be
   - Diagnostic entity category
   - Consistent naming and behavior
 
+### MQTT Configuration (`mqtt.yaml`)
+
+- **File:** `packages/mqtt.yaml`
+- **Description:** Standardized MQTT configuration with Last Will and Testament (LWT) and Home Assistant discovery.
+- **Features:**
+  - MQTT broker credentials from secrets
+  - Configurable topic prefix
+  - Last Will and Testament (LWT) setup for device availability
+  - Home Assistant discovery support
+  - Configurable LWT topics and payloads
+  - Consistent connection setup across devices
+- **Required Substitutions:**
+  - `mqtt_broker`, `mqtt_username`, `mqtt_password`, `mqtt_topic_prefix`
+- **Optional Substitutions:**
+  - `mqtt_discovery`, `mqtt_lwt_topic_suffix`, `mqtt_lwt_online_payload`, `mqtt_lwt_offline_payload`
+
+### MQTT Diagnostic Sensors (`mqtt-diagnostic-sensors.yaml`)
+
+- **File:** `packages/mqtt-diagnostic-sensors.yaml`
+- **Description:** MQTT connection monitoring and diagnostic information that complements the main MQTT package.
+- **Features:**
+  - MQTT connect count tracking
+  - Connection quality monitoring
+  - Diagnostic entity category
+  - Disabled by default (can be enabled as needed)
+- **Dependencies:** Designed to work alongside `mqtt.yaml` package
+
 ### Internal Temperature Sensor - ESP32 (`internal-temp-sensor-esp32.yaml`)
 
 - **File:** `packages/internal-temp-sensor-esp32.yaml`
@@ -145,10 +172,12 @@ The `packages/` directory contains reusable configuration components that can be
   - Diagnostic entity category
   - Disabled by default (can be enabled as needed)
 
-### Electricity Meter (`electricity-meter.yaml`)
+### Device Configuration Packages
 
-- **File:** `packages/electricity-meter.yaml`
-- **Description:** Comprehensive package for reading OBIS-compliant smart electric meters via optical interface (IR head) or serial connection.
+#### Electricity Meter Device Config (`device-configs/electricity-meter.yaml`)
+
+- **File:** `packages/device-configs/electricity-meter.yaml`
+- **Description:** Comprehensive device configuration package for reading OBIS-compliant smart electric meters via optical interface (IR head) or serial connection.
 - **Features:**
   - OBIS protocol support for energy consumption, power, voltage, current, frequency, and phase angles
   - Data validation and spike protection to filter corrupted readings
@@ -157,13 +186,13 @@ The `packages/` directory contains reusable configuration components that can be
   - Comprehensive energy sensors (total, daily, weekly, monthly, yearly consumption)
   - Reset controls for validation state and communication quality
   - Highly configurable via substitutions (OBIS codes, validation parameters, UART settings)
+- **Board:** ESP8266/ESP32 compatible
 - **Requirements:** 
   - Custom `uart_line_reader` component (see [Custom Components](#custom-components))
   - IR head or serial connection to smart meter
-- **Documentation:** See `packages/README-electricity-meter.md` for detailed usage instructions
-- **Example:** See `packages/examples/example-electric-meter-usage.yaml`
-
-### Device Configuration Packages
+- **Documentation:** See `packages/device-configs/README-electricity-meter.md` for detailed usage instructions
+- **Example:** See `packages/device-configs/examples/example-electric-meter-usage.yaml`
+- **Used in:** `smart-electric-meter.yaml` - Smart meter implementation
 
 #### Bluetooth Proxy Device Config (`device-configs/bluetooth-proxy.yaml`)
 
@@ -215,7 +244,7 @@ The `packages/` directory contains reusable configuration components that can be
 - **Board:** ESP8266 D1 Mini
 - **Hardware:** Requires IR head for optical interface communication
 - **Dependencies:** Uses custom `uart_line_reader` component (see [Custom Components](#custom-components))
-- **Common Config:** Uses shared electricity meter package from `packages/electricity-meter.yaml` and WiFi configuration from `packages/wifi.yaml`
+- **Common Config:** Uses electricity meter device config from `packages/device-configs/electricity-meter.yaml`, MQTT configuration from `packages/mqtt.yaml` and `packages/mqtt-diagnostic-sensors.yaml`, and WiFi configuration from `packages/wifi.yaml`
 
 ### Gas Meter (Gaszaehler)
 
