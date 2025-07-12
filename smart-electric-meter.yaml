@@ -30,7 +30,7 @@ substitutions:
   obis_consumption_7d: "1-0:1.8.0*97" # Energy consumption last 7 days (kWh)
   obis_consumption_30d: "1-0:1.8.0*98" # Energy consumption last 30 days (kWh)
   obis_consumption_365d: "1-0:1.8.0*99" # Energy consumption last 365 days (kWh)
-  obis_total_feed_in: "1-0:2.8.0*255" # Total energy feed-in (kWh)
+  # obis_total_feed_in: "1-0:2.8.0*255" # Total energy feed-in (kWh)
   obis_current_power: "1-0:16.7.0*255" # Current power consumption (W)
 
   # Additional OBIS codes for comprehensive meter reading
@@ -136,9 +136,9 @@ globals:
   - id: prev_consumption_365d
     type: float
     initial_value: "-1.0"
-  - id: prev_total_feed_in
-    type: float
-    initial_value: "-1.0"
+  # - id: prev_total_feed_in
+  #  type: float
+  #  initial_value: "-1.0"
   - id: prev_current_power
     type: float
     initial_value: "-1.0"
@@ -173,6 +173,32 @@ globals:
 
   # Global variable for MQTT connect count
   - id: mqtt_connect_counter
+    type: int
+    initial_value: "0"
+
+  # Global variables for text sensor corruption filtering (3 times in a row)
+  - id: serial_number_last
+    type: std::string
+    initial_value: '""'
+  - id: serial_number_count
+    type: int
+    initial_value: "0"
+  - id: firmware_version_last
+    type: std::string
+    initial_value: '""'
+  - id: firmware_version_count
+    type: int
+    initial_value: "0"
+  - id: parameter_crc_last
+    type: std::string
+    initial_value: '""'
+  - id: parameter_crc_count
+    type: int
+    initial_value: "0"
+  - id: status_register_last
+    type: std::string
+    initial_value: '""'
+  - id: status_register_count
     type: int
     initial_value: "0"
 
@@ -234,30 +260,40 @@ text_sensor:
               return n.has_value() ? n.value() : NAN;
             };
 
-            // Parse OBIS value from line, return NAN if not found or invalid
+            // Parse OBIS string value from line, return empty string if not found or invalid
             // Sets telegram_corrupted flag if OBIS code is found but malformed
-            auto parse_obis_value = [&](const std::string &line, const std::string &obis) -> float {
+            auto parse_obis_string_value = [&](const std::string &line, const std::string &obis, char delimiter) -> std::string {
               size_t pos = line.find(obis);
               if (pos == std::string::npos) {
                 // OBIS code not found - this is normal, not corruption
-                return NAN;
+                return "";
               }
               
               size_t start = line.find('(', pos);
               if (start == std::string::npos) {
                 ESP_LOGW("meter", "Opening parenthesis not found for %s in line: %s", obis.c_str(), line.c_str());
                 telegram_corrupted = true; // Found OBIS code but malformed
-                return NAN;
+                return "";
               }
               
-              size_t end = line.find('*', start);
+              size_t end = line.find(delimiter, start);
               if (end == std::string::npos || end <= start) {
-                ESP_LOGW("meter", "Asterisk delimiter not found or invalid for %s in line: %s", obis.c_str(), line.c_str());
+                ESP_LOGW("meter", "Delimiter '%c' not found or invalid for %s in line: %s", delimiter, obis.c_str(), line.c_str());
                 telegram_corrupted = true; // Found OBIS code but malformed
+                return "";
+              }
+              
+              return line.substr(start+1, end-start-1);
+            };
+
+            // Parse OBIS numeric value from line, return NAN if not found or invalid
+            // Sets telegram_corrupted flag if OBIS code is found but malformed
+            auto parse_obis_value = [&](const std::string &line, const std::string &obis) -> float {
+              std::string value_str = parse_obis_string_value(line, obis, '*');
+              if (value_str.empty()) {
                 return NAN;
               }
               
-              std::string value_str = line.substr(start+1, end-start-1);
               float value = parse_float(value_str);
               if (isnan(value)) {
                 ESP_LOGW("meter", "Invalid float format for %s: '%s'", obis.c_str(), value_str.c_str());
@@ -332,7 +368,7 @@ text_sensor:
             update_energy_sensor(x, "${obis_consumption_7d}", id(consumption_7d), id(prev_consumption_7d));
             update_energy_sensor(x, "${obis_consumption_30d}", id(consumption_30d), id(prev_consumption_30d));
             update_energy_sensor(x, "${obis_consumption_365d}", id(consumption_365d), id(prev_consumption_365d));
-            update_energy_sensor(x, "${obis_total_feed_in}", id(total_feed_in), id(prev_total_feed_in));
+            // update_energy_sensor(x, "{obis_total_feed_in}", id(total_feed_in), id(prev_total_feed_in));
 
             // Update power sensor (W) with spike protection
             update_power_sensor(x, "${obis_current_power}", id(current_power), id(prev_current_power));
@@ -355,20 +391,36 @@ text_sensor:
               ESP_LOGD("meter", "Updated %s: %.3f %s", obis.c_str(), value, unit);
             };
 
-            // Parse and publish text sensor values (no validation needed)
-            auto update_text_sensor = [&](const std::string &line, const std::string &obis, auto &sensor) {
-              size_t pos = line.find(obis);
-              if (pos == std::string::npos) return;
+            // Parse and publish text sensor values with corruption filtering (3 times in a row)
+            auto update_text_sensor_filtered = [&](const std::string &line, const std::string &obis, auto &sensor, std::string &last_value, int &count) {
+              std::string value_str = parse_obis_string_value(line, obis, ')');
+              if (value_str.empty()) {
+                // OBIS code not found or parsing failed (corruption already handled in parse_obis_string_value)
+                return;
+              }
               
-              size_t start = line.find('(', pos);
-              if (start == std::string::npos) return;
+              // Handle new value - reset counter and return early
+              if (value_str != last_value) {
+                last_value = value_str;
+                count = 1;
+                ESP_LOGD("meter", "New value %s: %s (count: 1, need 2 more)", obis.c_str(), value_str.c_str());
+                return;
+              }
               
-              size_t end = line.find(')', start);
-              if (end == std::string::npos || end <= start) return;
+              // Same value - increment counter if not already at 3
+              if (count < 3) {
+                count++;
+              }
               
-              std::string value_str = line.substr(start+1, end-start-1);
+              // Still need more confirmations - return early
+              if (count < 3) {
+                ESP_LOGD("meter", "Buffering %s: %s (count: %d, need %d more)", obis.c_str(), value_str.c_str(), count, 3 - count);
+                return;
+              }
+              
+              // Got 3 confirmations - publish value
               sensor->publish_state(value_str);
-              ESP_LOGD("meter", "Updated %s: %s", obis.c_str(), value_str.c_str());
+              ESP_LOGD("meter", "Updated %s: %s (confirmed 3x)", obis.c_str(), value_str.c_str());
             };
 
             // Update voltage sensors
@@ -391,18 +443,18 @@ text_sensor:
             update_numeric_sensor(x, "${obis_phase_angle_il2_ul2}", id(phase_angle_il2_ul2), "deg");
             update_numeric_sensor(x, "${obis_phase_angle_il3_ul3}", id(phase_angle_il3_ul3), "deg");
 
-            // Update text sensors
-            update_text_sensor(x, "${obis_serial_number}", id(serial_number));
-            update_text_sensor(x, "${obis_firmware_version}", id(firmware_version));
-            update_text_sensor(x, "${obis_parameter_crc}", id(parameter_crc));
-            update_text_sensor(x, "${obis_status_register}", id(status_register));
+            // Update text sensors with corruption filtering
+            update_text_sensor_filtered(x, "${obis_serial_number}", id(serial_number), id(serial_number_last), id(serial_number_count));
+            update_text_sensor_filtered(x, "${obis_firmware_version}", id(firmware_version), id(firmware_version_last), id(firmware_version_count));
+            update_text_sensor_filtered(x, "${obis_parameter_crc}", id(parameter_crc), id(parameter_crc_last), id(parameter_crc_count));
+            update_text_sensor_filtered(x, "${obis_status_register}", id(status_register), id(status_register_last), id(status_register_count));
 
             // Count corrupted telegrams (only once per telegram)
             if (telegram_corrupted) {
               id(corruption_count)++;
             }
 
-  # Additional text sensors for meter information
+  # Additional text sensors for meter information (corruption filtering handled in OBIS parsing)
   - platform: template
     name: "Serial Number"
     id: serial_number
@@ -572,20 +624,20 @@ sensor:
       - or:
           - throttle: 5min
           - delta: 1
-  - platform: template
-    name: "Total Feed-in"
-    id: total_feed_in
-    unit_of_measurement: kWh
-    accuracy_decimals: 4
-    device_class: energy
-    state_class: total_increasing
-    filters:
-      - clamp:
-          min_value: ${min_energy_value}
-          max_value: ${max_energy_total}
-      - or:
-          - throttle: 5min
-          - delta: 0.0001
+  # - platform: template
+  #   name: "Total Feed-in"
+  #   id: total_feed_in
+  #   unit_of_measurement: kWh
+  #   accuracy_decimals: 4
+  #   device_class: energy
+  #   state_class: total_increasing
+  #   filters:
+  #     - clamp:
+  #         min_value: ${min_energy_value}
+  #         max_value: ${max_energy_total}
+  #     - or:
+  #         - throttle: 5min
+  #         - delta: 0.0001
   # Nice to have: uptime sensor
   - platform: uptime
     name: "Uptime"
@@ -876,7 +928,7 @@ button:
           id(prev_consumption_7d) = -1.0;
           id(prev_consumption_30d) = -1.0;
           id(prev_consumption_365d) = -1.0;
-          id(prev_total_feed_in) = -1.0;
+          // id(prev_total_feed_in) = -1.0;
           id(prev_current_power) = -1.0;
           // Reset additional energy sensors (only ones that need validation)
           id(prev_consumption_t1) = -1.0;
@@ -886,8 +938,17 @@ button:
           id(prev_current_l1) = -1.0;
           id(prev_current_l2) = -1.0;
           id(prev_current_l3) = -1.0;
+          // Reset text sensor filtering state
+          id(serial_number_last) = "";
+          id(serial_number_count) = 0;
+          id(firmware_version_last) = "";
+          id(firmware_version_count) = 0;
+          id(parameter_crc_last) = "";
+          id(parameter_crc_count) = 0;
+          id(status_register_last) = "";
+          id(status_register_count) = 0;
           
-          ESP_LOGI("meter", "Validation state counters reset");
+          ESP_LOGI("meter", "Validation state counters and text sensor filtering reset");
 
   # Reset communication quality counters only
   - platform: template
