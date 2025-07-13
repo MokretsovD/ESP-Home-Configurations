@@ -35,8 +35,8 @@ substitutions:
   battery_voltage_spike_threshold_v: "0.02"
   # Maximum allowed rate of voltage change per minute (V/min)
   battery_voltage_rate_limit_v_per_min: "0.01"
-  # Voltage rate threshold above which the battery is considered to be charging (V/min)
-  battery_charging_rate_threshold_v_per_min: "0.005"
+  # Voltage rate threshold above which the battery is considered to be charging (or rather not discharging) (V/min)
+  battery_charging_rate_threshold_v_per_min: "-0.001"
 
   # Battery voltage calibration values to calculate battery level (%)
   # Minimum battery voltage when discharging (V) - 0%
@@ -148,6 +148,7 @@ preferences:
   flash_write_interval: ${flash_write_interval}
 
 logger:
+  level: INFO
 
 # Enable Home Assistant API
 api:
@@ -164,7 +165,9 @@ api:
           then:
             # Wait for WiFi signal to be available
             - wait_until:
-                lambda: return id(wifi_signal_db).has_state();
+                condition:
+                  lambda: return id(wifi_signal_db).has_state();
+                timeout: 60s
             # Hold loading animation for one more second
             - delay: ${loading_anim_duration}
             # Set loading animation to false
@@ -354,6 +357,10 @@ display:
         // API status
         auto api_col = id(api_status) == 1 ? id(color_green) : id(color_yellow);
         it.printf(cx, cy + 97, id(font_roboto_16), api_col, TextAlign::CENTER, "HA API: %s", id(api_status) == 1 ? "Connected" : "Connecting...");
+        // ESPHome firmware information at bottom: version left, build date/time right
+        int info_y = it.get_height() - 12; // 12 px from top of baseline, fits inside screen
+        it.printf(2, info_y, id(font_roboto_16), id(color_gray), TextAlign::CENTER_LEFT, "ESPHome %s", ESPHOME_VERSION);
+        it.printf(it.get_width() - 2, info_y, id(font_roboto_16), id(color_gray), TextAlign::CENTER_RIGHT, "%s %s", __DATE__, __TIME__);
       };
 
       auto render_battery_indicator = [](display::Display &it) {
@@ -1076,7 +1083,7 @@ font:
   - file: "gfonts://Roboto"
     id: font_roboto_16
     size: 16
-    glyphs: ["0123456789", "%.: ", "ConectdigWFHAPI"]
+    glyphs: ["0123456789", "%.: ", "ACEFHIJPSWcdegilmnotu"]
   - file: "gfonts://Orbitron"
     id: font_orbitron_36
     size: 36
@@ -1314,12 +1321,12 @@ sensor:
           window_size: 20
           send_every: 5
           send_first_at: 3
-      - lambda: |-
-          if (x > ${battery_level_int_max_v} && x < ${battery_level_int_charging_min_v}) {
-            return {};
-          }
+      # - lambda: |-
+      #     if (x > ${battery_level_int_max_v} && x < ${battery_level_int_charging_min_v}) {
+      #       return {};
+      #     }
 
-          return x;
+      #     return x;
       - lambda: |-
           auto last_battery_voltage_value = id(last_battery_voltage);
 
@@ -1445,10 +1452,20 @@ sensor:
       float v = id(battery_voltage_int).state;
       // Determine charging state based on voltage change rate
       bool charging = false;
+
       if (id(battery_voltage_change).has_state()) {
-        float rate = id(battery_voltage_change).state;
-        charging = rate > ${battery_charging_rate_threshold_v_per_min}; // threshold for charging
+        float rate = id(battery_voltage_change).state;id(battery_voltage_change).state;
+        charging = rate > ${battery_charging_rate_threshold_v_per_min} && v >= ${battery_level_int_charging_min_v}; // threshold for charging
+      
+        if (v < ${battery_level_int_charging_min_v} and id(battery_voltage_change).state < ${battery_level_int_charging_min_v} ) {
+          charging = false;
+        }
+
+        if (v > ${battery_level_int_max_v} and v < ${battery_level_int_charging_min_v} and id(battery_voltage_change).state > ${battery_level_int_charging_min_v} ) {
+          charging = true;
+        }
       }
+
       id(is_charging).publish_state(charging);
       if (charging) {        
         // Charging calibration
@@ -1905,6 +1922,7 @@ interval:
                 condition:
                   lambda: return id(screen_is_out_of_sync) == true && id(is_charging).state && !id(is_loading);
                 then:
+                  - logger.log: "updating display"
                   - lambda: |-
                       id(screen_is_out_of_sync) = false;
                   - component.update: disp
@@ -1917,6 +1935,7 @@ interval:
           condition:
             lambda: return id(screen_is_out_of_sync) == true && !id(is_charging).state && !id(is_loading) && (id(sleep_mode_enabled) == false || id(wakeup_cause).state != ESP_SLEEP_WAKEUP_TIMER);
           then:
+            - logger.log: "updating display"
             - lambda: |-
                 id(screen_is_out_of_sync) = false;
             - component.update: disp
