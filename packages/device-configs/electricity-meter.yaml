@@ -117,10 +117,10 @@ globals:
     type: float
     initial_value: "-1.0"
   - id: total_frames_received
-    type: int
+    type: uint32_t
     initial_value: "0"
   - id: corruption_count
-    type: int
+    type: uint32_t
     initial_value: "0"
   - id: serial_number_last
     type: std::string
@@ -221,7 +221,7 @@ text_sensor:
               return value;
             };
 
-            // Validate and update energy sensors (kWh)
+            // Validate and update monotonic energy sensors (kWh)
             auto update_energy_sensor = [&](const std::string &line, const std::string &obis, auto &sensor, float &prev_value) {
               float value = parse_obis_value(line, obis);
               if (isnan(value)) {
@@ -245,6 +245,32 @@ text_sensor:
               sensor->publish_state(value);
               prev_value = value;
               ESP_LOGD("meter", "Updated %s: %.4f kWh", obis.c_str(), value);
+            };
+
+            // Validate and update rolling-window energy sensors (kWh)
+            auto update_rolling_energy_sensor = [&](const std::string &line, const std::string &obis, auto &sensor, float &prev_value) {
+              float value = parse_obis_value(line, obis);
+              if (isnan(value)) {
+                return;
+              }
+
+              // Validate: energy must be non-negative
+              if (value < 0) {
+                ESP_LOGW("meter", "Rejected %s: %.4f kWh (negative value)", obis.c_str(), value);
+                telegram_corrupted = true;
+                return;
+              }
+
+              // Validate: change magnitude must be reasonable (allow increase OR decrease)
+              if (prev_value >= 0 && fabs(value - prev_value) > MAX_ENERGY_CHANGE) {
+                ESP_LOGW("meter", "Rejected %s: %.4f kWh (|Δ| %.4f kWh > limit %.0f kWh)", obis.c_str(), value, fabs(value - prev_value), MAX_ENERGY_CHANGE);
+                telegram_corrupted = true;
+                return;
+              }
+
+              sensor->publish_state(value);
+              prev_value = value;
+              ESP_LOGD("meter", "Updated (rolling) %s: %.4f kWh", obis.c_str(), value);
             };
 
             // Generic function to validate and update sensors with spike protection
@@ -317,10 +343,10 @@ text_sensor:
 
             // Update energy sensors
             update_energy_sensor(x, "${obis_total_consumption}", id(total_consumption), id(prev_total_consumption));
-            update_energy_sensor(x, "${obis_consumption_1d}", id(consumption_1d), id(prev_consumption_1d));
-            update_energy_sensor(x, "${obis_consumption_7d}", id(consumption_7d), id(prev_consumption_7d));
-            update_energy_sensor(x, "${obis_consumption_30d}", id(consumption_30d), id(prev_consumption_30d));
-            update_energy_sensor(x, "${obis_consumption_365d}", id(consumption_365d), id(prev_consumption_365d));
+            update_rolling_energy_sensor(x, "${obis_consumption_1d}", id(consumption_1d), id(prev_consumption_1d));
+            update_rolling_energy_sensor(x, "${obis_consumption_7d}", id(consumption_7d), id(prev_consumption_7d));
+            update_rolling_energy_sensor(x, "${obis_consumption_30d}", id(consumption_30d), id(prev_consumption_30d));
+            update_rolling_energy_sensor(x, "${obis_consumption_365d}", id(consumption_365d), id(prev_consumption_365d));
             update_energy_sensor(x, "${obis_consumption_t1}", id(consumption_t1), id(prev_consumption_t1));
             update_energy_sensor(x, "${obis_consumption_t2}", id(consumption_t2), id(prev_consumption_t2));
             update_energy_sensor(x, "${obis_consumption_since_reset}", id(consumption_since_reset), id(prev_consumption_since_reset));
@@ -717,16 +743,16 @@ sensor:
     accuracy_decimals: 1
     entity_category: diagnostic
     disabled_by_default: true
-    update_interval: 1s
+    update_interval: 30s
     lambda: |-
-      int total_telegrams = id(total_frames_received);
-      int corruption_events = id(corruption_count);
+      uint32_t total_telegrams = id(total_frames_received);
+      uint32_t corruption_events = id(corruption_count);
 
       // Overflow protection
-      if (total_telegrams >= 10000 || corruption_events >= 10000) {
-        int new_total = total_telegrams / 2;
-        int new_corruption = corruption_events / 2;
-        ESP_LOGI("meter", "Counter overflow protection triggered - reducing counters from %d/%d to %d/%d", 
+      if (total_telegrams >= 1000000u || corruption_events >= 1000000u) {
+        uint32_t new_total = total_telegrams / 2;
+        uint32_t new_corruption = corruption_events / 2;
+        ESP_LOGI("meter", "Counter overflow protection triggered - reducing counters from %u/%u to %u/%u", 
                  total_telegrams, corruption_events, new_total, new_corruption);
         id(total_frames_received) = new_total;
         id(corruption_count) = new_corruption;
