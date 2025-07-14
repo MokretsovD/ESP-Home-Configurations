@@ -337,9 +337,9 @@ text_sensor:
               }
               
               // Validate: change must be reasonable (or first reading)
-              if (prev_value >= 0 && abs(value - prev_value) > max_change) {
+              if (prev_value >= 0 && fabs(value - prev_value) > max_change) {
                 ESP_LOGW("meter", "Reject %s: Δ%.1f>%.0f%s", 
-                         trim_for_log(obis), abs(value - prev_value), max_change, unit);
+                         trim_for_log(obis), fabs(value - prev_value), max_change, unit);
                 telegram_corrupted = true;
                 return;
               }
@@ -481,7 +481,7 @@ sensor:
           max_value: ${max_energy_total}
       - or:
           - throttle: 5min
-          - delta: 0.0001
+          - delta: 0.001
   - platform: template
     name: "Consumption 1 Day"
     id: consumption_1d
@@ -495,7 +495,7 @@ sensor:
           max_value: ${max_consumption_1d}
       - or:
           - throttle: 5min
-          - delta: 0.0001
+          - delta: 0.001
   - platform: template
     name: "Consumption 7 Days"
     id: consumption_7d
@@ -509,7 +509,7 @@ sensor:
           max_value: ${max_consumption_7d}
       - or:
           - throttle: 5min
-          - delta: 0.0001
+          - delta: 0.001
   - platform: template
     name: "Consumption 30 Days"
     id: consumption_30d
@@ -523,7 +523,7 @@ sensor:
           max_value: ${max_consumption_30d}
       - or:
           - throttle: 5min
-          - delta: 0.0001
+          - delta: 0.001
   - platform: template
     name: "Consumption 365 Days"
     id: consumption_365d
@@ -537,7 +537,7 @@ sensor:
           max_value: ${max_consumption_365d}
       - or:
           - throttle: 5min
-          - delta: 0.0001
+          - delta: 0.001
   - platform: template
     name: "Consumption T1"
     id: consumption_t1
@@ -551,7 +551,7 @@ sensor:
           max_value: ${max_energy_total}
       - or:
           - throttle: 5min
-          - delta: 0.0001
+          - delta: 0.001
   - platform: template
     name: "Consumption T2"
     id: consumption_t2
@@ -565,7 +565,7 @@ sensor:
           max_value: ${max_energy_total}
       - or:
           - throttle: 5min
-          - delta: 0.0001
+          - delta: 0.001
   - platform: template
     name: "Consumption Since Reset"
     id: consumption_since_reset
@@ -579,7 +579,7 @@ sensor:
           max_value: ${max_energy_total}
       - or:
           - throttle: 5min
-          - delta: 0.0001
+          - delta: 0.001
   - platform: template
     name: "Current Power"
     id: current_power
