@@ -185,6 +185,24 @@ text_sensor:
             const float MAX_ENERGY_CHANGE = ${max_energy_change};
             const float MAX_ROLLING_ENERGY_CHANGE = ${max_rolling_energy_change};
             
+            // Range validation constants
+            const float MIN_ENERGY_VALUE = ${min_energy_value};
+            const float MAX_ENERGY_TOTAL = ${max_energy_total};
+            const float MAX_CONSUMPTION_1D = ${max_consumption_1d};
+            const float MAX_CONSUMPTION_7D = ${max_consumption_7d};
+            const float MAX_CONSUMPTION_30D = ${max_consumption_30d};
+            const float MAX_CONSUMPTION_365D = ${max_consumption_365d};
+            const float MIN_POWER_VALUE = ${min_power_value};
+            const float MAX_ABSOLUTE_POWER = ${max_absolute_power};
+            const float MIN_VOLTAGE = ${min_voltage};
+            const float MAX_VOLTAGE = ${max_voltage};
+            const float MIN_CURRENT = ${min_current};
+            const float MAX_CURRENT = ${max_current};
+            const float MIN_FREQUENCY = ${min_frequency};
+            const float MAX_FREQUENCY = ${max_frequency};
+            const float MIN_PHASE_ANGLE = ${min_phase_angle};
+            const float MAX_PHASE_ANGLE = ${max_phase_angle};
+            
             // Helper to trim strings to 30 chars without allocation
             // Uses thread-local storage for cross-platform safety (ESP8266/ESP32)
             auto trim_for_log = [](const std::string &str) -> const char* {
@@ -277,9 +295,21 @@ text_sensor:
             };
 
             // Validate and update monotonic energy sensors (kWh)
-            auto update_energy_sensor = [&](const std::string &line, const std::string &obis, auto &sensor, float &prev_value) {
+            auto update_energy_sensor = [&](const std::string &line, const std::string &obis, auto &sensor, float &prev_value, float min_range, float max_range) {
               float value = parse_obis_value(line, obis);
               if (isnan(value)) {
+                return;
+              }
+              
+              // Validate: energy must be in valid range
+              if (value < min_range) {
+                ESP_LOGW("meter", "Reject %s: %.2f<%.1f", trim_for_log(obis), value, min_range);
+                telegram_corrupted = true;
+                return;
+              }
+              if (value > max_range) {
+                ESP_LOGW("meter", "Reject %s: %.2f>%.1f", trim_for_log(obis), value, max_range);
+                telegram_corrupted = true;
                 return;
               }
               
@@ -303,15 +333,20 @@ text_sensor:
             };
 
             // Validate and update rolling-window energy sensors (kWh)
-            auto update_rolling_energy_sensor = [&](const std::string &line, const std::string &obis, auto &sensor, float &prev_value) {
+            auto update_rolling_energy_sensor = [&](const std::string &line, const std::string &obis, auto &sensor, float &prev_value, float min_range, float max_range) {
               float value = parse_obis_value(line, obis);
               if (isnan(value)) {
                 return;
               }
 
-              // Validate: energy must be non-negative
-              if (value < 0) {
-                ESP_LOGW("meter", "Reject %s: %.2f<0", trim_for_log(obis), value);
+              // Validate: energy must be in valid range
+              if (value < min_range) {
+                ESP_LOGW("meter", "Reject %s: %.2f<%.1f", trim_for_log(obis), value, min_range);
+                telegram_corrupted = true;
+                return;
+              }
+              if (value > max_range) {
+                ESP_LOGW("meter", "Reject %s: %.2f>%.1f", trim_for_log(obis), value, max_range);
                 telegram_corrupted = true;
                 return;
               }
@@ -330,9 +365,21 @@ text_sensor:
 
             // Generic function to validate and update sensors with spike protection
             auto update_spike_protected_sensor = [&](const std::string &line, const std::string &obis, auto &sensor, float &prev_value, 
-                                                     float max_change, const char* unit) {
+                                                     float max_change, const char* unit, float min_range, float max_range) {
               float value = parse_obis_value(line, obis);
               if (isnan(value)) {
+                return;
+              }
+              
+              // Validate: value must be in valid range
+              if (value < min_range) {
+                ESP_LOGW("meter", "Reject %s: %.1f<%.1f", trim_for_log(obis), value, min_range);
+                telegram_corrupted = true;
+                return;
+              }
+              if (value > max_range) {
+                ESP_LOGW("meter", "Reject %s: %.1f>%.1f", trim_for_log(obis), value, max_range);
+                telegram_corrupted = true;
                 return;
               }
               
@@ -351,17 +398,29 @@ text_sensor:
 
             // Convenience wrappers for specific sensor types
             auto update_power_sensor = [&](const std::string &line, const std::string &obis, auto &sensor, float &prev_value) {
-              update_spike_protected_sensor(line, obis, sensor, prev_value, MAX_POWER_CHANGE, "W");
+              update_spike_protected_sensor(line, obis, sensor, prev_value, MAX_POWER_CHANGE, "W", MIN_POWER_VALUE, MAX_ABSOLUTE_POWER);
             };
 
             auto update_current_sensor = [&](const std::string &line, const std::string &obis, auto &sensor, float &prev_value) {
-              update_spike_protected_sensor(line, obis, sensor, prev_value, MAX_CURRENT_CHANGE, "A");
+              update_spike_protected_sensor(line, obis, sensor, prev_value, MAX_CURRENT_CHANGE, "A", MIN_CURRENT, MAX_CURRENT);
             };
 
-            // Generic function to update numeric sensors (no validation needed)
-            auto update_numeric_sensor = [&](const std::string &line, const std::string &obis, auto &sensor, const char* unit) {
+            // Generic function to update numeric sensors with range validation
+            auto update_numeric_sensor = [&](const std::string &line, const std::string &obis, auto &sensor, const char* unit, float min_range, float max_range) {
               float value = parse_obis_value(line, obis);
               if (isnan(value)) {
+                return;
+              }
+              
+              // Validate: value must be in valid range
+              if (value < min_range) {
+                ESP_LOGW("meter", "Reject %s: %.1f<%.1f", trim_for_log(obis), value, min_range);
+                telegram_corrupted = true;
+                return;
+              }
+              if (value > max_range) {
+                ESP_LOGW("meter", "Reject %s: %.1f>%.1f", trim_for_log(obis), value, max_range);
+                telegram_corrupted = true;
                 return;
               }
               
@@ -401,22 +460,22 @@ text_sensor:
             };
 
             // Update energy sensors
-            update_energy_sensor(x, "${obis_total_consumption}", id(total_consumption), id(prev_total_consumption));
-            update_rolling_energy_sensor(x, "${obis_consumption_1d}", id(consumption_1d), id(prev_consumption_1d));
-            update_rolling_energy_sensor(x, "${obis_consumption_7d}", id(consumption_7d), id(prev_consumption_7d));
-            update_rolling_energy_sensor(x, "${obis_consumption_30d}", id(consumption_30d), id(prev_consumption_30d));
-            update_rolling_energy_sensor(x, "${obis_consumption_365d}", id(consumption_365d), id(prev_consumption_365d));
-            update_energy_sensor(x, "${obis_consumption_t1}", id(consumption_t1), id(prev_consumption_t1));
-            update_energy_sensor(x, "${obis_consumption_t2}", id(consumption_t2), id(prev_consumption_t2));
-            update_energy_sensor(x, "${obis_consumption_since_reset}", id(consumption_since_reset), id(prev_consumption_since_reset));
+            update_energy_sensor(x, "${obis_total_consumption}", id(total_consumption), id(prev_total_consumption), MIN_ENERGY_VALUE, MAX_ENERGY_TOTAL);
+            update_rolling_energy_sensor(x, "${obis_consumption_1d}", id(consumption_1d), id(prev_consumption_1d), MIN_ENERGY_VALUE, MAX_CONSUMPTION_1D);
+            update_rolling_energy_sensor(x, "${obis_consumption_7d}", id(consumption_7d), id(prev_consumption_7d), MIN_ENERGY_VALUE, MAX_CONSUMPTION_7D);
+            update_rolling_energy_sensor(x, "${obis_consumption_30d}", id(consumption_30d), id(prev_consumption_30d), MIN_ENERGY_VALUE, MAX_CONSUMPTION_30D);
+            update_rolling_energy_sensor(x, "${obis_consumption_365d}", id(consumption_365d), id(prev_consumption_365d), MIN_ENERGY_VALUE, MAX_CONSUMPTION_365D);
+            update_energy_sensor(x, "${obis_consumption_t1}", id(consumption_t1), id(prev_consumption_t1), MIN_ENERGY_VALUE, MAX_ENERGY_TOTAL);
+            update_energy_sensor(x, "${obis_consumption_t2}", id(consumption_t2), id(prev_consumption_t2), MIN_ENERGY_VALUE, MAX_ENERGY_TOTAL);
+            update_energy_sensor(x, "${obis_consumption_since_reset}", id(consumption_since_reset), id(prev_consumption_since_reset), MIN_ENERGY_VALUE, MAX_ENERGY_TOTAL);
 
             // Update power sensor
             update_power_sensor(x, "${obis_current_power}", id(current_power), id(prev_current_power));
 
             // Update voltage sensors
-            update_numeric_sensor(x, "${obis_voltage_l1}", id(voltage_l1), "V");
-            update_numeric_sensor(x, "${obis_voltage_l2}", id(voltage_l2), "V");
-            update_numeric_sensor(x, "${obis_voltage_l3}", id(voltage_l3), "V");
+            update_numeric_sensor(x, "${obis_voltage_l1}", id(voltage_l1), "V", MIN_VOLTAGE, MAX_VOLTAGE);
+            update_numeric_sensor(x, "${obis_voltage_l2}", id(voltage_l2), "V", MIN_VOLTAGE, MAX_VOLTAGE);
+            update_numeric_sensor(x, "${obis_voltage_l3}", id(voltage_l3), "V", MIN_VOLTAGE, MAX_VOLTAGE);
 
             // Update current sensors with spike protection
             update_current_sensor(x, "${obis_current_l1}", id(current_l1), id(prev_current_l1));
@@ -424,14 +483,14 @@ text_sensor:
             update_current_sensor(x, "${obis_current_l3}", id(current_l3), id(prev_current_l3));
 
             // Update frequency sensor
-            update_numeric_sensor(x, "${obis_frequency}", id(frequency), "Hz");
+            update_numeric_sensor(x, "${obis_frequency}", id(frequency), "Hz", MIN_FREQUENCY, MAX_FREQUENCY);
 
             // Update phase angle sensors
-            update_numeric_sensor(x, "${obis_phase_angle_ul2_ul1}", id(phase_angle_ul2_ul1), "deg");
-            update_numeric_sensor(x, "${obis_phase_angle_ul3_ul1}", id(phase_angle_ul3_ul1), "deg");
-            update_numeric_sensor(x, "${obis_phase_angle_il1_ul1}", id(phase_angle_il1_ul1), "deg");
-            update_numeric_sensor(x, "${obis_phase_angle_il2_ul2}", id(phase_angle_il2_ul2), "deg");
-            update_numeric_sensor(x, "${obis_phase_angle_il3_ul3}", id(phase_angle_il3_ul3), "deg");
+            update_numeric_sensor(x, "${obis_phase_angle_ul2_ul1}", id(phase_angle_ul2_ul1), "deg", MIN_PHASE_ANGLE, MAX_PHASE_ANGLE);
+            update_numeric_sensor(x, "${obis_phase_angle_ul3_ul1}", id(phase_angle_ul3_ul1), "deg", MIN_PHASE_ANGLE, MAX_PHASE_ANGLE);
+            update_numeric_sensor(x, "${obis_phase_angle_il1_ul1}", id(phase_angle_il1_ul1), "deg", MIN_PHASE_ANGLE, MAX_PHASE_ANGLE);
+            update_numeric_sensor(x, "${obis_phase_angle_il2_ul2}", id(phase_angle_il2_ul2), "deg", MIN_PHASE_ANGLE, MAX_PHASE_ANGLE);
+            update_numeric_sensor(x, "${obis_phase_angle_il3_ul3}", id(phase_angle_il3_ul3), "deg", MIN_PHASE_ANGLE, MAX_PHASE_ANGLE);
 
             // Update text sensors with corruption filtering - using hash-based comparison
             update_text_sensor_filtered(x, "${obis_serial_number}", id(serial_number), id(serial_number_last_hash), id(serial_number_count));
@@ -476,9 +535,6 @@ sensor:
     device_class: energy
     state_class: total_increasing
     filters:
-      - clamp:
-          min_value: ${min_energy_value}
-          max_value: ${max_energy_total}
       - or:
           - throttle: 5min
           - delta: 0.001
@@ -490,9 +546,6 @@ sensor:
     device_class: energy
     state_class: total_increasing
     filters:
-      - clamp:
-          min_value: ${min_energy_value}
-          max_value: ${max_consumption_1d}
       - or:
           - throttle: 5min
           - delta: 0.001
@@ -504,9 +557,6 @@ sensor:
     device_class: energy
     state_class: total_increasing
     filters:
-      - clamp:
-          min_value: ${min_energy_value}
-          max_value: ${max_consumption_7d}
       - or:
           - throttle: 5min
           - delta: 0.001
@@ -518,9 +568,6 @@ sensor:
     device_class: energy
     state_class: total_increasing
     filters:
-      - clamp:
-          min_value: ${min_energy_value}
-          max_value: ${max_consumption_30d}
       - or:
           - throttle: 5min
           - delta: 0.001
@@ -532,9 +579,6 @@ sensor:
     device_class: energy
     state_class: total_increasing
     filters:
-      - clamp:
-          min_value: ${min_energy_value}
-          max_value: ${max_consumption_365d}
       - or:
           - throttle: 5min
           - delta: 0.001
@@ -546,9 +590,6 @@ sensor:
     device_class: energy
     state_class: total_increasing
     filters:
-      - clamp:
-          min_value: ${min_energy_value}
-          max_value: ${max_energy_total}
       - or:
           - throttle: 5min
           - delta: 0.001
@@ -560,9 +601,6 @@ sensor:
     device_class: energy
     state_class: total_increasing
     filters:
-      - clamp:
-          min_value: ${min_energy_value}
-          max_value: ${max_energy_total}
       - or:
           - throttle: 5min
           - delta: 0.001
@@ -574,9 +612,6 @@ sensor:
     device_class: energy
     state_class: total_increasing
     filters:
-      - clamp:
-          min_value: ${min_energy_value}
-          max_value: ${max_energy_total}
       - or:
           - throttle: 5min
           - delta: 0.001
@@ -588,9 +623,6 @@ sensor:
     device_class: power
     state_class: measurement
     filters:
-      - clamp:
-          min_value: ${min_power_value}
-          max_value: ${max_absolute_power}
       - or:
           - throttle: 5min
           - delta: 1
@@ -603,9 +635,6 @@ sensor:
     device_class: voltage
     state_class: measurement
     filters:
-      - clamp:
-          min_value: ${min_voltage}
-          max_value: ${max_voltage}
       - or:
           - throttle: 5min
           - delta: 0.1
@@ -617,9 +646,6 @@ sensor:
     device_class: voltage
     state_class: measurement
     filters:
-      - clamp:
-          min_value: ${min_voltage}
-          max_value: ${max_voltage}
       - or:
           - throttle: 5min
           - delta: 0.1
@@ -631,9 +657,6 @@ sensor:
     device_class: voltage
     state_class: measurement
     filters:
-      - clamp:
-          min_value: ${min_voltage}
-          max_value: ${max_voltage}
       - or:
           - throttle: 5min
           - delta: 0.1
@@ -646,9 +669,6 @@ sensor:
     device_class: current
     state_class: measurement
     filters:
-      - clamp:
-          min_value: ${min_current}
-          max_value: ${max_current}
       - or:
           - throttle: 5min
           - delta: 0.01
@@ -660,9 +680,6 @@ sensor:
     device_class: current
     state_class: measurement
     filters:
-      - clamp:
-          min_value: ${min_current}
-          max_value: ${max_current}
       - or:
           - throttle: 5min
           - delta: 0.01
@@ -674,9 +691,6 @@ sensor:
     device_class: current
     state_class: measurement
     filters:
-      - clamp:
-          min_value: ${min_current}
-          max_value: ${max_current}
       - or:
           - throttle: 5min
           - delta: 0.01
@@ -689,9 +703,6 @@ sensor:
     device_class: frequency
     state_class: measurement
     filters:
-      - clamp:
-          min_value: ${min_frequency}
-          max_value: ${max_frequency}
       - or:
           - throttle: 5min
           - delta: 0.1
@@ -704,9 +715,6 @@ sensor:
     icon: "mdi:angle-acute"
     state_class: measurement
     filters:
-      - clamp:
-          min_value: ${min_phase_angle}
-          max_value: ${max_phase_angle}
       - or:
           - throttle: 5min
           - delta: 1.0
@@ -718,9 +726,6 @@ sensor:
     icon: "mdi:angle-acute"
     state_class: measurement
     filters:
-      - clamp:
-          min_value: ${min_phase_angle}
-          max_value: ${max_phase_angle}
       - or:
           - throttle: 5min
           - delta: 1.0
@@ -732,9 +737,6 @@ sensor:
     icon: "mdi:angle-acute"
     state_class: measurement
     filters:
-      - clamp:
-          min_value: ${min_phase_angle}
-          max_value: ${max_phase_angle}
       - or:
           - throttle: 5min
           - delta: 1.0
@@ -746,9 +748,6 @@ sensor:
     icon: "mdi:angle-acute"
     state_class: measurement
     filters:
-      - clamp:
-          min_value: ${min_phase_angle}
-          max_value: ${max_phase_angle}
       - or:
           - throttle: 5min
           - delta: 1.0
@@ -760,9 +759,6 @@ sensor:
     icon: "mdi:angle-acute"
     state_class: measurement
     filters:
-      - clamp:
-          min_value: ${min_phase_angle}
-          max_value: ${max_phase_angle}
       - or:
           - throttle: 5min
           - delta: 1.0
