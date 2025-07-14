@@ -1,0 +1,65 @@
+---
+#
+# MINIMAL OTA CONFIGURATION
+# 
+# Purpose: Two-stage OTA update system for ESP devices with limited memory
+#
+# This configuration creates a minimal firmware image that serves as an
+# intermediate step for OTA updates when the main firmware is too large
+# to fit in the available memory during a direct update.
+#
+# Usage:
+# 1. First, flash this minimal configuration to create a small firmware
+# 2. Then, use OTA to flash the full-featured firmware from this minimal state
+#
+# This approach works around ESP memory limitations by providing a smaller
+# intermediate firmware that has enough free space to receive larger updates.
+#
+# Key optimizations for minimal size:
+# - Logger completely disabled (level: NONE, baud_rate: 0)
+# - No safe_mode component
+# - restore_from_flash: false
+# - Minimal component set (only essential wifi + OTA)
+#
+
+substitutions:
+  name: smart-electric-meter
+  friendly_name: Smart Electric Meter
+  device_static_ip: !secret smart_electric_meter_wifi_manual_ip_static_ip
+  device_ap_ssid: !secret smart_electric_meter_wifi_ap_ssid
+  device_ap_password: !secret smart_electric_meter_wifi_ap_password
+  wifi_ssid: !secret wifi_ssid
+  wifi_password: !secret wifi_password
+  wifi_manual_ip_gateway: !secret wifi_manual_ip_gateway
+  wifi_manual_ip_subnet: !secret wifi_manual_ip_subnet
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+  # Removed project info to save space
+
+########################################################
+#  1️⃣  Pick the right MCU section for your board
+########################################################
+# Using an ESP8266 D1 Mini (same as main meter)
+esp8266:
+  board: d1_mini
+  # Size optimizations for ESP8266
+  framework:
+    version: recommended
+  # Reduce flash size allocation
+  restore_from_flash: false
+
+packages:
+  wifi: !include packages/wifi.yaml
+
+ota:
+  - platform: esphome
+    password: !secret smart_electric_meter_esp_ota_password
+
+# Removed safe_mode to save space (recovery via physical access if needed)
+
+# Completely disable logger to save maximum space
+logger:
+  level: NONE
+  baud_rate: 0

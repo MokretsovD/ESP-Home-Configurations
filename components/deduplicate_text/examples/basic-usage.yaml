@@ -1,0 +1,135 @@
+# Complete example showing deduplicate_text usage
+# This demonstrates both direct state publishing and template functionality
+
+esphome:
+  name: deduplicate-text-example
+  friendly_name: Deduplicate Text Example
+
+esp8266:
+  board: d1_mini
+
+logger:
+  level: VERY_VERBOSE
+  logs:
+    deduplicate_text: VERY_VERBOSE
+
+# Include the custom component
+external_components:
+  - source:
+      type: local
+      path: ../..
+
+# WiFi configuration
+wifi:
+  ssid: "YourWiFiSSID"
+  password: "YourWiFiPassword"
+
+# Enable native API
+api:
+
+# Example global variable for testing
+globals:
+  - id: counter
+    type: int
+    initial_value: "0"
+
+text_sensor:
+  # Basic usage - direct state publishing (called from lambda functions)
+  - platform: deduplicate_text
+    name: "Device Serial"
+    id: device_serial
+    icon: "mdi:identifier"
+    entity_category: diagnostic
+    
+  - platform: deduplicate_text
+    name: "Device Status"
+    id: device_status
+    icon: "mdi:alert-circle-outline"
+    entity_category: diagnostic
+    
+  # Template usage - with lambda functions (works like template sensor)
+  - platform: deduplicate_text
+    name: "Counter Status"
+    lambda: |-
+      if (id(counter) > 10) {
+        return {"High"};
+      } else if (id(counter) > 5) {
+        return {"Medium"};
+      } else {
+        return {"Low"};
+      }
+    update_interval: 5s
+    icon: "mdi:counter"
+    
+  - platform: deduplicate_text
+    name: "System Time"
+    lambda: |-
+      char buf[20];
+      time_t now = time(nullptr);
+      strftime(buf, sizeof(buf), "%H:%M:%S", localtime(&now));
+      return std::string(buf);
+    update_interval: 1s
+    icon: "mdi:clock"
+    
+  - platform: deduplicate_text
+    name: "Memory Usage"
+    lambda: |-
+      uint32_t free_heap = ESP.getFreeHeap();
+      if (free_heap > 20000) {
+        return {"Good"};
+      } else if (free_heap > 10000) {
+        return {"Medium"};
+      } else {
+        return {"Low"};
+      }
+    update_interval: 10s
+    icon: "mdi:memory"
+    entity_category: diagnostic
+
+# Example sensor to trigger global variable changes
+sensor:
+  - platform: template
+    name: "Counter"
+    lambda: |-
+      id(counter)++;
+      if (id(counter) > 20) {
+        id(counter) = 0;
+      }
+      return id(counter);
+    update_interval: 2s
+    on_value:
+      then:
+        - lambda: |-
+            // Direct state publishing examples
+            id(device_serial).publish_state("ABC123-" + to_string((int)x));
+            
+            if (x > 15) {
+              id(device_status).publish_state("Critical");
+            } else if (x > 10) {
+              id(device_status).publish_state("Warning");
+            } else {
+              id(device_status).publish_state("Normal");
+            }
+
+# Button to test manual updates
+button:
+  - platform: template
+    name: "Test Duplicate"
+    on_press:
+      then:
+        - lambda: |-
+            // This will be deduplicated automatically
+            id(device_serial).publish_state("ABC123-DUPLICATE");
+            id(device_serial).publish_state("ABC123-DUPLICATE");
+            id(device_serial).publish_state("ABC123-DUPLICATE");
+            ESP_LOGI("test", "Sent 3 duplicate values - only first should be published");
+        - delay: 1s
+        - lambda: |-
+            // This will be published as it's different
+            id(device_serial).publish_state("ABC123-DIFFERENT");
+            ESP_LOGI("test", "Sent different value - should be published");
+
+# Time component for the time example
+time:
+  - platform: sntp
+    id: sntp_time 

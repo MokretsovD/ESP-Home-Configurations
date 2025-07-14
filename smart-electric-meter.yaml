@@ -32,9 +32,16 @@ substitutions:
   max_power_change: "3000.0" # 3kW max power change per reading
   max_current_change: "13.0" # 13A max current change per reading (derived from 3kW/230V)
   max_energy_total: "100000.0" # 100,000 kWh reasonable lifetime maximum
-  max_energy_change: "1.0" # 1 kWh max energy change per reading
+  max_energy_change: "0.5" # 0.5 kWh max energy change per reading
+  max_rolling_energy_change: "2.0" # 2 kWh max energy change for rolling window sensors per reading
   min_energy_value: "0.0" # Minimum energy value (kWh)
   min_power_value: "0.0" # Minimum power value (W)
+
+  # Rolling window maximum values - safe limits for consumption sensors
+  max_consumption_1d: "30.0" # 30kWh maximum for 1-day rolling window
+  max_consumption_7d: "210.0" # 210kWh maximum for 7-day rolling window
+  max_consumption_30d: "800.0" # 800kWh maximum for 30-day rolling window
+  max_consumption_365d: "10000.0" # 10,000kWh maximum for 365-day rolling window
 
   # OBIS codes for smart meter readings
   obis_total_consumption: "1-0:1.8.0*255" # Total energy consumption (kWh)
@@ -113,6 +120,15 @@ packages:
 
 captive_portal:
 
+debug:
+
+text_sensor:
+  - platform: debug
+    reset_reason:
+      id: reset_reason
+      name: "Reset Reason"
+      entity_category: diagnostic
+
 # Additional sensors for this device
 sensor:
   # Nice to have: uptime sensor
@@ -123,6 +139,66 @@ sensor:
     entity_category: diagnostic
     disabled_by_default: true
 
+  - platform: debug
+    free:
+      name: "Heap Free"
+      id: heap_free
+      entity_category: diagnostic
+      disabled_by_default: true
+    fragmentation:
+      name: "Heap Fragmentation"
+      id: heap_fragmentation
+      entity_category: diagnostic
+      disabled_by_default: true
+    block:
+      name: "Heap Max Block"
+      id: heap_max_block
+      entity_category: diagnostic
+      disabled_by_default: true
+    loop_time:
+      name: "Loop Time"
+      id: loop_time
+      entity_category: diagnostic
+      disabled_by_default: true
+      
+  # Heap health score combining fragmentation and free memory
+  - platform: template
+    name: "Heap Health Score"
+    id: heap_health_score
+    unit_of_measurement: "%"
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 60s
+    lambda: |-
+      float fragmentation = id(heap_fragmentation).state;
+      float free_heap = id(heap_free).state;
+      
+      if (isnan(fragmentation) || isnan(free_heap)) {
+        return NAN;
+      }
+      
+      // Health score: 0-100%, where 100% is perfect health
+      // Penalize high fragmentation and low free memory
+      float frag_penalty = fragmentation;  // 0-100%
+      float memory_penalty = free_heap < 16384 ? (16384 - free_heap) / 16384 * 50 : 0;  // 0-50%
+      
+      float health_score = 100 - frag_penalty - memory_penalty;
+      return std::max(0.0f, health_score);
+    filters:
+      - or:
+          - throttle: 5min
+          - delta: 5.0
+    # psram:
+    #   name: "Free PSRAM"
+    #   id: free_psram
+    #   entity_category: diagnostic
+    #   disabled_by_default: true
+    # cpu_frequency:
+    #   name: "CPU Frequency"    
+    #   id: cpu_frequency
+    #   entity_category: diagnostic
+    #   disabled_by_default: true
 # Reset communication quality counters for all systems
 button:
   - platform: template

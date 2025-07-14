@@ -1,0 +1,79 @@
+# Simple test configuration for deduplicate_text component
+# This demonstrates template functionality vs. direct state publishing
+
+esphome:
+  name: deduplicate-text-test
+  friendly_name: Deduplicate Text Test
+
+esp8266:
+  board: d1_mini
+
+logger:
+  level: VERY_VERBOSE
+  logs:
+    deduplicate_text: VERY_VERBOSE
+
+# Include the custom component
+external_components:
+  - source:
+      type: local
+      path: ../..
+
+# WiFi configuration
+wifi:
+  ssid: "YourWiFiSSID"
+  password: "YourWiFiPassword"
+
+# Enable native API
+api:
+
+globals:
+  - id: test_counter
+    type: int
+    initial_value: "0"
+
+text_sensor:
+  # Template usage - automatic updates with lambda
+  - platform: deduplicate_text
+    name: "Template Test"
+    lambda: |-
+      id(test_counter)++;
+      if (id(test_counter) % 3 == 0) {
+        return {"Changed"};
+      }
+      return {"Unchanged"};
+    update_interval: 2s
+    
+  # Direct state publishing - manual updates
+  - platform: deduplicate_text
+    name: "Manual Test"
+    id: manual_test
+    
+button:
+  - platform: template
+    name: "Send Same Value"
+    on_press:
+      then:
+        - lambda: |-
+            ESP_LOGI("test", "Sending same value multiple times...");
+            id(manual_test).publish_state("TEST_VALUE");
+            id(manual_test).publish_state("TEST_VALUE");
+            id(manual_test).publish_state("TEST_VALUE");
+            ESP_LOGI("test", "Only first should be published");
+            
+  - platform: template
+    name: "Send Different Value"
+    on_press:
+      then:
+        - lambda: |-
+            ESP_LOGI("test", "Sending different value...");
+            id(manual_test).publish_state("DIFFERENT_VALUE");
+            ESP_LOGI("test", "Should be published");
+            
+  - platform: template
+    name: "Reset Counter"
+    on_press:
+      then:
+        - lambda: |-
+            id(test_counter) = 0;
+            ESP_LOGI("test", "Counter reset"); 

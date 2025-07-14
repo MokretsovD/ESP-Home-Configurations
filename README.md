@@ -6,6 +6,8 @@ This repository contains a collection of ESPHome YAML configurations for various
 
 - [Development Setup](#development-setup)
 - [Custom Components](#custom-components)
+  - [UART Line Reader](#uart-line-reader-uart_line_reader)
+  - [Deduplicate Text Sensor](#deduplicate-text-sensor-deduplicate_text)
 - [Shared Packages](#shared-packages)
 - [Configurations](#configurations)
   - [Smart Electric Meter](#smart-electric-meter)
@@ -100,6 +102,30 @@ This repository includes custom ESPHome components that extend the platform's ca
         path: components
   ```
 
+### Deduplicate Text Sensor (`deduplicate_text`)
+
+- **Location:** `components/deduplicate_text/`
+- **Description:** Custom text sensor platform that provides efficient duplicate detection using hash-based comparison, eliminating the need for manual deduplication filters.
+- **Features:**
+  - Memory-efficient duplicate detection (only 4 bytes per sensor)
+  - FNV-1a hash algorithm for fast, collision-resistant comparison
+  - No heap fragmentation - uses stack-allocated hash values
+  - Drop-in replacement for template text sensors with automatic deduplication
+  - Supports all standard text sensor configuration options (lambda, update_interval, etc.)
+  - Built-in logging and debugging capabilities
+- **Examples:** See `components/deduplicate_text/examples/` for complete usage examples
+- **Used by:** 
+  - `packages/device-configs/electricity-meter.yaml` - For meter information text sensors (serial number, firmware version, etc.)
+- **Usage:** Replace `platform: template` with `platform: deduplicate_text`:
+  ```yaml
+  text_sensor:
+    - platform: deduplicate_text
+      name: "My Sensor"
+      lambda: |-
+        return std::string("Hello World");
+      update_interval: 60s
+  ```
+
 ---
 
 ## Shared Packages
@@ -182,13 +208,15 @@ The `packages/` directory contains reusable configuration components that can be
   - OBIS protocol support for energy consumption, power, voltage, current, frequency, and phase angles
   - Data validation and spike protection to filter corrupted readings
   - Communication quality monitoring and corruption statistics
-  - Text sensor filtering (requires 3 consecutive identical readings)
+  - Efficient text sensor deduplication using custom `deduplicate_text` component
+  - Text sensor corruption filtering (requires 3 consecutive identical readings)
   - Comprehensive energy sensors (total, daily, weekly, monthly, yearly consumption)
   - Reset controls for validation state and communication quality
   - Highly configurable via substitutions (OBIS codes, validation parameters, UART settings)
 - **Board:** ESP8266/ESP32 compatible
 - **Requirements:** 
   - Custom `uart_line_reader` component (see [Custom Components](#custom-components))
+  - Custom `deduplicate_text` component (see [Custom Components](#custom-components))
   - IR head or serial connection to smart meter
 - **Documentation:** See `packages/device-configs/README-electricity-meter.md` for detailed usage instructions
 - **Example:** See `packages/device-configs/examples/example-electric-meter-usage.yaml`
@@ -243,7 +271,7 @@ The `packages/` directory contains reusable configuration components that can be
   - WiFi signal strength monitoring via shared package
 - **Board:** ESP8266 D1 Mini
 - **Hardware:** Requires IR head for optical interface communication
-- **Dependencies:** Uses custom `uart_line_reader` component (see [Custom Components](#custom-components))
+- **Dependencies:** Uses custom `uart_line_reader` and `deduplicate_text` components (see [Custom Components](#custom-components))
 - **Common Config:** Uses electricity meter device config from `packages/device-configs/electricity-meter.yaml`, MQTT configuration from `packages/mqtt.yaml` and `packages/mqtt-diagnostic-sensors.yaml`, and WiFi configuration from `packages/wifi.yaml`
 
 ### Gas Meter (Gaszaehler)
