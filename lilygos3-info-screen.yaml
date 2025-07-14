@@ -134,6 +134,9 @@ esphome:
 external_components:
   - source: github://landonr/lilygo-tdisplays3-esphome
     components: [tdisplays3]
+  - source:
+      type: local
+      path: components
 
 esp32:
   board: esp32-s3-devkitc-1
@@ -1191,7 +1194,7 @@ binary_sensor:
     entity_category: diagnostic
 text_sensor:
   # Current time sensor (to be displayed on screen)
-  - platform: template
+  - platform: deduplicate_text
     name: "Current Time"
     id: current_time
     internal: true
@@ -1201,15 +1204,8 @@ text_sensor:
         - lambda: |-
             id(screen_is_out_of_sync) = true;
     lambda: return id(ha_time).now().strftime("%H:%M");
-    filters:
-      - lambda: |-
-          static std::string last_time;
-          if (x == last_time)
-            return {};
-          last_time = x;
-          return x;
   # Current date sensor (to be displayed on screen)
-  - platform: template
+  - platform: deduplicate_text
     name: "Current Date"
     id: current_date
     internal: true
@@ -1219,73 +1215,71 @@ text_sensor:
         - lambda: |-
             id(screen_is_out_of_sync) = true;
     lambda: return id(ha_time).now().strftime("%Y-%m-%d %a");
-    filters:
-      - lambda: |-
-          static std::string last_date;
-          if (x == last_date)
-            return {};
-          last_date = x;
-          return x;
   # VOC level sensor
-  - platform: homeassistant
+  - platform: deduplicate_text
     id: voc_level
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(screen_is_out_of_sync) = true;
+    lambda: |-
+      if (id(ha_voc_level).has_state()) {
+        return id(ha_voc_level).state;
+      }
+      return {};
+  # CO2 level sensor
+  - platform: deduplicate_text
+    id: co2_level
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(screen_is_out_of_sync) = true;
+    lambda: |-
+      if (id(ha_co2_level).has_state()) {
+        return id(ha_co2_level).state;
+      }
+      return {};
+  # PPM level sensor
+  - platform: deduplicate_text
+    id: ppm_level
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(screen_is_out_of_sync) = true;
+    lambda: |-
+      if (id(ha_ppm_level).has_state()) {
+        return id(ha_ppm_level).state;
+      }
+      return {};
+  # Person state sensor (to determine deep sleep duration)
+  - platform: deduplicate_text
+    id: person_state
+    internal: true
+    lambda: |-
+      if (id(ha_person_state).has_state()) {
+        return id(ha_person_state).state;
+      }
+      return {};
+  # Home Assistant proxy sensors (for the deduplicate_text sensors above)
+  - platform: homeassistant
+    id: ha_voc_level
     entity_id: ${air_quality_voc_level_sensor_id}
     internal: true
-    on_value:
-      then:
-        - lambda: |-
-            id(screen_is_out_of_sync) = true;
-    filters:
-      - lambda: |-
-          static std::string last_voc_level;
-          if (x == last_voc_level)
-            return {};
-          last_voc_level = x;
-          return x;
-  # CO2 level sensor
   - platform: homeassistant
-    id: co2_level
+    id: ha_co2_level
     entity_id: ${air_quality_co2_level_sensor_id}
     internal: true
-    on_value:
-      then:
-        - lambda: |-
-            id(screen_is_out_of_sync) = true;
-    filters:
-      - lambda: |-
-          static std::string last_co2_level;
-          if (x == last_co2_level)
-            return {};
-          last_co2_level = x;
-          return x;
-  # PPM level sensor
   - platform: homeassistant
-    id: ppm_level
+    id: ha_ppm_level
     entity_id: ${air_quality_ppm_level_sensor_id}
     internal: true
-    on_value:
-      then:
-        - lambda: |-
-            id(screen_is_out_of_sync) = true;
-    filters:
-      - lambda: |-
-          static std::string last_ppm_level;
-          if (x == last_ppm_level)
-            return {};
-          last_ppm_level = x;
-          return x;
-  # Person state sensor (to determine deep sleep duration)
   - platform: homeassistant
-    id: person_state
+    id: ha_person_state
     entity_id: ${person_sensor_id}
     internal: true
-    filters:
-      - lambda: |-
-          static std::string last_person_state;
-          if (x == last_person_state)
-            return {};
-          last_person_state = x;
-          return x;
 
 sensor:
   - platform: uptime
