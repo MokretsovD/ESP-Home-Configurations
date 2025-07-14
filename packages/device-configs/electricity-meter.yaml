@@ -154,6 +154,7 @@ globals:
     type: int
     initial_value: "0"
 
+
 # OBIS data parsing text sensor
 text_sensor:
   - platform: uart_line_reader
@@ -222,6 +223,14 @@ text_sensor:
               return buf;
             };
             
+            // Helper macro for conditional warning logging - zero overhead when disabled
+            #define LOG_WARNING_IF_ENABLED(format, ...) \
+              do { \
+                if (id(enable_warning_logs).state) { \
+                  ESP_LOGW("meter", format, ##__VA_ARGS__); \
+                } \
+              } while(0)
+            
             // Lightweight helper: parse float from a std::string_view without heap allocations
             auto parse_float = [](std::string_view sv) -> float {
               if (sv.empty()) return NAN;
@@ -255,7 +264,7 @@ text_sensor:
               // Find the first '(' character
               size_t start = line.find('(');
               if (start == std::string::npos) {
-                ESP_LOGW("meter", "No '(' found in line");
+                LOG_WARNING_IF_ENABLED("No '(' found in line");
                 telegram_corrupted = true;
                 return {};
               }
@@ -266,7 +275,7 @@ text_sensor:
               // Trim any whitespace - following same pattern as parse_obis_string_value
               size_t first_non_space = obis_code.find_first_not_of(" \t\r\n");
               if (first_non_space == std::string::npos) {
-                ESP_LOGW("meter", "Only whitespace before '('");
+                LOG_WARNING_IF_ENABLED("Only whitespace before '('");
                 telegram_corrupted = true;
                 return {};
               }
@@ -284,14 +293,14 @@ text_sensor:
 
               size_t start = line.find('(', pos);
               if (start == std::string::npos) {
-                ESP_LOGW("meter", "No '(' for %s", trim_for_log(obis));
+                LOG_WARNING_IF_ENABLED("No '(' for %s", trim_for_log(obis));
                 telegram_corrupted = true;
                 return {};
               }
 
               size_t end = line.find(delimiter, start);
               if (end == std::string::npos || end <= start) {
-                ESP_LOGW("meter", "No '%c' for %s", delimiter, trim_for_log(obis));
+                LOG_WARNING_IF_ENABLED("No '%c' for %s", delimiter, trim_for_log(obis));
                 telegram_corrupted = true;
                 return {};
               }
@@ -308,7 +317,7 @@ text_sensor:
 
               float value = parse_float(value_sv);
               if (isnan(value)) {
-                ESP_LOGW("meter", "Bad float %s: %s", trim_for_log(obis), trim_sv_for_log(value_sv));
+                LOG_WARNING_IF_ENABLED("Bad float %s: %s", trim_for_log(obis), trim_sv_for_log(value_sv));
                 telegram_corrupted = true;
               }
               return value;
@@ -323,26 +332,26 @@ text_sensor:
               
               // Validate: energy must be in valid range
               if (value < min_range) {
-                ESP_LOGW("meter", "Reject %s: %.2f<%.1f", trim_for_log(obis), value, min_range);
+                LOG_WARNING_IF_ENABLED("Reject %s: %.2f<%.1f", trim_for_log(obis), value, min_range);
                 telegram_corrupted = true;
                 return;
               }
               if (value > max_range) {
-                ESP_LOGW("meter", "Reject %s: %.2f>%.1f", trim_for_log(obis), value, max_range);
+                LOG_WARNING_IF_ENABLED("Reject %s: %.2f>%.1f", trim_for_log(obis), value, max_range);
                 telegram_corrupted = true;
                 return;
               }
               
               // Validate: energy must be evergrowing (or first reading)
               if (prev_value >= 0 && value < prev_value) {
-                ESP_LOGW("meter", "Reject %s: %.2f<%.2f", trim_for_log(obis), value, prev_value);
+                LOG_WARNING_IF_ENABLED("Reject %s: %.2f<%.2f", trim_for_log(obis), value, prev_value);
                 telegram_corrupted = true;
                 return;
               }
               
               // Validate: energy change must be reasonable
               if (prev_value >= 0 && (value - prev_value) > MAX_ENERGY_CHANGE) {
-                ESP_LOGW("meter", "Reject %s: Δ%.2f>%.0f", trim_for_log(obis), value - prev_value, MAX_ENERGY_CHANGE);
+                LOG_WARNING_IF_ENABLED("Reject %s: Δ%.2f>%.0f", trim_for_log(obis), value - prev_value, MAX_ENERGY_CHANGE);
                 telegram_corrupted = true;
                 return;
               }
@@ -361,19 +370,19 @@ text_sensor:
 
               // Validate: energy must be in valid range
               if (value < min_range) {
-                ESP_LOGW("meter", "Reject %s: %.2f<%.1f", trim_for_log(obis), value, min_range);
+                LOG_WARNING_IF_ENABLED("Reject %s: %.2f<%.1f", trim_for_log(obis), value, min_range);
                 telegram_corrupted = true;
                 return;
               }
               if (value > max_range) {
-                ESP_LOGW("meter", "Reject %s: %.2f>%.1f", trim_for_log(obis), value, max_range);
+                LOG_WARNING_IF_ENABLED("Reject %s: %.2f>%.1f", trim_for_log(obis), value, max_range);
                 telegram_corrupted = true;
                 return;
               }
 
               // Validate: change magnitude must be reasonable (allow increase OR decrease)
               if (prev_value >= 0 && fabs(value - prev_value) > MAX_ROLLING_ENERGY_CHANGE) {
-                ESP_LOGW("meter", "Reject %s: |Δ|%.2f>%.0f", trim_for_log(obis), fabs(value - prev_value), MAX_ROLLING_ENERGY_CHANGE);
+                LOG_WARNING_IF_ENABLED("Reject %s: |Δ|%.2f>%.0f", trim_for_log(obis), fabs(value - prev_value), MAX_ROLLING_ENERGY_CHANGE);
                 telegram_corrupted = true;
                 return;
               }
@@ -393,19 +402,19 @@ text_sensor:
               
               // Validate: value must be in valid range
               if (value < min_range) {
-                ESP_LOGW("meter", "Reject %s: %.1f<%.1f", trim_for_log(obis), value, min_range);
+                LOG_WARNING_IF_ENABLED("Reject %s: %.1f<%.1f", trim_for_log(obis), value, min_range);
                 telegram_corrupted = true;
                 return;
               }
               if (value > max_range) {
-                ESP_LOGW("meter", "Reject %s: %.1f>%.1f", trim_for_log(obis), value, max_range);
+                LOG_WARNING_IF_ENABLED("Reject %s: %.1f>%.1f", trim_for_log(obis), value, max_range);
                 telegram_corrupted = true;
                 return;
               }
               
               // Validate: change must be reasonable (or first reading)
               if (prev_value >= 0 && fabs(value - prev_value) > max_change) {
-                ESP_LOGW("meter", "Reject %s: Δ%.1f>%.0f%s", 
+                LOG_WARNING_IF_ENABLED("Reject %s: Δ%.1f>%.0f%s", 
                          trim_for_log(obis), fabs(value - prev_value), max_change, unit);
                 telegram_corrupted = true;
                 return;
@@ -434,12 +443,12 @@ text_sensor:
               
               // Validate: value must be in valid range
               if (value < min_range) {
-                ESP_LOGW("meter", "Reject %s: %.1f<%.1f", trim_for_log(obis), value, min_range);
+                LOG_WARNING_IF_ENABLED("Reject %s: %.1f<%.1f", trim_for_log(obis), value, min_range);
                 telegram_corrupted = true;
                 return;
               }
               if (value > max_range) {
-                ESP_LOGW("meter", "Reject %s: %.1f>%.1f", trim_for_log(obis), value, max_range);
+                LOG_WARNING_IF_ENABLED("Reject %s: %.1f>%.1f", trim_for_log(obis), value, max_range);
                 telegram_corrupted = true;
                 return;
               }
@@ -887,6 +896,14 @@ sensor:
     disabled_by_default: true
     update_interval: 30s
     lambda: |-
+      // Helper macro for conditional warning logging - zero overhead when disabled
+      #define LOG_WARNING_IF_ENABLED(format, ...) \
+        do { \
+          if (id(enable_warning_logs).state) { \
+            ESP_LOGW("meter", format, ##__VA_ARGS__); \
+          } \
+        } while(0)
+      
       // Atomic snapshots to prevent race conditions
       uint32_t total_telegrams = id(total_frames_received);
       uint32_t corruption_events = id(corruption_count);
@@ -906,7 +923,7 @@ sensor:
         uint32_t new_total = total_telegrams / 2;
         uint32_t new_corruption = corruption_events / 2;
         
-        ESP_LOGW("meter", "Overflow: %u/%u->%u/%u", 
+        LOG_WARNING_IF_ENABLED("Overflow: %u/%u->%u/%u", 
                    total_telegrams, corruption_events, new_total, new_corruption);
         
         id(total_frames_received) = new_total;
@@ -973,3 +990,13 @@ button:
     id: restart_device
     icon: "mdi:restart"
     entity_category: diagnostic 
+
+# Warning logs control switch
+switch:
+  - platform: template
+    name: "Enable Warning Logs"
+    id: enable_warning_logs
+    icon: "mdi:message-alert"
+    entity_category: diagnostic
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON 
