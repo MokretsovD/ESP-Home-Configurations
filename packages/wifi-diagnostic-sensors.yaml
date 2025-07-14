@@ -11,6 +11,9 @@ sensor:
     lambda: return id(wifi_connect_counter);
     icon: "mdi:wifi-check"
     state_class: "total"
+    update_interval: 120s  # Reduced frequency to save memory
+    filters:
+      - throttle: 5min  # Added throttle to reduce updates
 
 text_sensor:
   # IP address sensor
@@ -21,13 +24,15 @@ text_sensor:
       entity_category: "diagnostic"
       disabled_by_default: true
       icon: "mdi:ip-network"
-    # WiFi SSID sensor
+      update_interval: 300s  # Reduced frequency
+    # WiFi SSID sensor - optimized
     ssid:
       name: "WiFi SSID"
       id: wifi_ssid
       entity_category: "diagnostic"
       disabled_by_default: true
       icon: "mdi:wifi"
+      update_interval: 300s  # Reduced frequency
 
 # Global variable for WiFi connect count
 globals:

@@ -24,7 +24,7 @@ substitutions:
   uart_parity: "EVEN"
   uart_data_bits: "7"
   uart_stop_bits: "1"
-  uart_rx_buffer_size: "1024"
+  uart_rx_buffer_size: "256"
 
   # Validation constants for meter readings
   max_realistic_power: "17250.0" # 17.25kW (25A * 3 phases * 230V)
