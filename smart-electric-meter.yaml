@@ -49,7 +49,7 @@ substitutions:
   obis_consumption_7d: "1-0:1.8.0*97" # Energy consumption last 7 days (kWh)
   obis_consumption_30d: "1-0:1.8.0*98" # Energy consumption last 30 days (kWh)
   obis_consumption_365d: "1-0:1.8.0*99" # Energy consumption last 365 days (kWh)
-  # obis_total_feed_in: "1-0:2.8.0*255" # Total energy feed-in (kWh)
+  obis_total_feed_in: "1-0:2.8.0*255" # Total energy feed-in (kWh)
   obis_current_power: "1-0:16.7.0*255" # Current power consumption (W)
 
   # Additional OBIS codes for comprehensive meter reading
@@ -82,6 +82,19 @@ substitutions:
   min_frequency: "48.0" # 45Hz (min frequency)
   max_phase_angle: "360.0" # 360° (max phase angle)
   min_phase_angle: "-360.0" # -360° (min phase angle)
+
+  # Sensor Group Control (set to "true" to disable processing and hide by default)
+  disabled_core_sensors: "false"         # Core sensors (total consumption, current power)
+  disabled_feed_in_sensors: "false"      # Feed-in sensors (total feed-in)
+  disabled_voltage_sensors: "false"      # Voltage L1/L2/L3 sensors
+  disabled_current_sensors: "false"      # Current L1/L2/L3 sensors
+  disabled_frequency_sensors: "false"    # Frequency sensor
+  disabled_phase_angle_sensors: "false"  # Phase angle sensors
+  disabled_tariff_sensors: "false"       # T1/T2 consumption sensors
+  disabled_consumption_since_reset_sensors: "false" # Consumption since reset sensor
+  disabled_rolling_window_sensors: "false" # 1d/7d/30d/365d consumption sensors
+  disabled_diagnostic_sensors: "false"   # Diagnostic sensors (serial, firmware, etc.)
+  disabled_quality_sensors: "false"      # Communication quality sensors
 
 esphome:
   name: ${name}

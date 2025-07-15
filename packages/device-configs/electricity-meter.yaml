@@ -18,6 +18,19 @@
 #   uart_stop_bits: UART stop bits (e.g., "1")
 #   uart_rx_buffer_size: UART RX buffer size (e.g., "1024")
 #
+# Sensor Group Control (set to "true" to disable processing and hide by default):
+#   disabled_core_sensors: Disable core sensors (total consumption, current power) (default: "false")
+#   disabled_feed_in_sensors: Disable feed-in sensors (total feed-in) (default: "false")
+#   disabled_voltage_sensors: Disable voltage L1/L2/L3 sensors (default: "false")
+#   disabled_current_sensors: Disable current L1/L2/L3 sensors (default: "false")
+#   disabled_frequency_sensors: Disable frequency sensor (default: "false")
+#   disabled_phase_angle_sensors: Disable phase angle sensors (default: "false")
+#   disabled_tariff_sensors: Disable T1/T2 consumption sensors (default: "false")
+#   disabled_consumption_since_reset_sensors: Disable consumption since reset sensor (default: "false")
+#   disabled_rolling_window_sensors: Disable 1d/7d/30d/365d consumption sensors (default: "false")
+#   disabled_diagnostic_sensors: Disable diagnostic sensors (serial, firmware, etc.) (default: "false")
+#   disabled_quality_sensors: Disable communication quality sensors (default: "false")
+#
 # OBIS Codes:
 #   obis_total_consumption: Total energy consumption OBIS code
 #   obis_consumption_1d: 1-day consumption OBIS code
@@ -69,6 +82,8 @@
 #   max_consumption_30d: Maximum consumption for 30-day rolling window (e.g., "800.0")
 #   max_consumption_365d: Maximum consumption for 365-day rolling window (e.g., "10000.0")
 
+
+
 # UART for IR head communication
 # Note: This package requires a custom uart_line_reader component
 # Add this to your main configuration:
@@ -88,6 +103,9 @@ uart:
 # Global variables for validation state tracking
 globals:
   - id: prev_total_consumption
+    type: float
+    initial_value: "-1.0"
+  - id: prev_total_feed_in
     type: float
     initial_value: "-1.0"
   - id: prev_consumption_1d
@@ -203,6 +221,19 @@ text_sensor:
             const float MAX_FREQUENCY = ${max_frequency};
             const float MIN_PHASE_ANGLE = ${min_phase_angle};
             const float MAX_PHASE_ANGLE = ${max_phase_angle};
+            
+            // Feature flags from substitutions (process if NOT disabled)
+            constexpr bool ENABLE_CORE_SENSORS = ("${disabled_core_sensors}"[0] != 't');
+            constexpr bool ENABLE_FEED_IN_SENSORS = ("${disabled_feed_in_sensors}"[0] != 't');
+            constexpr bool ENABLE_VOLTAGE_SENSORS = ("${disabled_voltage_sensors}"[0] != 't');
+            constexpr bool ENABLE_CURRENT_SENSORS = ("${disabled_current_sensors}"[0] != 't');
+            constexpr bool ENABLE_FREQUENCY_SENSORS = ("${disabled_frequency_sensors}"[0] != 't');
+            constexpr bool ENABLE_PHASE_ANGLE_SENSORS = ("${disabled_phase_angle_sensors}"[0] != 't');
+            constexpr bool ENABLE_TARIFF_SENSORS = ("${disabled_tariff_sensors}"[0] != 't');
+            constexpr bool ENABLE_CONSUMPTION_SINCE_RESET_SENSORS = ("${disabled_consumption_since_reset_sensors}"[0] != 't');
+            constexpr bool ENABLE_ROLLING_WINDOW_SENSORS = ("${disabled_rolling_window_sensors}"[0] != 't');
+            constexpr bool ENABLE_DIAGNOSTIC_SENSORS = ("${disabled_diagnostic_sensors}"[0] != 't');
+            constexpr bool ENABLE_QUALITY_SENSORS = ("${disabled_quality_sensors}"[0] != 't');
             
             // Helper to trim strings to 30 chars without allocation
             // Uses thread-local storage for cross-platform safety (ESP8266/ESP32)
@@ -500,6 +531,7 @@ text_sensor:
 
             // Calculate hash values for all OBIS codes at compile time
             constexpr uint32_t HASH_TOTAL_CONSUMPTION = compile_time_hash("${obis_total_consumption}");
+            constexpr uint32_t HASH_TOTAL_FEED_IN = compile_time_hash("${obis_total_feed_in}");
             constexpr uint32_t HASH_CONSUMPTION_1D = compile_time_hash("${obis_consumption_1d}");
             constexpr uint32_t HASH_CONSUMPTION_7D = compile_time_hash("${obis_consumption_7d}");
             constexpr uint32_t HASH_CONSUMPTION_30D = compile_time_hash("${obis_consumption_30d}");
@@ -541,79 +573,134 @@ text_sensor:
               // Process the line based on the identified OBIS code using hash-based switch
               switch (obis_hash) {
                 case HASH_TOTAL_CONSUMPTION:
-                  update_energy_sensor(x, obis_str, id(total_consumption), id(prev_total_consumption), MIN_ENERGY_VALUE, MAX_ENERGY_TOTAL);
+                  if (ENABLE_CORE_SENSORS) {
+                    update_energy_sensor(x, obis_str, id(total_consumption), id(prev_total_consumption), MIN_ENERGY_VALUE, MAX_ENERGY_TOTAL);
+                  }
+                  break;
+                case HASH_TOTAL_FEED_IN:
+                  if (ENABLE_FEED_IN_SENSORS) {
+                    update_energy_sensor(x, obis_str, id(total_feed_in), id(prev_total_feed_in), MIN_ENERGY_VALUE, MAX_ENERGY_TOTAL);
+                  }
                   break;
                 case HASH_CONSUMPTION_1D:
-                  update_rolling_energy_sensor(x, obis_str, id(consumption_1d), id(prev_consumption_1d), MIN_ENERGY_VALUE, MAX_CONSUMPTION_1D);
+                  if (ENABLE_ROLLING_WINDOW_SENSORS) {
+                    update_rolling_energy_sensor(x, obis_str, id(consumption_1d), id(prev_consumption_1d), MIN_ENERGY_VALUE, MAX_CONSUMPTION_1D);
+                  }
                   break;
                 case HASH_CONSUMPTION_7D:
-                  update_rolling_energy_sensor(x, obis_str, id(consumption_7d), id(prev_consumption_7d), MIN_ENERGY_VALUE, MAX_CONSUMPTION_7D);
+                  if (ENABLE_ROLLING_WINDOW_SENSORS) {
+                    update_rolling_energy_sensor(x, obis_str, id(consumption_7d), id(prev_consumption_7d), MIN_ENERGY_VALUE, MAX_CONSUMPTION_7D);
+                  }
                   break;
                 case HASH_CONSUMPTION_30D:
-                  update_rolling_energy_sensor(x, obis_str, id(consumption_30d), id(prev_consumption_30d), MIN_ENERGY_VALUE, MAX_CONSUMPTION_30D);
+                  if (ENABLE_ROLLING_WINDOW_SENSORS) {
+                    update_rolling_energy_sensor(x, obis_str, id(consumption_30d), id(prev_consumption_30d), MIN_ENERGY_VALUE, MAX_CONSUMPTION_30D);
+                  }
                   break;
                 case HASH_CONSUMPTION_365D:
-                  update_rolling_energy_sensor(x, obis_str, id(consumption_365d), id(prev_consumption_365d), MIN_ENERGY_VALUE, MAX_CONSUMPTION_365D);
+                  if (ENABLE_ROLLING_WINDOW_SENSORS) {
+                    update_rolling_energy_sensor(x, obis_str, id(consumption_365d), id(prev_consumption_365d), MIN_ENERGY_VALUE, MAX_CONSUMPTION_365D);
+                  }
                   break;
                 case HASH_CONSUMPTION_T1:
-                  update_energy_sensor(x, obis_str, id(consumption_t1), id(prev_consumption_t1), MIN_ENERGY_VALUE, MAX_ENERGY_TOTAL);
+                  if (ENABLE_TARIFF_SENSORS) {
+                    update_energy_sensor(x, obis_str, id(consumption_t1), id(prev_consumption_t1), MIN_ENERGY_VALUE, MAX_ENERGY_TOTAL);
+                  }
                   break;
                 case HASH_CONSUMPTION_T2:
-                  update_energy_sensor(x, obis_str, id(consumption_t2), id(prev_consumption_t2), MIN_ENERGY_VALUE, MAX_ENERGY_TOTAL);
+                  if (ENABLE_TARIFF_SENSORS) {
+                    update_energy_sensor(x, obis_str, id(consumption_t2), id(prev_consumption_t2), MIN_ENERGY_VALUE, MAX_ENERGY_TOTAL);
+                  }
                   break;
                 case HASH_CONSUMPTION_SINCE_RESET:
-                  update_energy_sensor(x, obis_str, id(consumption_since_reset), id(prev_consumption_since_reset), MIN_ENERGY_VALUE, MAX_ENERGY_TOTAL);
+                  if (ENABLE_CONSUMPTION_SINCE_RESET_SENSORS) {
+                    update_energy_sensor(x, obis_str, id(consumption_since_reset), id(prev_consumption_since_reset), MIN_ENERGY_VALUE, MAX_ENERGY_TOTAL);
+                  }
                   break;
                 case HASH_CURRENT_POWER:
-                  update_power_sensor(x, obis_str, id(current_power), id(prev_current_power));
+                  if (ENABLE_CORE_SENSORS) {
+                    update_power_sensor(x, obis_str, id(current_power), id(prev_current_power));
+                  }
                   break;
                 case HASH_VOLTAGE_L1:
-                  update_numeric_sensor(x, obis_str, id(voltage_l1), "V", MIN_VOLTAGE, MAX_VOLTAGE);
+                  if (ENABLE_VOLTAGE_SENSORS) {
+                    update_numeric_sensor(x, obis_str, id(voltage_l1), "V", MIN_VOLTAGE, MAX_VOLTAGE);
+                  }
                   break;
                 case HASH_VOLTAGE_L2:
-                  update_numeric_sensor(x, obis_str, id(voltage_l2), "V", MIN_VOLTAGE, MAX_VOLTAGE);
+                  if (ENABLE_VOLTAGE_SENSORS) {
+                    update_numeric_sensor(x, obis_str, id(voltage_l2), "V", MIN_VOLTAGE, MAX_VOLTAGE);
+                  }
                   break;
                 case HASH_VOLTAGE_L3:
-                  update_numeric_sensor(x, obis_str, id(voltage_l3), "V", MIN_VOLTAGE, MAX_VOLTAGE);
+                  if (ENABLE_VOLTAGE_SENSORS) {
+                    update_numeric_sensor(x, obis_str, id(voltage_l3), "V", MIN_VOLTAGE, MAX_VOLTAGE);
+                  }
                   break;
                 case HASH_CURRENT_L1:
-                  update_current_sensor(x, obis_str, id(current_l1), id(prev_current_l1));
+                  if (ENABLE_CURRENT_SENSORS) {
+                    update_current_sensor(x, obis_str, id(current_l1), id(prev_current_l1));
+                  }
                   break;
                 case HASH_CURRENT_L2:
-                  update_current_sensor(x, obis_str, id(current_l2), id(prev_current_l2));
+                  if (ENABLE_CURRENT_SENSORS) {
+                    update_current_sensor(x, obis_str, id(current_l2), id(prev_current_l2));
+                  }
                   break;
                 case HASH_CURRENT_L3:
-                  update_current_sensor(x, obis_str, id(current_l3), id(prev_current_l3));
+                  if (ENABLE_CURRENT_SENSORS) {
+                    update_current_sensor(x, obis_str, id(current_l3), id(prev_current_l3));
+                  }
                   break;
                 case HASH_FREQUENCY:
-                  update_numeric_sensor(x, obis_str, id(frequency), "Hz", MIN_FREQUENCY, MAX_FREQUENCY);
+                  if (ENABLE_FREQUENCY_SENSORS) {
+                    update_numeric_sensor(x, obis_str, id(frequency), "Hz", MIN_FREQUENCY, MAX_FREQUENCY);
+                  }
                   break;
                 case HASH_PHASE_ANGLE_UL2_UL1:
-                  update_numeric_sensor(x, obis_str, id(phase_angle_ul2_ul1), "deg", MIN_PHASE_ANGLE, MAX_PHASE_ANGLE);
+                  if (ENABLE_PHASE_ANGLE_SENSORS) {
+                    update_numeric_sensor(x, obis_str, id(phase_angle_ul2_ul1), "deg", MIN_PHASE_ANGLE, MAX_PHASE_ANGLE);
+                  }
                   break;
                 case HASH_PHASE_ANGLE_UL3_UL1:
-                  update_numeric_sensor(x, obis_str, id(phase_angle_ul3_ul1), "deg", MIN_PHASE_ANGLE, MAX_PHASE_ANGLE);
+                  if (ENABLE_PHASE_ANGLE_SENSORS) {
+                    update_numeric_sensor(x, obis_str, id(phase_angle_ul3_ul1), "deg", MIN_PHASE_ANGLE, MAX_PHASE_ANGLE);
+                  }
                   break;
                 case HASH_PHASE_ANGLE_IL1_UL1:
-                  update_numeric_sensor(x, obis_str, id(phase_angle_il1_ul1), "deg", MIN_PHASE_ANGLE, MAX_PHASE_ANGLE);
+                  if (ENABLE_PHASE_ANGLE_SENSORS) {
+                    update_numeric_sensor(x, obis_str, id(phase_angle_il1_ul1), "deg", MIN_PHASE_ANGLE, MAX_PHASE_ANGLE);
+                  }
                   break;
                 case HASH_PHASE_ANGLE_IL2_UL2:
-                  update_numeric_sensor(x, obis_str, id(phase_angle_il2_ul2), "deg", MIN_PHASE_ANGLE, MAX_PHASE_ANGLE);
+                  if (ENABLE_PHASE_ANGLE_SENSORS) {
+                    update_numeric_sensor(x, obis_str, id(phase_angle_il2_ul2), "deg", MIN_PHASE_ANGLE, MAX_PHASE_ANGLE);
+                  }
                   break;
                 case HASH_PHASE_ANGLE_IL3_UL3:
-                  update_numeric_sensor(x, obis_str, id(phase_angle_il3_ul3), "deg", MIN_PHASE_ANGLE, MAX_PHASE_ANGLE);
+                  if (ENABLE_PHASE_ANGLE_SENSORS) {
+                    update_numeric_sensor(x, obis_str, id(phase_angle_il3_ul3), "deg", MIN_PHASE_ANGLE, MAX_PHASE_ANGLE);
+                  }
                   break;
                 case HASH_SERIAL_NUMBER:
-                  update_text_sensor_filtered(x, obis_str, id(serial_number), id(serial_number_last_hash), id(serial_number_count));
+                  if (ENABLE_DIAGNOSTIC_SENSORS) {
+                    update_text_sensor_filtered(x, obis_str, id(serial_number), id(serial_number_last_hash), id(serial_number_count));
+                  }
                   break;
                 case HASH_FIRMWARE_VERSION:
-                  update_text_sensor_filtered(x, obis_str, id(firmware_version), id(firmware_version_last_hash), id(firmware_version_count));
+                  if (ENABLE_DIAGNOSTIC_SENSORS) {
+                    update_text_sensor_filtered(x, obis_str, id(firmware_version), id(firmware_version_last_hash), id(firmware_version_count));
+                  }
                   break;
                 case HASH_PARAMETER_CRC:
-                  update_text_sensor_filtered(x, obis_str, id(parameter_crc), id(parameter_crc_last_hash), id(parameter_crc_count));
+                  if (ENABLE_DIAGNOSTIC_SENSORS) {
+                    update_text_sensor_filtered(x, obis_str, id(parameter_crc), id(parameter_crc_last_hash), id(parameter_crc_count));
+                  }
                   break;
                 case HASH_STATUS_REGISTER:
-                  update_text_sensor_filtered(x, obis_str, id(status_register), id(status_register_last_hash), id(status_register_count));
+                  if (ENABLE_DIAGNOSTIC_SENSORS) {
+                    update_text_sensor_filtered(x, obis_str, id(status_register), id(status_register_last_hash), id(status_register_count));
+                  }
                   break;
                 default:
                   ESP_LOGD("meter", "Unknown OBIS code: %s (hash: 0x%08X)", trim_sv_for_log(current_obis), obis_hash);
@@ -633,21 +720,25 @@ text_sensor:
     id: serial_number
     icon: "mdi:identifier"
     entity_category: diagnostic
+    disabled_by_default: ${disabled_diagnostic_sensors}
   - platform: deduplicate_text
     name: "Firmware Version"
     id: firmware_version
     icon: "mdi:information-outline"
     entity_category: diagnostic
+    disabled_by_default: ${disabled_diagnostic_sensors}
   - platform: deduplicate_text
     name: "Parameter CRC"
     id: parameter_crc
     icon: "mdi:checksum"
     entity_category: diagnostic
+    disabled_by_default: ${disabled_diagnostic_sensors}
   - platform: deduplicate_text
     name: "Status Register"
     id: status_register
     icon: "mdi:alert-circle-outline"
     entity_category: diagnostic
+    disabled_by_default: ${disabled_diagnostic_sensors}
 
 # Energy and power sensors
 sensor:
@@ -658,6 +749,19 @@ sensor:
     accuracy_decimals: 4
     device_class: energy
     state_class: total_increasing
+    disabled_by_default: ${disabled_core_sensors}
+    filters:
+      - or:
+          - throttle: 5min
+          - delta: 0.001
+  - platform: template
+    name: "Total Feed-in"
+    id: total_feed_in
+    unit_of_measurement: kWh
+    accuracy_decimals: 4
+    device_class: energy
+    state_class: total_increasing
+    disabled_by_default: ${disabled_feed_in_sensors}
     filters:
       - or:
           - throttle: 5min
@@ -669,6 +773,7 @@ sensor:
     accuracy_decimals: 4
     device_class: energy
     state_class: total_increasing
+    disabled_by_default: ${disabled_rolling_window_sensors}
     filters:
       - or:
           - throttle: 5min
@@ -680,6 +785,7 @@ sensor:
     accuracy_decimals: 4
     device_class: energy
     state_class: total_increasing
+    disabled_by_default: ${disabled_rolling_window_sensors}
     filters:
       - or:
           - throttle: 5min
@@ -691,6 +797,7 @@ sensor:
     accuracy_decimals: 4
     device_class: energy
     state_class: total_increasing
+    disabled_by_default: ${disabled_rolling_window_sensors}
     filters:
       - or:
           - throttle: 5min
@@ -702,6 +809,7 @@ sensor:
     accuracy_decimals: 4
     device_class: energy
     state_class: total_increasing
+    disabled_by_default: ${disabled_rolling_window_sensors}
     filters:
       - or:
           - throttle: 5min
@@ -713,6 +821,7 @@ sensor:
     accuracy_decimals: 4
     device_class: energy
     state_class: total_increasing
+    disabled_by_default: ${disabled_tariff_sensors}
     filters:
       - or:
           - throttle: 5min
@@ -724,6 +833,7 @@ sensor:
     accuracy_decimals: 4
     device_class: energy
     state_class: total_increasing
+    disabled_by_default: ${disabled_tariff_sensors}
     filters:
       - or:
           - throttle: 5min
@@ -735,6 +845,7 @@ sensor:
     accuracy_decimals: 4
     device_class: energy
     state_class: total_increasing
+    disabled_by_default: ${disabled_consumption_since_reset_sensors}
     filters:
       - or:
           - throttle: 5min
@@ -746,6 +857,7 @@ sensor:
     accuracy_decimals: 0
     device_class: power
     state_class: measurement
+    disabled_by_default: ${disabled_core_sensors}
     filters:
       - or:
           - throttle: 5min
@@ -758,6 +870,7 @@ sensor:
     accuracy_decimals: 1
     device_class: voltage
     state_class: measurement
+    disabled_by_default: ${disabled_voltage_sensors}
     filters:
       - or:
           - throttle: 5min
@@ -769,6 +882,7 @@ sensor:
     accuracy_decimals: 1
     device_class: voltage
     state_class: measurement
+    disabled_by_default: ${disabled_voltage_sensors}
     filters:
       - or:
           - throttle: 5min
@@ -780,6 +894,7 @@ sensor:
     accuracy_decimals: 1
     device_class: voltage
     state_class: measurement
+    disabled_by_default: ${disabled_voltage_sensors}
     filters:
       - or:
           - throttle: 5min
@@ -792,6 +907,7 @@ sensor:
     accuracy_decimals: 2
     device_class: current
     state_class: measurement
+    disabled_by_default: ${disabled_current_sensors}
     filters:
       - or:
           - throttle: 5min
@@ -803,6 +919,7 @@ sensor:
     accuracy_decimals: 2
     device_class: current
     state_class: measurement
+    disabled_by_default: ${disabled_current_sensors}
     filters:
       - or:
           - throttle: 5min
@@ -814,6 +931,7 @@ sensor:
     accuracy_decimals: 2
     device_class: current
     state_class: measurement
+    disabled_by_default: ${disabled_current_sensors}
     filters:
       - or:
           - throttle: 5min
@@ -826,6 +944,7 @@ sensor:
     accuracy_decimals: 1
     device_class: frequency
     state_class: measurement
+    disabled_by_default: ${disabled_frequency_sensors}
     filters:
       - or:
           - throttle: 5min
@@ -838,6 +957,7 @@ sensor:
     accuracy_decimals: 0
     icon: "mdi:angle-acute"
     state_class: measurement
+    disabled_by_default: ${disabled_phase_angle_sensors}
     filters:
       - or:
           - throttle: 5min
@@ -849,6 +969,7 @@ sensor:
     accuracy_decimals: 0
     icon: "mdi:angle-acute"
     state_class: measurement
+    disabled_by_default: ${disabled_phase_angle_sensors}
     filters:
       - or:
           - throttle: 5min
@@ -860,6 +981,7 @@ sensor:
     accuracy_decimals: 0
     icon: "mdi:angle-acute"
     state_class: measurement
+    disabled_by_default: ${disabled_phase_angle_sensors}
     filters:
       - or:
           - throttle: 5min
@@ -871,6 +993,7 @@ sensor:
     accuracy_decimals: 0
     icon: "mdi:angle-acute"
     state_class: measurement
+    disabled_by_default: ${disabled_phase_angle_sensors}
     filters:
       - or:
           - throttle: 5min
@@ -882,6 +1005,7 @@ sensor:
     accuracy_decimals: 0
     icon: "mdi:angle-acute"
     state_class: measurement
+    disabled_by_default: ${disabled_phase_angle_sensors}
     filters:
       - or:
           - throttle: 5min
@@ -893,7 +1017,7 @@ sensor:
     unit_of_measurement: "%"
     accuracy_decimals: 1
     entity_category: diagnostic
-    disabled_by_default: true
+    disabled_by_default: ${disabled_quality_sensors}
     update_interval: 30s
     lambda: |-
       // Helper macro for conditional warning logging - zero overhead when disabled
@@ -954,6 +1078,7 @@ button:
     on_press:
       - lambda: |-
           id(prev_total_consumption) = -1.0;
+          id(prev_total_feed_in) = -1.0;
           id(prev_consumption_1d) = -1.0;
           id(prev_consumption_7d) = -1.0;
           id(prev_consumption_30d) = -1.0;
