@@ -172,7 +172,6 @@ globals:
     type: int
     initial_value: "0"
 
-
 # OBIS data parsing text sensor
 text_sensor:
   - platform: uart_line_reader
@@ -247,7 +246,7 @@ text_sensor:
 
             // Helper to trim string_view to 30 chars without allocation
             auto trim_sv_for_log = [](std::string_view sv) -> const char* {
-              thread_local char buf[31];  // Thread-local storage - safe on both platforms
+              thread_local char buf[31];  // Thread-local storage - safe on both ESP8266 and ESP32 platforms
               size_t len = std::min(sv.length(), size_t(30));
               memcpy(buf, sv.data(), len);
               buf[len] = '\0';
@@ -557,9 +556,12 @@ text_sensor:
             constexpr uint32_t HASH_PARAMETER_CRC = compile_time_hash("${obis_parameter_crc}");
             constexpr uint32_t HASH_STATUS_REGISTER = compile_time_hash("${obis_status_register}");
 
-                        // Extract OBIS code from the current line
+            // Extract OBIS code from the current line
             std::string_view current_obis = extract_obis_code(x);
             
+            // Feed the software watchdog so long bursts of UART data don't trigger a reset
+            App.feed_wdt();
+
             // Process only if we have a valid OBIS code
             if (!current_obis.empty()) {
               ESP_LOGD("meter", "Processing OBIS: %s", trim_sv_for_log(current_obis));
@@ -708,7 +710,6 @@ text_sensor:
               }
             }
             // If current_obis is empty, error already logged in extract_obis_code and telegram_corrupted set
-
             // Count corrupted telegrams
             if (telegram_corrupted) {
               id(corruption_count)++;
@@ -1019,15 +1020,7 @@ sensor:
     entity_category: diagnostic
     disabled_by_default: ${disabled_quality_sensors}
     update_interval: 30s
-    lambda: |-
-      // Helper macro for conditional warning logging - zero overhead when disabled
-      #define LOG_WARNING_IF_ENABLED(format, ...) \
-        do { \
-          if (id(enable_warning_logs).state) { \
-            ESP_LOGW("meter", format, ##__VA_ARGS__); \
-          } \
-        } while(0)
-      
+    lambda: |-      
       // Atomic snapshots to prevent race conditions
       uint32_t total_telegrams = id(total_frames_received);
       uint32_t corruption_events = id(corruption_count);
@@ -1046,9 +1039,6 @@ sensor:
       if (total_telegrams >= 4000000u || corruption_events >= 4000000u) {
         uint32_t new_total = total_telegrams / 2;
         uint32_t new_corruption = corruption_events / 2;
-        
-        LOG_WARNING_IF_ENABLED("Overflow: %u/%u->%u/%u", 
-                   total_telegrams, corruption_events, new_total, new_corruption);
         
         id(total_frames_received) = new_total;
         id(corruption_count) = new_corruption;
@@ -1114,7 +1104,7 @@ button:
     name: "Restart Device"
     id: restart_device
     icon: "mdi:restart"
-    entity_category: diagnostic 
+    entity_category: diagnostic
 
 # Warning logs control switch
 switch:
@@ -1124,4 +1114,72 @@ switch:
     icon: "mdi:message-alert"
     entity_category: diagnostic
     optimistic: true
-    restore_mode: RESTORE_DEFAULT_ON 
+    restore_mode: RESTORE_DEFAULT_ON
+
+# Scripts
+script:
+  - id: memory_sweep_hack
+    mode: single
+    then: 
+      - lambda: |-
+          // This is a hack to force the ESP8266 heap manager to reduce fragmentation
+          // by allocating and freeing memory in a loop.
+          // Only run on ESP8266
+          #ifdef ARDUINO_ARCH_ESP8266
+            // Safety checks: Don't sweep if memory is already tight
+            size_t free_heap = ESP.getFreeHeap();
+            size_t max_block = ESP.getMaxFreeBlockSize() - 32; // 32 bytes safety margin
+            
+            // Don't sweep if less than 8KB free (unsafe)
+            if (free_heap < 8192) {
+              return;
+            }
+            
+            // Don't sweep if heap is heavily fragmented (>80%)
+            float fragmentation = ((float)(free_heap - max_block) / free_heap) * 100.0;
+            if (fragmentation > 80.0) {
+              return;
+            }
+            
+            // Use allocations with more frequent yields
+            // This reduces the risk of interfering with UART/MQTT operations
+            for (size_t s = 1; s <= 32; s <<= 1) {  // Go up to 32x divisions
+              size_t len = max_block / s;
+              if (len < 256) {
+                break; 
+              } // Don't allocate tiny blocks
+              
+              void* p = malloc(len);
+              if (p) {
+                // Brief operation, then yield
+                free(p);
+                
+                // Feed watchdog (prevent resets)
+                App.feed_wdt();
+                
+                // Allow background tasks to run (maintain WiFi, etc.)
+                esp_yield();
+                
+                // Check if we should abort (heap got too low during operation)
+                if (ESP.getFreeHeap() < 6144) {  // 6KB minimum during operation
+                  break;
+                }
+              } else {
+                ESP_LOGW("memory_sweep", "Failed to allocate %u bytes", len);
+                break;
+              }
+            }
+            
+            size_t new_free_heap = ESP.getFreeHeap();
+            size_t new_max_block = ESP.getMaxFreeBlockSize();
+            float new_fragmentation = ((float)(new_free_heap - new_max_block) / new_free_heap) * 100.0;
+            
+            ESP_LOGI("memory_sweep", "Completed - heap: %u->%u, max_block: %u->%u, frag: %.1f%%->%.1f%%", 
+                     free_heap, new_free_heap, max_block, new_max_block, fragmentation, new_fragmentation);
+          #endif 
+
+interval:
+  - interval: 5min
+    startup_delay: 2min
+    then:
+      - script.execute: memory_sweep_hack    

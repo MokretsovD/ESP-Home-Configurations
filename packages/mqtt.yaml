@@ -3,23 +3,29 @@
 # Provides standardized MQTT connection with Last Will and Testament (LWT),
 # Home Assistant discovery, and connection quality monitoring.
 #
-# Required substitutions:
+# Substitutions:
 #   mqtt_broker: MQTT broker hostname/IP
 #   mqtt_username: MQTT username
 #   mqtt_password: MQTT password
 #   mqtt_topic_prefix: MQTT topic prefix for this device
-#
-# Optional substitutions (with defaults):
 #   mqtt_discovery: Enable/disable Home Assistant discovery (default: true)
 #   mqtt_lwt_topic_suffix: LWT topic suffix (default: "/LWT")
 #   mqtt_lwt_online_payload: LWT online payload (default: "Online")
 #   mqtt_lwt_offline_payload: LWT offline payload (default: "Offline")
+#   mqtt_keepalive: MQTT keepalive interval (default: 15s)
+
+substitutions:
+  mqtt_lwt_offline_payload: "Offline"
+  mqtt_lwt_online_payload: "Online"
+  mqtt_keepalive: 15s
+  mqtt_lwt_topic_suffix: "/LWT"
 
 mqtt:
   broker: ${mqtt_broker}
   username: ${mqtt_username}
   password: ${mqtt_password}
   topic_prefix: ${mqtt_topic_prefix}
+  keepalive: ${mqtt_keepalive}
   birth_message:
     topic: ${mqtt_topic_prefix}${mqtt_lwt_topic_suffix}
     payload: ${mqtt_lwt_online_payload}

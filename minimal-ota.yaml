@@ -41,7 +41,7 @@ esphome:
 ########################################################
 #  1️⃣  Pick the right MCU section for your board
 ########################################################
-# Using an ESP8266 D1 Mini (same as main meter)
+# Using an ESP8266 D1 Mini
 esp8266:
   board: d1_mini
   # Size optimizations for ESP8266

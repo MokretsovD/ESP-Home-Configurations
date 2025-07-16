@@ -17,6 +17,7 @@ substitutions:
   mqtt_lwt_topic_suffix: "/LWT"
   mqtt_lwt_online_payload: "Online"
   mqtt_lwt_offline_payload: "Offline"
+  mqtt_keepalive: 60s
 
   # UART Configuration
   uart_rx_pin: "D2"
@@ -84,17 +85,17 @@ substitutions:
   min_phase_angle: "-360.0" # -360° (min phase angle)
 
   # Sensor Group Control (set to "true" to disable processing and hide by default)
-  disabled_core_sensors: "false"         # Core sensors (total consumption, current power)
-  disabled_feed_in_sensors: "false"      # Feed-in sensors (total feed-in)
-  disabled_voltage_sensors: "false"      # Voltage L1/L2/L3 sensors
-  disabled_current_sensors: "false"      # Current L1/L2/L3 sensors
-  disabled_frequency_sensors: "false"    # Frequency sensor
-  disabled_phase_angle_sensors: "false"  # Phase angle sensors
-  disabled_tariff_sensors: "false"       # T1/T2 consumption sensors
-  disabled_consumption_since_reset_sensors: "false" # Consumption since reset sensor
+  disabled_core_sensors: "false" # Core sensors (total consumption, current power)
+  disabled_feed_in_sensors: "true" # Feed-in sensors (total feed-in)
+  disabled_voltage_sensors: "false" # Voltage L1/L2/L3 sensors
+  disabled_current_sensors: "false" # Current L1/L2/L3 sensors
+  disabled_frequency_sensors: "false" # Frequency sensor
+  disabled_phase_angle_sensors: "false" # Phase angle sensors
+  disabled_tariff_sensors: "true" # T1/T2 consumption sensors
+  disabled_consumption_since_reset_sensors: "true" # Consumption since reset sensor
   disabled_rolling_window_sensors: "false" # 1d/7d/30d/365d consumption sensors
-  disabled_diagnostic_sensors: "false"   # Diagnostic sensors (serial, firmware, etc.)
-  disabled_quality_sensors: "false"      # Communication quality sensors
+  disabled_diagnostic_sensors: "true" # Diagnostic sensors (serial, firmware, etc.)
+  disabled_quality_sensors: "false" # Communication quality sensors
 
 esphome:
   name: ${name}
@@ -133,18 +134,17 @@ packages:
 
 captive_portal:
 
-debug:
+# debug:
 
-text_sensor:
-  - platform: debug
-    reset_reason:
-      id: reset_reason
-      name: "Reset Reason"
-      entity_category: diagnostic
+# text_sensor:
+#   - platform: debug
+#     reset_reason:
+#       id: reset_reason
+#       name: "Reset Reason"
+#       entity_category: diagnostic
 
 # Additional sensors for this device
 sensor:
-  # Nice to have: uptime sensor
   - platform: uptime
     name: "Uptime"
     id: uptime_sensor
@@ -152,81 +152,73 @@ sensor:
     entity_category: diagnostic
     disabled_by_default: true
 
-  - platform: debug
-    free:
-      name: "Heap Free"
-      id: heap_free
-      entity_category: diagnostic
-      disabled_by_default: true
-    fragmentation:
-      name: "Heap Fragmentation"
-      id: heap_fragmentation
-      entity_category: diagnostic
-      disabled_by_default: true
-    block:
-      name: "Heap Max Block"
-      id: heap_max_block
-      entity_category: diagnostic
-      disabled_by_default: true
-    loop_time:
-      name: "Loop Time"
-      id: loop_time
-      entity_category: diagnostic
-      disabled_by_default: true
-      
+  # Enable to debug memory issues
+  # - platform: debug
+  #   free:
+  #     name: "Heap Free"
+  #     id: heap_free
+  #     entity_category: diagnostic
+  #     disabled_by_default: true
+  #   fragmentation:
+  #     name: "Heap Fragmentation"
+  #     id: heap_fragmentation
+  #     entity_category: diagnostic
+  #     disabled_by_default: true
+  #   block:
+  #     name: "Heap Max Block"
+  #     id: heap_max_block
+  #     entity_category: diagnostic
+  #     disabled_by_default: true
+  #   loop_time:
+  #     name: "Loop Time"
+  #     id: loop_time
+  #     entity_category: diagnostic
+  #     disabled_by_default: true
+
   # Heap health score combining fragmentation and free memory
-  - platform: template
-    name: "Heap Health Score"
-    id: heap_health_score
-    unit_of_measurement: "%"
-    accuracy_decimals: 1
-    entity_category: diagnostic
-    disabled_by_default: true
-    update_interval: 60s
-    lambda: |-
-      float fragmentation = id(heap_fragmentation).state;
-      float free_heap = id(heap_free).state;
-      
-      if (isnan(fragmentation) || isnan(free_heap)) {
-        return NAN;
-      }
-      
-      // Health score: 0-100%, where 100% is perfect health
-      // Penalize high fragmentation and low free memory
-      float frag_penalty = fragmentation;  // 0-100%
-      float memory_penalty = free_heap < 16384 ? (16384 - free_heap) / 16384 * 50 : 0;  // 0-50%
-      
-      float health_score = 100 - frag_penalty - memory_penalty;
-      return std::max(0.0f, health_score);
-    filters:
-      - or:
-          - throttle: 5min
-          - delta: 5.0
-    # psram:
-    #   name: "Free PSRAM"
-    #   id: free_psram
-    #   entity_category: diagnostic
-    #   disabled_by_default: true
-    # cpu_frequency:
-    #   name: "CPU Frequency"    
-    #   id: cpu_frequency
-    #   entity_category: diagnostic
-    #   disabled_by_default: true
-# Reset communication quality counters for all systems
-button:
-  - platform: template
-    name: "Reset All Communication Quality"
-    id: reset_all_communication_quality
-    icon: "mdi:refresh-circle"
-    entity_category: diagnostic
-    disabled_by_default: true
-    on_press:
-      - lambda: |-
-          id(total_frames_received) = 0;
-          id(corruption_count) = 0;
-          id(mqtt_connect_counter) = 0;
-          id(wifi_connect_counter) = 0;
-          ESP_LOGI("meter", "All communication quality and connection counters reset");
+  # - platform: template
+  #   name: "Heap Health Score"
+  #   id: heap_health_score
+  #   unit_of_measurement: "%"
+  #   accuracy_decimals: 1
+  #   entity_category: diagnostic
+  #   disabled_by_default: true
+  #   update_interval: 60s
+  #   lambda: |-
+  #     size_t free_heap = ESP.getFreeHeap();
+  #     size_t max_block = ESP.getMaxFreeBlockSize();
+
+  #     if (isnan(free_heap) || free_heap <= 0) {
+  #       return 0;
+  #     }
+
+  #     float fragmentation = ((float)(free_heap - max_block) / free_heap) * 100.0;
+
+  #     if (isnan(fragmentation)) {
+  #       return 0;
+  #     }
+
+  #     // Health score: 0-100%, where 100% is perfect health
+  #     // Penalize high fragmentation and low free memory
+  #     float frag_penalty = fragmentation;  // 0-100%
+  #     float memory_penalty = free_heap < 16384 ? (16384 - free_heap) / 16384 * 50 : 0;  // 0-50%
+
+  #     float health_score = 100 - frag_penalty - memory_penalty;
+  #     return std::max(0.0f, health_score);
+  #   filters:
+  #     - or:
+  #         - throttle: 5min
+  #         - delta: 5.0
+  # psram:
+  #   name: "Free PSRAM"
+  #   id: free_psram
+  #   entity_category: diagnostic
+  #   disabled_by_default: true
+  # cpu_frequency:
+  #   name: "CPU Frequency"
+  #   id: cpu_frequency
+  #   entity_category: diagnostic
+  #   disabled_by_default: true
 
 # -----------------------------------------------------------------------------
 # Handshake logic: keep the meter in printable IEC-62056-21 ASCII mode
