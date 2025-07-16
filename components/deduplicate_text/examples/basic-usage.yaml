@@ -4,9 +4,19 @@
 esphome:
   name: deduplicate-text-example
   friendly_name: Deduplicate Text Example
+  # For ESP32, C++17 support is required:
+  # platformio_options:
+  #   build_unflags:
+  #     - -std=gnu++11
+  #   build_flags:
+  #     - -std=gnu++17
 
 esp8266:
   board: d1_mini
+
+# Alternative ESP32 configuration (comment out esp8266 section above):
+# esp32:
+#   board: esp32dev
 
 logger:
   level: VERY_VERBOSE

@@ -120,6 +120,10 @@ esphome:
     board_build.f_flash: 80000000L
     board_build.partitions: default_16MB.csv
     board_build.arduino.memory_type: qio_opi
+    build_unflags:
+      - -std=gnu++11
+    build_flags:
+      - -std=gnu++17 #enable c++17 to use string_view and other nice features
   on_boot:
     # priority has been determined by trial and error
     # it should be lower than gpio components and higher than interval components

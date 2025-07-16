@@ -191,6 +191,7 @@ text_sensor:
       then:
         - lambda: |-
             #include <errno.h>
+            #include <string_view>
             // Track OBIS telegram processing for quality metrics
             id(total_frames_received)++;
 

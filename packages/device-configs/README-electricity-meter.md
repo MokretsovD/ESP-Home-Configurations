@@ -15,7 +15,7 @@ A comprehensive ESPHome package for reading OBIS-compliant smart electric meters
 
 ## Important Notes
 
-⚠️ **Custom Component Required**: This package uses a custom `uart_line_reader` component. You must include the external components in your main configuration:
+⚠️ **Custom Component Required**: This package uses custom `uart_line_reader` and `deduplicate_text` components. You must include the external components in your main configuration:
 
 ```yaml
 external_components:
@@ -24,7 +24,23 @@ external_components:
       path: components
 ```
 
-⚠️ **Linter Warning**: ESPHome linters may show warnings about "Platform not found: 'text_sensor.uart_line_reader'" when checking the package file directly. This is expected and will resolve when the package is used in a configuration that includes the external component.
+⚠️ **C++17 Required for ESP32**: This package uses C++17 features (like `std::string_view` and `constexpr` lambdas) in its OBIS parsing lambda functions, and the `deduplicate_text` component also requires C++17 support when compiling for ESP32. The `uart_line_reader` component works with standard C++11/C++14. ESP8266 works out of the box.
+
+**To enable C++17 for ESP32**, add the following to your ESPHome configuration:
+
+```yaml
+esphome:
+  name: your-device-name
+  platformio_options:
+    build_unflags:
+      - -std=gnu++11
+    build_flags:
+      - -std=gnu++17
+```
+
+⚠️ **ESP32 Testing Status**: While this package compiles successfully for ESP32 with C++17 enabled, it has only been physically tested and verified on ESP8266 devices. ESP32 compatibility is theoretical based on successful compilation.
+
+⚠️ **Linter Warning**: ESPHome linters may show warnings/errors about "Could not find directory ..." or "Platform not found: ...". This is expected and will resolve when the package is used in a configuration that includes the external component, IDE restart might be required.
 
 ## Required Substitutions
 
@@ -206,7 +222,8 @@ This package is designed to work with:
 - OBIS-compliant smart meters
 - IEC 62056-21 protocol
 - ESPHome version 2024.6.0 or later
-- ESP8266 and ESP32 platforms
+- ESP8266 platforms (tested and verified)
+- ESP32 platforms (compiles successfully but not tested on real hardware)
 
 ## Contributing
 

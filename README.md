@@ -81,6 +81,22 @@ For more detailed installation and update instructions, refer to the official ES
 
 This repository includes custom ESPHome components that extend the platform's capabilities beyond the built-in components.
 
+### C++17 Requirement for ESP32
+
+⚠️ **Important**: The `deduplicate_text` component and electricity meter package use C++17 features (like `std::string_view` and `constexpr` lambdas) and require C++17 support when compiling for ESP32. The `uart_line_reader` component works with standard C++11/C++14. ESP8266 has C++17 enabled by default, but ESP32 requires explicit configuration.
+
+**To enable C++17 for ESP32**, add the following to your ESPHome configuration:
+
+```yaml
+esphome:
+  name: your-device-name
+  platformio_options:
+    build_unflags:
+      - -std=gnu++11
+    build_flags:
+      - -std=gnu++17
+```
+
 ### UART Line Reader (`uart_line_reader`)
 
 - **Location:** `components/uart_line_reader/`
@@ -91,6 +107,9 @@ This repository includes custom ESPHome components that extend the platform's ca
   - Optimized for OBIS protocol parsing from smart meters
   - Supports various UART configurations (baud rate, parity, data bits)
   - Memory-efficient streaming data processing
+- **Requirements:** 
+  - **ESP32**: Works out of the box (no C++17 required)
+  - **ESP8266**: Works out of the box
 - **Used by:** 
   - `packages/electricity-meter.yaml` - For reading OBIS data from smart electric meters
   - `smart-electric-meter.yaml` - Smart meter implementation
@@ -113,6 +132,9 @@ This repository includes custom ESPHome components that extend the platform's ca
   - Drop-in replacement for template text sensors with automatic deduplication
   - Supports all standard text sensor configuration options (lambda, update_interval, etc.)
   - Built-in logging and debugging capabilities
+- **Requirements:** 
+  - **ESP32**: C++17 support required (see above)
+  - **ESP8266**: Works out of the box
 - **Examples:** See `components/deduplicate_text/examples/` for complete usage examples
 - **Used by:** 
   - `packages/device-configs/electricity-meter.yaml` - For meter information text sensors (serial number, firmware version, etc.)
@@ -213,11 +235,12 @@ The `packages/` directory contains reusable configuration components that can be
   - Comprehensive energy sensors (total, daily, weekly, monthly, yearly consumption)
   - Reset controls for validation state and communication quality
   - Highly configurable via substitutions (OBIS codes, validation parameters, UART settings)
-- **Board:** ESP8266/ESP32 compatible
+- **Board:** ESP8266 (tested), ESP32 (compiles but untested on hardware)
 - **Requirements:** 
   - Custom `uart_line_reader` component (see [Custom Components](#custom-components))
   - Custom `deduplicate_text` component (see [Custom Components](#custom-components))
   - IR head or serial connection to smart meter
+  - **ESP32**: C++17 support required for this package (see [C++17 Requirement](#c17-requirement-for-esp32))
 - **Documentation:** See `packages/device-configs/README-electricity-meter.md` for detailed usage instructions
 - **Example:** See `packages/device-configs/examples/example-electric-meter-usage.yaml`
 - **Used in:** `smart-electric-meter.yaml` - Smart meter implementation
@@ -269,7 +292,7 @@ The `packages/` directory contains reusable configuration components that can be
   - Communication quality monitoring
   - MQTT integration for Home Assistant
   - WiFi signal strength monitoring via shared package
-- **Board:** ESP8266 D1 Mini
+- **Board:** ESP8266 D1 Mini (tested), ESP32 (compiles but untested on hardware)
 - **Hardware:** Requires IR head for optical interface communication
 - **Dependencies:** Uses custom `uart_line_reader` and `deduplicate_text` components (see [Custom Components](#custom-components))
 - **Common Config:** Uses electricity meter device config from `packages/device-configs/electricity-meter.yaml`, MQTT configuration from `packages/mqtt.yaml` and `packages/mqtt-diagnostic-sensors.yaml`, and WiFi configuration from `packages/wifi.yaml`

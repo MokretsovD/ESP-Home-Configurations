@@ -99,6 +99,22 @@ external_components:
       path: components
 ```
 
+## C++17 Requirement for ESP32
+
+⚠️ **Important**: This component uses C++17 features (like `std::string_view`) and requires C++17 support when compiling for ESP32. ESP8266 has C++17 enabled by default.
+
+**To enable C++17 for ESP32**, add the following to your ESPHome configuration:
+
+```yaml
+esphome:
+  name: your-device-name
+  platformio_options:
+    build_unflags:
+      - -std=gnu++11
+    build_flags:
+      - -std=gnu++17
+```
+
 ## Supported Options
 
 All standard text sensor options are supported:
