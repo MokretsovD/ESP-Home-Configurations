@@ -24,9 +24,13 @@ external_components:
       path: components
 ```
 
-⚠️ **C++17 Required for ESP32**: This package uses C++17 features (like `std::string_view` and `constexpr` lambdas) in its OBIS parsing lambda functions, and the `deduplicate_text` component also requires C++17 support when compiling for ESP32. The `uart_line_reader` component works with standard C++11/C++14. ESP8266 works out of the box.
+⚠️ **C++20 Support for ESP32**: This package uses C++17 features (like `std::string_view` and `constexpr` lambdas) in its OBIS parsing lambda functions, and the `deduplicate_text` component also requires C++17 or later support when compiling for ESP32. The `uart_line_reader` component works with standard C++11/C++14. ESP8266 works out of the box.
 
-**To enable C++17 for ESP32**, add the following to your ESPHome configuration:
+**ESPHome 2025.7.0 and Later:**
+Starting with ESPHome 2025.7.0, the ESP32 toolchain supports C++20 by default and no manual configuration is required. This package will work out of the box without any additional settings.
+
+**ESPHome Versions Below 2025.7.0 or Standalone Usage:**
+For ESPHome versions below 2025.7.0, or when using this package separately outside of ESPHome, you still need to manually enable C++17 support for ESP32. Add the following to your ESPHome configuration:
 
 ```yaml
 esphome:
@@ -38,7 +42,7 @@ esphome:
       - -std=gnu++17
 ```
 
-⚠️ **ESP32 Testing Status**: While this package compiles successfully for ESP32 with C++17 enabled, it has only been physically tested and verified on ESP8266 devices. ESP32 compatibility is theoretical based on successful compilation.
+⚠️ **ESP32 Testing Status**: While this package compiles successfully for ESP32 with C++17/C++20 enabled, it has only been physically tested and verified on ESP8266 devices. ESP32 compatibility is theoretical based on successful compilation.
 
 ⚠️ **Linter Warning**: ESPHome linters may show warnings/errors about "Could not find directory ..." or "Platform not found: ...". This is expected and will resolve when the package is used in a configuration that includes the external component, IDE restart might be required.
 

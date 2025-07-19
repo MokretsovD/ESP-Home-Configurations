@@ -81,11 +81,15 @@ For more detailed installation and update instructions, refer to the official ES
 
 This repository includes custom ESPHome components that extend the platform's capabilities beyond the built-in components.
 
-### C++17 Requirement for ESP32
+### C++20 Support for ESP32
 
-⚠️ **Important**: The `deduplicate_text` component and electricity meter package use C++17 features (like `std::string_view` and `constexpr` lambdas) and require C++17 support when compiling for ESP32. The `uart_line_reader` component works with standard C++11/C++14. ESP8266 has C++17 enabled by default, but ESP32 requires explicit configuration.
+⚠️ **Important**: The `deduplicate_text` component and electricity meter package use C++17 features (like `std::string_view` and `constexpr` lambdas) and require C++17 or later support when compiling for ESP32. The `uart_line_reader` component works with standard C++11/C++14. ESP8266 has C++17 enabled by default.
 
-**To enable C++17 for ESP32**, add the following to your ESPHome configuration:
+**ESPHome 2025.7.0 and Later:**
+Starting with ESPHome 2025.7.0, the ESP32 toolchain supports C++20 by default and no manual configuration is required. Components will work out of the box without any additional settings.
+
+**ESPHome Versions Below 2025.7.0 or Standalone Components:**
+For ESPHome versions below 2025.7.0, or when using components separately outside of ESPHome, you still need to manually enable C++17 support for ESP32. Add the following to your ESPHome configuration:
 
 ```yaml
 esphome:
@@ -133,7 +137,7 @@ esphome:
   - Supports all standard text sensor configuration options (lambda, update_interval, etc.)
   - Built-in logging and debugging capabilities
 - **Requirements:** 
-  - **ESP32**: C++17 support required (see above)
+  - **ESP32**: C++17 or later support required (see above)
   - **ESP8266**: Works out of the box
 - **Examples:** See `components/deduplicate_text/examples/` for complete usage examples
 - **Used by:** 
@@ -240,7 +244,7 @@ The `packages/` directory contains reusable configuration components that can be
   - Custom `uart_line_reader` component (see [Custom Components](#custom-components))
   - Custom `deduplicate_text` component (see [Custom Components](#custom-components))
   - IR head or serial connection to smart meter
-  - **ESP32**: C++17 support required for this package (see [C++17 Requirement](#c17-requirement-for-esp32))
+  - **ESP32**: C++17 or later support required for this package (see [C++20 Support](#c20-support-for-esp32))
 - **Documentation:** See `packages/device-configs/README-electricity-meter.md` for detailed usage instructions
 - **Example:** See `packages/device-configs/examples/example-electric-meter-usage.yaml`
 - **Used in:** `smart-electric-meter.yaml` - Smart meter implementation

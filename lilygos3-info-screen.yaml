@@ -116,14 +116,11 @@ substitutions:
 esphome:
   name: lilygos3-info-screen
   friendly_name: lilygos3-info-screen
+  min_version: 2025.7.0
   platformio_options:
     board_build.f_flash: 80000000L
     board_build.partitions: default_16MB.csv
     board_build.arduino.memory_type: qio_opi
-    build_unflags:
-      - -std=gnu++11
-    build_flags:
-      - -std=gnu++17 #enable c++17 to use string_view and other nice features
   on_boot:
     # priority has been determined by trial and error
     # it should be lower than gpio components and higher than interval components
@@ -1718,7 +1715,7 @@ deep_sleep:
       # Wakeup pin - lower button
       - number: GPIO14
         allow_other_uses: true
-    mode: ALL_LOW
+    mode: ANY_LOW
 
 # Script to manage deep sleep
 script:
@@ -1745,7 +1742,7 @@ script:
             - logger.log: "initiating sleep mode"
             - if:
                 condition:
-                  lambda: return id(wakeup_cause).state != ESP_SLEEP_WAKEUP_TIMER;
+                  lambda: return (int)id(wakeup_cause).state != ESP_SLEEP_WAKEUP_TIMER;
                 then:
                   - logger.log: "device will go in deep sleep in ${deepsleep_delay} if conditions still met"
                   # Wait for 60 seconds when wakeup cause is not timer (e.g. button press)
@@ -1889,7 +1886,7 @@ interval:
       - if:
           condition:
             # Update loading animation if device is loading and sleep mode is disabled or wakeup cause is not timer
-            lambda: return id(is_loading) && (id(sleep_mode_enabled) == false || id(wakeup_cause).state != ESP_SLEEP_WAKEUP_TIMER);
+            lambda: return id(is_loading) && (id(sleep_mode_enabled) == false || (int)id(wakeup_cause).state != ESP_SLEEP_WAKEUP_TIMER);
           then:
             - lambda: |-
                 id(loading_anim_frame) = (id(loading_anim_frame) + 1) % 4;
@@ -1906,14 +1903,14 @@ interval:
             return id(wakeup_cause).has_state();
       - if:
           condition:
-            lambda: return id(sleep_mode_enabled) == false || id(wakeup_cause).state != ESP_SLEEP_WAKEUP_TIMER;
+            lambda: return id(sleep_mode_enabled) == false || (int)id(wakeup_cause).state != ESP_SLEEP_WAKEUP_TIMER;
           then:
             # Turn on backlight if it is off after wakeup from deep sleep
             - if:
                 condition:
-                  lambda: return id(backlight).state != id(backlight_on_bat).state;
+                  lambda: return id(backlight_on_bat).state == true;
                 then:
-                  - switch.toggle:
+                  - switch.turn_on:
                       id: backlight
             # Update display if device is charging
             - if:
@@ -1931,7 +1928,7 @@ interval:
       # Update display if device is not charging (on battery)
       - if:
           condition:
-            lambda: return id(screen_is_out_of_sync) == true && !id(is_charging).state && !id(is_loading) && (id(sleep_mode_enabled) == false || id(wakeup_cause).state != ESP_SLEEP_WAKEUP_TIMER);
+            lambda: return id(screen_is_out_of_sync) == true && !id(is_charging).state && !id(is_loading) && (id(sleep_mode_enabled) == false || (int)id(wakeup_cause).state != ESP_SLEEP_WAKEUP_TIMER);
           then:
             - logger.log: "updating display"
             - lambda: |-

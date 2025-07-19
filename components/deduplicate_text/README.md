@@ -99,11 +99,15 @@ external_components:
       path: components
 ```
 
-## C++17 Requirement for ESP32
+## C++20 Support for ESP32
 
-⚠️ **Important**: This component uses C++17 features (like `std::string_view`) and requires C++17 support when compiling for ESP32. ESP8266 has C++17 enabled by default.
+⚠️ **Important**: This component uses C++17 features (like `std::string_view`) and requires C++17 or later support when compiling for ESP32. ESP8266 has C++17 enabled by default.
 
-**To enable C++17 for ESP32**, add the following to your ESPHome configuration:
+**ESPHome 2025.7.0 and Later:**
+Starting with ESPHome 2025.7.0, the ESP32 toolchain supports C++20 by default and no manual configuration is required. This component will work out of the box without any additional settings.
+
+**ESPHome Versions Below 2025.7.0 or Standalone Usage:**
+For ESPHome versions below 2025.7.0, or when using this component separately outside of ESPHome, you still need to manually enable C++17 support for ESP32. Add the following to your ESPHome configuration:
 
 ```yaml
 esphome:
