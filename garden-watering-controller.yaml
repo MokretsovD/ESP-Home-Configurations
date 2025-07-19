@@ -126,12 +126,12 @@ binary_sensor:
   - platform: gpio
     pin:
       number: GPIO27
-      inverted: False
+      inverted: false
       mode:
         input: true
         pullup: true
     name: Pump Switch
-    internal: False
+    internal: true
     disabled_by_default: false
     id: pump_switch
     filters:
