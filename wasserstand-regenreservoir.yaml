@@ -127,6 +127,11 @@ sensor:
           - delta: 0.5
     unit_of_measurement: l
     accuracy_decimals: 1
+  - platform: uptime
+    name: "Uptime"
+    id: uptime_sensor
+    update_interval: 1min
+    disabled_by_default: true
 
 #    # 1-Wire Temperatursensor
 
