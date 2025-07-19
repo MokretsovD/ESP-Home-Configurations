@@ -32,6 +32,8 @@ packages:
   internaltemp-sensor: !include ../internal-temp-sensor-esp32.yaml
 
 logger:
+  level: INFO
+
 improv_serial:
 
 update:
