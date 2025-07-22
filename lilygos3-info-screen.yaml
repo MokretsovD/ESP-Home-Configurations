@@ -17,6 +17,7 @@ substitutions:
   boot_script_priority: "300"
   deep_sleep_priority: "350"
   peripherals_boot_priority: "400"
+  late_boot_priority: "450"
 
   # display ================================================
   loading_anim_duration: 1000ms
@@ -131,6 +132,10 @@ esphome:
             id(in_deep_sleep).publish_state(false);                  
             id(wakeup_cause).publish_state(esp_sleep_get_wakeup_cause());
             id(hw_initialized) = true;
+    # Check deep sleep conditions after everything is initialized
+    - priority: ${late_boot_priority}
+      then:
+        - script.execute: check_deep_sleep_conditions
 
 external_components:
   - source: github://landonr/lilygo-tdisplays3-esphome
@@ -264,6 +269,11 @@ globals:
     type: bool
     restore_value: no
     initial_value: "true"
+  # Global to track when it's time for deep sleep
+  - id: is_deep_sleep_time
+    type: bool
+    restore_value: false
+    initial_value: "false"
 
 time:
   - platform: homeassistant
@@ -877,7 +887,7 @@ display:
           last_position = get_alarm_icon_position(alarm_num);
           last_alarm_num = alarm_num;
         }
-        if (id(lightning_strike_distance).has_state() && id(lightning_strike_distance).state < 18) {
+        if (id(lightning_strike_distance).has_state() && !isnan(id(lightning_strike_distance).state) && id(lightning_strike_distance).state < 18) {
           float val = id(lightning_strike_distance).state;
           if (val != last_val) {
             float t = val / 18.0f;
@@ -946,24 +956,32 @@ display:
         }
 
         render_layout(it);
-
+        App.feed_wdt();
         render_battery_indicator(it);
         render_wifi_indicator(it);
         render_ha_api_indicator(it);
 
+        App.feed_wdt();
+        
         if (id(sleep_mode_enabled) == true) {
           render_energy_saving_mode(it);
         } else {
           render_pir_occupancy(it);
         }
 
+        App.feed_wdt();
+        
         render_temperature(it);
         render_humidity(it);
         render_time(it);            
         render_date(it);
 
+        App.feed_wdt();
+        
         render_waste_collection(it);
         render_air_quality(it);
+
+        App.feed_wdt();
 
         render_alarms(it);
       };
@@ -1129,41 +1147,6 @@ binary_sensor:
         - lambda: |-
             id(screen_is_out_of_sync) = true;
     # No lambda here; state is published from battery_level sensor
-  # True when it is time to go to sleep (no one is in the room or it is between 1 and 8 o'clock)
-  - platform: template
-    id: is_deep_sleep_time
-    internal: true
-    lambda: |-
-      if (!id(is_charging).has_state()) {
-        return {};
-      }
-
-      if (!id(pir_occupancy_last_changed_seconds).has_state()) {
-        return {};
-      }
-
-      if (!id(pir_occupancy).has_state()) {
-        return {};
-      }
-
-      if (!id(ha_time).now().is_valid()) {
-        return {};
-      }
-
-      return id(is_charging).state == false &&
-             (
-               (
-                id(ha_time).now().hour >= ${deepsleep_night_sleep_start_hour} && 
-                id(ha_time).now().hour <= ${deepsleep_night_sleep_end_hour}
-               ) ||
-               (
-                 id(pir_occupancy_last_changed_seconds).state >= ${deepsleep_absence_threshold_sec} && 
-                 id(pir_occupancy).state == false)
-             );
-    on_press:
-      - script.execute: manage_deep_sleep
-    on_release:
-      - script.execute: manage_deep_sleep
   # True when sleep mode is enabled (device might be still awake, displays leaf icon on screen)
   - platform: template
     id: in_power_saving_mode
@@ -1462,17 +1445,18 @@ sensor:
       }
 
       id(is_charging).publish_state(charging);
-      if (charging) {        
-        // Charging calibration
-        float min_v = ${battery_level_int_charging_min_v};
-        float max_v = ${battery_level_int_charging_max_v};
-        return (v - min_v) * 100.0 / (max_v - min_v);
-      } else {
-        // Discharging calibration
-        float min_v = ${battery_level_int_min_v};
-        float max_v = ${battery_level_int_max_v};
-        return (v - min_v) * 100.0 / (max_v - min_v);
-      }
+
+      float min_v = charging ? ${battery_level_int_charging_min_v} : ${battery_level_int_min_v};
+      float max_v = charging ? ${battery_level_int_charging_max_v} : ${battery_level_int_max_v};
+   
+      float result = (v - min_v) * 100.0 / (max_v - min_v);
+      
+      if (charging && result <= 0) {
+        return {};
+      } 
+      
+      return result;
+    
     filters:
       - clamp:
           min_value: 0
@@ -1678,7 +1662,7 @@ sensor:
       then:
         - if:
             condition:
-              lambda: return x < 15;
+              lambda: return !isnan(x) && x < 15;
             then:
               - lambda: |-
                   id(screen_is_out_of_sync) = true;
@@ -1719,7 +1703,48 @@ deep_sleep:
 
 # Script to manage deep sleep
 script:
+  # Script to check deep sleep conditions and update global
+  - id: check_deep_sleep_conditions
+    then:
+      - wait_until:
+          lambda: |-
+            return id(pir_occupancy_last_changed_seconds).has_state();
+      - wait_until:
+          lambda: |-
+            return id(pir_occupancy).has_state();
+      - wait_until:	
+          lambda: |-
+            return id(ha_time).now().is_valid();
+      - lambda: |-
+          // Calculate new deep sleep time state
+          bool new_is_deep_sleep_time = (!id(is_charging).has_state() || id(is_charging).state == false) &&
+                 (
+                   (
+                    id(ha_time).now().hour >= ${deepsleep_night_sleep_start_hour} && 
+                    id(ha_time).now().hour <= ${deepsleep_night_sleep_end_hour}
+                   ) ||
+                   (
+                     id(pir_occupancy_last_changed_seconds).state >= ${deepsleep_absence_threshold_sec} && 
+                     id(pir_occupancy).state == false)
+                 );
+
+          // Check if the state has changed or sleep mode is enabled and new state is false (e.g. wakeup from deep sleep)
+          if ((new_is_deep_sleep_time != id(is_deep_sleep_time)) || (id(sleep_mode_enabled) == true && new_is_deep_sleep_time == false)) {
+            ESP_LOGD("deep_sleep", "Deep sleep time state changed from %s to %s", 
+                     id(is_deep_sleep_time) ? "true" : "false", 
+                     new_is_deep_sleep_time ? "true" : "false");
+            
+            // Update global
+            id(is_deep_sleep_time) = new_is_deep_sleep_time;
+            
+            // Execute manage_deep_sleep script
+            if (id(manage_deep_sleep).is_running() == false) {
+              id(manage_deep_sleep).execute();
+            }
+          }
+
   - id: manage_deep_sleep
+    mode: single
     then:
       - wait_until:
           wifi.connected:
@@ -1731,12 +1756,9 @@ script:
       - wait_until:
           lambda: |-
             return id(wakeup_cause).has_state();
-      - wait_until:
-          lambda: |-
-            return id(is_deep_sleep_time).has_state();
       - if:
           condition:
-            binary_sensor.is_on: is_deep_sleep_time
+            lambda: return id(is_deep_sleep_time);
           then:
             - lambda: id(sleep_mode_enabled) = true;
             - logger.log: "initiating sleep mode"
@@ -1751,7 +1773,7 @@ script:
                   - logger.log: "device will go in deep sleep now if conditions still met"
             - if:
                 condition:
-                  binary_sensor.is_on: is_deep_sleep_time
+                  lambda: return id(is_deep_sleep_time);
                 then:
                   # Set sleep duration
                   - script.execute: set_sleep_duration
@@ -1934,3 +1956,9 @@ interval:
             - lambda: |-
                 id(screen_is_out_of_sync) = false;
             - component.update: disp
+  # Check deep sleep conditions every 20 seconds
+  - interval: 20s
+    setup_priority: ${interval_priority}
+    id: deep_sleep_check
+    then:
+      - script.execute: check_deep_sleep_conditions
