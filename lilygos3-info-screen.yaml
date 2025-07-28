@@ -274,6 +274,10 @@ globals:
     type: bool
     restore_value: false
     initial_value: "false"
+  - id: waste_sensor_alert_status
+    type: bool
+    restore_value: false
+    initial_value: "false"
 
 time:
   - platform: homeassistant
@@ -603,11 +607,15 @@ display:
         auto hausmull_shell_col = id(hausmull).has_state() && id(hausmull).state <= 1 ? id(color_red) : id(color_white);
         it.rectangle(180, it.get_height() - 30, 30, 30, hausmull_shell_col);
 
-        it.filled_rectangle(181, it.get_height() - 29, 28, 28, id(color_gray));
+        bool is_red = id(hausmull).has_state() && id(hausmull).state <= 1 && id(waste_sensor_alert_status) == true;
+
+        auto hausmull_fill_col = is_red ? id(color_red) : id(color_gray);
+        it.filled_rectangle(181, it.get_height() - 29, 28, 28, hausmull_fill_col);
 
         // Render value
         if (id(hausmull).has_state()) {
-          it.printf(195, it.get_height() - 15, id(font_orbitron_16), id(color_white), display::TextAlign::CENTER, "%.0f", id(hausmull).state);
+          auto hausmull_text_col = is_red ? id(color_black) : id(color_white);
+          it.printf(195, it.get_height() - 15, id(font_orbitron_16), hausmull_text_col, display::TextAlign::CENTER, "%.0f", id(hausmull).state);
         }
       };
 
@@ -616,11 +624,15 @@ display:
         auto biomull_shell_col = id(biomull).has_state() && id(biomull).state <= 1 ? id(color_red) : id(color_white);
         it.rectangle(215, it.get_height() - 30, 30, 30, biomull_shell_col);
 
-        it.filled_rectangle(216, it.get_height() - 29, 28, 28, id(color_braun));
+        bool is_red = id(biomull).has_state() && id(biomull).state <= 1 && id(waste_sensor_alert_status) == true;
+
+        auto biomull_fill_col = is_red ? id(color_red) : id(color_braun);
+        it.filled_rectangle(216, it.get_height() - 29, 28, 28, biomull_fill_col);
 
         // Render value
         if (id(biomull).has_state()) {
-          it.printf(230, it.get_height() - 15, id(font_orbitron_16), id(color_cream), display::TextAlign::CENTER, "%.0f", id(biomull).state);
+          auto biomull_text_col = is_red ? id(color_black) : id(color_cream);
+          it.printf(230, it.get_height() - 15, id(font_orbitron_16), biomull_text_col, display::TextAlign::CENTER, "%.0f", id(biomull).state);
         }
       };
 
@@ -629,11 +641,15 @@ display:
         auto papier_shell_col = id(papier).has_state() && id(papier).state <= 1 ? id(color_red) : id(color_white);
         it.rectangle(250, it.get_height() - 30, 30, 30, papier_shell_col);
 
-        it.filled_rectangle(251, it.get_height() - 29, 28, 28, id(color_blue));
+        bool is_red = id(papier).has_state() && id(papier).state <= 1 && id(waste_sensor_alert_status) == true;
+
+        auto papier_fill_col = is_red ? id(color_red) : id(color_blue);
+        it.filled_rectangle(251, it.get_height() - 29, 28, 28, papier_fill_col);
 
         // Render value
         if (id(papier).has_state()) {
-          it.printf(265, it.get_height() - 15, id(font_orbitron_16), id(color_light_yellow), display::TextAlign::CENTER, "%.0f", id(papier).state);
+          auto papier_text_col = is_red ? id(color_black) : id(color_light_yellow);
+          it.printf(265, it.get_height() - 15, id(font_orbitron_16), papier_text_col, display::TextAlign::CENTER, "%.0f", id(papier).state);
         }        
       };
 
@@ -642,11 +658,15 @@ display:
         auto gelbe_tonne_shell_col = id(gelbe_tonne).has_state() && id(gelbe_tonne).state <= 1 ? id(color_red) : id(color_white);
         it.rectangle(285, it.get_height() - 30, 30, 30, gelbe_tonne_shell_col);
 
-        it.filled_rectangle(286, it.get_height() - 29, 28, 28, id(color_gold));
+        bool is_red = id(gelbe_tonne).has_state() && id(gelbe_tonne).state <= 1 && id(waste_sensor_alert_status) == true;
+
+        auto gelbe_tonne_fill_col = is_red ? id(color_red) : id(color_gold);
+        it.filled_rectangle(286, it.get_height() - 29, 28, 28, gelbe_tonne_fill_col);
 
         // Render value
         if (id(gelbe_tonne).has_state()) {
-          it.printf(300, it.get_height() - 15, id(font_orbitron_16), id(color_dark_blue), display::TextAlign::CENTER, "%.0f", id(gelbe_tonne).state);
+          auto gelbe_tonne_text_col = is_red ? id(color_black) : id(color_dark_blue);
+          it.printf(300, it.get_height() - 15, id(font_orbitron_16), gelbe_tonne_text_col, display::TextAlign::CENTER, "%.0f", id(gelbe_tonne).state);
         }
       };
 
@@ -1451,9 +1471,15 @@ sensor:
    
       float result = (v - min_v) * 100.0 / (max_v - min_v);
       
+      // If battery is charging and below or equal to 0%, return empty value
       if (charging && result <= 0) {
         return {};
       } 
+
+      // If battery is below or equal to 0% and uptime is unknown or less than 5 minutes, return empty value
+      if (result <= 0 && (!id(uptime_sensor).has_state() || id(uptime_sensor).state < 300)) {
+        return {};
+      }
       
       return result;
     
@@ -1617,9 +1643,7 @@ sensor:
     name: "Next Wake Up Time"
     id: next_wake_up_time
     internal: false
-    # unit_of_measurement: "ms"
     accuracy_decimals: 0
-    state_class: measurement
     device_class: timestamp
     entity_category: diagnostic
     update_interval: never
@@ -1947,6 +1971,21 @@ interval:
     setup_priority: ${interval_priority}
     id: battery_update
     then:
+      - lambda: |-
+          uint8_t p = id(papier).state  <= 1;
+          uint8_t b = id(biomull).state <= 1;
+          uint8_t h = id(hausmull).state <= 1;
+          uint8_t g = id(gelbe_tonne).state <= 1;
+
+          if (p | b | h | g) {
+            if (id(ha_time).now().hour >= 18 || id(ha_time).now().hour <= 1) {
+              id(waste_sensor_alert_status) = !id(waste_sensor_alert_status);
+              id(screen_is_out_of_sync) = true;
+            } else if (id(waste_sensor_alert_status) == true) {
+              id(waste_sensor_alert_status) = false;
+              id(screen_is_out_of_sync) = true;
+            }
+          }
       # Update display if device is not charging (on battery)
       - if:
           condition:
