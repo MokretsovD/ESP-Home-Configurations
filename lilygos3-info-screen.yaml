@@ -1307,10 +1307,14 @@ sensor:
     internal: true
     on_value:
       then:
-        - lambda: |-
-            id(battery_voltage_change).publish_state(x);
-            id(battery_voltage).publish_state(x);
-        - component.update: battery_level
+        - if:
+            condition:
+              lambda: return !isnan(x);
+            then:
+              - lambda: |-
+                  id(battery_voltage_change).publish_state(x);
+                  id(battery_voltage).publish_state(x);
+              - component.update: battery_level
     filters:
       - skip_initial: 5 #20
       - multiply: 2
@@ -1319,12 +1323,12 @@ sensor:
           window_size: 20
           send_every: 5
           send_first_at: 3
-      # - lambda: |-
-      #     if (x > ${battery_level_int_max_v} && x < ${battery_level_int_charging_min_v}) {
-      #       return {};
-      #     }
+      - lambda: |-
+          if (x < 3.0) { // 3.0V is the minimum voltage for the battery to be considered somewhat valid
+            return {};
+          }
 
-      #     return x;
+          return x;
       - lambda: |-
           auto last_battery_voltage_value = id(last_battery_voltage);
 
