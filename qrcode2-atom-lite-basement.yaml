@@ -1,0 +1,27 @@
+---
+substitutions:
+  device_name: qrcode2-atom-lite-basement
+  friendly_name: QRCode2 Atom Lite Basement
+  qr_text_name: "Scanned Code"
+  device_static_ip: !secret qrcode2_atom_lite_basement_wifi_manual_ip_static_ip
+  device_ap_ssid: !secret qrcode2_atom_lite_basement_wifi_ap_ssid
+  device_ap_password: !secret qrcode2_atom_lite_basement_wifi_ap_password
+  wifi_ssid: !secret wifi_ssid
+  wifi_password: !secret wifi_password
+  wifi_manual_ip_gateway: !secret wifi_manual_ip_gateway
+  wifi_manual_ip_subnet: !secret wifi_manual_ip_subnet
+  api_encryption_key: !secret qrcode2_atom_lite_basement_esp_api_encryption_key
+  esp_ota_password: !secret qrcode2_atom_lite_basement_esp_ota_password
+
+external_components:
+  - source:
+      type: local
+      path: components
+    components: [qrcode2_uart]
+
+packages:
+  wifi: !include packages/wifi.yaml
+  wifi-signal-sensors: !include packages/wifi-signal-sensors.yaml
+  internal-temp-sensor-esp32: !include packages/internal-temp-sensor-esp32.yaml
+  factory-reset-button: !include packages/factory-reset-button.yaml
+  base: !include packages/device-configs/qrcode2-atom-lite.yaml  

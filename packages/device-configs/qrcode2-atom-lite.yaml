@@ -1,0 +1,152 @@
+---
+# M5Stack QRCode2 Atom Lite Base Configuration Package
+# This package provides reusable configuration for QRCode2 scanner devices
+# using the Atom Lite controller
+
+substitutions:
+  # Pin configurations for Atom Lite with QRCode2 Base
+  uart_tx_pin: "19"
+  uart_rx_pin: "22" 
+  trigger_pin: "23"   # Optional physical trigger pin on the base
+  led_pin: "33"       # QRCode2 scanner illumination LED (white light for dark conditions)
+  button_pin: "39"    # Atom Lite button pin (G39)
+  
+  # Scanner configuration
+  scanning_timeout: "20s"  # Configurable scan timeout
+  
+  # Device info
+  device_platform: ESP32
+  device_board: m5stack-atom
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+  min_version: 2024.6.0
+  platformio_options:
+    board_build.flash_mode: dio
+
+esp32:
+  board: ${device_board}
+  framework:
+    type: arduino
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: ${api_encryption_key}
+
+# Enable Over-The-Air updates
+ota:
+  - platform: esphome
+    password: ${esp_ota_password}
+    
+# Enable logging
+logger:
+  level: INFO
+  baud_rate: 0  # Disable serial logging to avoid conflicts with UART
+
+# UART configuration for QRCode2 scanner
+uart:
+  id: qrcode_uart
+  tx_pin: ${uart_tx_pin}
+  rx_pin: ${uart_rx_pin}
+  baud_rate: 115200
+  stop_bits: 1
+  data_bits: 8
+  parity: NONE
+  
+# External components are declared in the main device file
+
+# QRCode2 scanner component
+qrcode2_uart:
+  id: qrcode_scanner
+  uart_id: qrcode_uart
+  scanning_timeout: ${scanning_timeout}
+  scan_trigger_pin: 
+    number: ${button_pin}
+    mode:
+      input: true
+    inverted: true
+  led_pin:
+    number: ${led_pin}
+    mode:
+      output: true
+    inverted: true
+  scanner_trigger_pin:
+    number: ${trigger_pin}
+    mode:
+      output: true
+  on_scan:
+    then:
+      - logger.log:
+          format: "QR Code scanned: %s"
+          args: ["scan_result.c_str()"]
+      - homeassistant.event:
+          event: esphome.qr_code_scanned
+          data:
+            device_name: ${device_name}
+            qr_code: !lambda "return scan_result;"
+
+# Text sensor to display the last scanned QR code
+text_sensor:
+  - platform: qrcode2_uart
+    qrcode2_uart_id: qrcode_scanner
+    name: "${qr_text_name}"
+    id: qr_code_result
+    icon: mdi:qrcode-scan
+
+# Binary sensor to show scanning status
+binary_sensor:
+  - platform: qrcode2_uart
+    qrcode2_uart_id: qrcode_scanner
+    name: "QR Scanner Scanning"
+    id: qr_scanning_status
+    icon: mdi:radar
+    device_class: running
+
+  # Note: Button is handled by the qrcode2_uart component directly
+
+# Note: QRCode2 scanner illumination LED (GPIO33) is controlled by the qrcode2_uart component
+# This is the white light LED that illuminates QR codes/barcodes in dark conditions during scanning
+
+# Device status sensor
+sensor:
+  - platform: uptime
+    name: "Uptime"
+    id: uptime_sensor
+    icon: mdi:clock-outline
+
+# Device actions for Home Assistant
+button:
+  - platform: template
+    name: "Start QR Scan"
+    id: start_scan_button
+    icon: mdi:qrcode-scan
+    on_press:
+      then:
+        - logger.log: "Home Assistant Start QR Scan button pressed"
+        - qrcode2_uart.start_scan:
+            id: qrcode_scanner
+            
+  - platform: template
+    name: "Stop QR Scan"
+    id: stop_scan_button
+    icon: mdi:stop
+    on_press:
+      then:
+        - qrcode2_uart.stop_scan:
+            id: qrcode_scanner
+
+  - platform: restart
+    name: "Restart Device"
+    id: restart_button
+    icon: mdi:restart
+
+# Note: The scanner illumination LED is automatically controlled during scanning operations
+# Manual control is not possible due to scanner firmware limitations - the LED only activates during scanning
+
+# Status LED (internal LED on Atom Lite)  
+status_led:
+  pin:
+    number: 27
+    inverted: true

@@ -1,0 +1,14 @@
+name: qrcode2_uart
+version: "1.0.0"
+description: M5Stack QRCode2 UART scanner component
+
+files:
+  - qrcode2_uart.h
+  - qrcode2_uart.cpp
+  - text_sensor.py
+  - binary_sensor.py
+  - __init__.py
+
+components:
+  - text_sensor
+  - binary_sensor
