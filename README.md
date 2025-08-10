@@ -8,6 +8,7 @@ This repository contains a collection of ESPHome YAML configurations for various
 - [Custom Components](#custom-components)
   - [UART Line Reader](#uart-line-reader-uart_line_reader)
   - [Deduplicate Text Sensor](#deduplicate-text-sensor-deduplicate_text)
+  - [QRCode2 UART Scanner](#qrcode2-uart-scanner-qrcode2_uart)
 - [Shared Packages](#shared-packages)
 - [Configurations](#configurations)
   - [Smart Electric Meter](#smart-electric-meter)
@@ -18,6 +19,7 @@ This repository contains a collection of ESPHome YAML configurations for various
   - [Info Screen](#info-screen)
   - [Soil Sensor](#soil-sensor)
   - [Garden Watering Controller](#garden-watering-controller)
+  - [QRCode2 Scanner](#qrcode2-scanner)
 - [Secrets & Sensitive Data](#secrets--sensitive-data)
 - [Credits & Inspirations](#credits--inspirations)
 - [License](#license)
@@ -152,6 +154,36 @@ esphome:
       update_interval: 60s
   ```
 
+### QRCode2 UART Scanner (`qrcode2_uart`)
+
+- **Location:** `components/qrcode2_uart/`
+- **Description:** Custom ESPHome component for interfacing with M5Stack QRCode2 scanners via UART communication. Provides comprehensive barcode and QR code scanning functionality with stock management features.
+- **Features:**
+  - UART-based communication with M5Stack QRCode2 scanners
+  - Configurable scanning timeout (5-60 seconds)
+  - Configurable long press duration for mode switching (1-10 seconds)
+  - Button support for manual scan triggering and mode switching
+  - Device information retrieval (firmware version, hardware model, etc.)
+  - Binary sensor for scanning status and text sensor for scan results
+  - Multiple automation triggers for scan events and button presses
+  - RGB LED integration for visual status indication
+  - Stock management modes (Add/Remove stock) with persistence
+- **Requirements:** 
+  - **ESP32**: Works out of the box (no special C++ requirements)
+  - M5Stack QRCode2 scanner module
+  - UART pins for communication (TX, RX)
+  - GPIO pins for trigger control and button input
+- **Documentation:** See `components/qrcode2_uart/README.md` for complete API reference
+- **Used by:** 
+  - `packages/device-configs/qrcode2-atom-lite.yaml` - M5Stack Atom Lite scanner device configuration
+- **Usage:** Include in your configuration with:
+  ```yaml
+  external_components:
+    - source:
+        type: local
+        path: components
+  ```
+
 ---
 
 ## Shared Packages
@@ -279,6 +311,28 @@ The `packages/` directory contains reusable configuration components that can be
 - **Used in:**
   - `soil-sensor-tuyas.yaml` - Soil moisture monitoring implementation
 
+#### QRCode2 Atom Lite Device Config (`device-configs/qrcode2-atom-lite.yaml`)
+
+- **File:** `packages/device-configs/qrcode2-atom-lite.yaml`
+- **Description:** Comprehensive device configuration package for M5Stack Atom Lite with QRCode2 Base scanner, designed for inventory management and barcode scanning applications with Home Assistant integration.
+- **Features:**
+  - Barcode/QR code scanning with configurable timeout (5-60 seconds)
+  - Dual stock management modes (Add/Remove stock) with persistence across restarts
+  - Button controls: short press to scan, configurable long press (1-10s) to switch modes
+  - Comprehensive RGB LED status indication (12+ different states)
+  - Home Assistant integration with sensors, controls, and automation triggers
+  - Device information retrieval and diagnostic monitoring
+  - Scan counting and duplicate detection with timestamps
+  - Visual feedback for all device states and user interactions
+- **Board:** M5Stack Atom Lite (ESP32-based)
+- **Requirements:** 
+  - Custom `qrcode2_uart` component (see [Custom Components](#custom-components))
+  - M5Stack QRCode2 Base scanner module
+  - Home Assistant for full feature utilization
+- **Hardware:** Built-in SK6812 RGB LED (GPIO 27), Button (GPIO 39), UART pins (TX 22, RX 19)
+- **Documentation:** See `packages/device-configs/qrcode2-atom-lite.md` for detailed hardware setup, pin connections, and usage instructions
+- **Used in:** QRCode2 scanner device configurations for inventory management
+
 ---
 
 ## Configurations
@@ -387,6 +441,26 @@ The `packages/` directory contains reusable configuration components that can be
 - **Board:** ESP32 DevKit
 - **Common Config:** Uses shared WiFi and WiFi signal monitoring configuration from `packages/wifi.yaml` and `packages/wifi-signal-sensors.yaml`
 - **Future Plans:** Will be enhanced using [ESPHome's Sprinkler Controller component](https://esphome.io/components/sprinkler.html) for advanced zone management, scheduling, and automation features.
+
+### QRCode2 Scanner
+
+- **Files:** `qrcode2-atom-lite-*.yaml`
+- **Description:** M5Stack Atom Lite-based barcode and QR code scanners designed for inventory management with comprehensive Home Assistant integration.
+- **Features:**
+  - Barcode and QR code scanning with M5Stack QRCode2 Base
+  - Dual stock management modes (Add Stock / Remove Stock)
+  - Configurable scanning timeout (5-60 seconds) and button long press duration (1-10 seconds)
+  - Comprehensive RGB LED status indication for all device states
+  - Button controls: short press to scan, long press to switch modes
+  - Scan counting and duplicate detection with real timestamps
+  - Device information display and diagnostic monitoring
+  - Home Assistant sensors, controls, and automation triggers
+  - Visual feedback for WiFi/HA connectivity, scanning status, mode changes, and errors
+- **Board:** M5Stack Atom Lite (ESP32-based)
+- **Hardware Requirements:** M5Stack QRCode2 Base scanner module
+- **Dependencies:** Uses custom `qrcode2_uart` component (see [Custom Components](#custom-components))
+- **Common Config:** Uses shared QRCode2 Atom Lite device configuration from `packages/device-configs/qrcode2-atom-lite.yaml`
+- **Documentation:** See `packages/device-configs/qrcode2-atom-lite.md` for complete setup and usage guide
 
 ---
 

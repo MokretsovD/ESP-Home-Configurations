@@ -25,6 +25,33 @@ esphome:
   platformio_options:
     board_build.flash_mode: dio
 
+# Global variables to track scan count and last code
+globals:
+  - id: scan_count
+    type: int
+    restore_value: false  # Don't restore, reset to 0 on boot
+    initial_value: '0'
+  - id: last_scanned_code
+    type: std::string
+    restore_value: false  # Don't restore, reset on boot
+    initial_value: '""'
+  - id: scan_timeout_seconds
+    type: int
+    restore_value: true  # Remember the setting
+    initial_value: '20'
+  - id: stock_mode
+    type: bool
+    restore_value: true  # Preserve mode between restarts
+    initial_value: 'true'  # true = add stock, false = remove stock
+  - id: long_press_duration_ms
+    type: unsigned long
+    restore_value: true  # Remember long press duration
+    initial_value: '5000'  # 5 seconds default
+  - id: button_press_start
+    type: unsigned long
+    restore_value: false
+    initial_value: '0'
+
 esp32:
   board: ${device_board}
   framework:
@@ -44,6 +71,11 @@ ota:
 logger:
   level: INFO
   baud_rate: 0  # Disable serial logging to avoid conflicts with UART
+
+# Time component for real timestamps
+time:
+  - platform: homeassistant
+    id: homeassistant_time
 
 # UART configuration for QRCode2 scanner
 uart:
@@ -66,7 +98,7 @@ qrcode2_uart:
     number: ${button_pin}
     mode:
       input: true
-    inverted: true
+    inverted: false
   led_pin:
     number: ${led_pin}
     mode:
@@ -76,16 +108,102 @@ qrcode2_uart:
     number: ${trigger_pin}
     mode:
       output: true
+  on_start_scan:
+    then:
+      - if:
+          condition:
+            lambda: 'return id(stock_mode);'
+          then:
+            - script.execute: led_scanning_add
+          else:
+            - script.execute: led_scanning_remove
+  on_stop_scan:
+    then:
+      - script.execute: led_scan_timeout
+      - delay: 500ms
+      - script.execute: led_idle
+  on_long_press:
+    then:
+      - lambda: |-
+          // Toggle stock mode
+          id(stock_mode) = !id(stock_mode);
+          if (id(stock_mode)) {
+            id(stock_mode_sensor).publish_state("Add Stock");
+            id(stock_mode_switch).publish_state(true);
+            ESP_LOGI("long_press", "Switched to ADD STOCK mode via long press");
+          } else {
+            id(stock_mode_sensor).publish_state("Remove Stock");
+            id(stock_mode_switch).publish_state(false);
+            ESP_LOGI("long_press", "Switched to REMOVE STOCK mode via long press");
+          }
+      - script.execute: led_mode_change
+      
+  on_short_press:
+    then:
+      - script.execute: led_button_press
+      
   on_scan:
     then:
       - logger.log:
           format: "QR Code scanned: %s"
           args: ["scan_result.c_str()"]
+      - lambda: |-
+          bool is_new_code = false;
+          // Check if this is a different code than the last one
+          if (scan_result != id(last_scanned_code)) {
+            // New code detected, reset counter to 1
+            id(scan_count) = 1;
+            id(last_scanned_code) = scan_result;
+            is_new_code = true;
+            ESP_LOGI("qrcode_automation", "New code detected: %s - Reset counter to 1", scan_result.c_str());
+          } else {
+            // Same code, increment counter
+            id(scan_count) += 1;
+            ESP_LOGI("qrcode_automation", "Same code scanned again: %s - Count: %d", scan_result.c_str(), id(scan_count));
+          }
+          id(scan_counter_sensor).publish_state(id(scan_count));
+          
+          // Create detailed scan info with real date and timestamp  
+          auto time = id(homeassistant_time).now();
+          std::string mode_str = id(stock_mode) ? "ADD" : "REMOVE";
+          if (time.is_valid()) {
+            char detailed_info[256];
+            snprintf(detailed_info, sizeof(detailed_info), 
+                     "%s [#%d @ %04d-%02d-%02d %02d:%02d:%02d] %s", 
+                     scan_result.c_str(), 
+                     id(scan_count),
+                     time.year,
+                     time.month,
+                     time.day_of_month,
+                     time.hour, 
+                     time.minute, 
+                     time.second,
+                     mode_str.c_str());
+            id(scan_info_sensor).publish_state(detailed_info);
+          } else {
+            // Fallback if time is not available
+            char detailed_info[256];
+            snprintf(detailed_info, sizeof(detailed_info), 
+                     "%s [#%d @ ----/--/-- --:--:--] %s", 
+                     scan_result.c_str(), 
+                     id(scan_count),
+                     mode_str.c_str());
+            id(scan_info_sensor).publish_state(detailed_info);
+          }
+          
+          // Trigger appropriate LED effect
+          if (is_new_code) {
+            id(led_scan_new_code).execute();
+          } else {
+            id(led_scan_same_code).execute();
+          }
       - homeassistant.event:
           event: esphome.qr_code_scanned
           data:
             device_name: ${device_name}
             qr_code: !lambda "return scan_result;"
+            scan_number: !lambda "return id(scan_count);"
+            stock_mode: !lambda "return id(stock_mode) ? std::string(\"add\") : std::string(\"remove\");"
 
 # Text sensor to display the last scanned QR code
 text_sensor:
@@ -94,6 +212,25 @@ text_sensor:
     name: "${qr_text_name}"
     id: qr_code_result
     icon: mdi:qrcode-scan
+    
+  - platform: template
+    name: "Last Scan Info"
+    id: scan_info_sensor
+    icon: mdi:information
+    lambda: 'return std::string("No scans yet");'
+    
+  - platform: template
+    name: "Scanner Info"
+    id: scanner_info_sensor
+    icon: mdi:information-outline
+    entity_category: diagnostic
+    lambda: 'return std::string("M5Stack QRCode2 | FW: 1.2.1.18.23060 | SW: ZScan.mh T43m3");'
+    
+  - platform: template
+    name: "Stock Mode"
+    id: stock_mode_sensor
+    icon: mdi:package-variant
+    lambda: 'return id(stock_mode) ? std::string("Add Stock") : std::string("Remove Stock");'
 
 # Binary sensor to show scanning status
 binary_sensor:
@@ -115,6 +252,80 @@ sensor:
     name: "Uptime"
     id: uptime_sensor
     icon: mdi:clock-outline
+    entity_category: diagnostic
+    
+  - platform: template
+    name: "Current Code Count"
+    id: scan_counter_sensor
+    icon: mdi:counter
+    accuracy_decimals: 0
+    unit_of_measurement: "items"
+    state_class: "measurement"
+    lambda: 'return id(scan_count);'
+    update_interval: never
+
+# Number inputs for configuration
+number:
+  - platform: template
+    name: "Scan Timeout"
+    id: scan_timeout_control
+    icon: mdi:timer-outline
+    min_value: 5
+    max_value: 60
+    step: 1
+    unit_of_measurement: "s"
+    mode: slider
+    lambda: 'return id(scan_timeout_seconds);'
+    set_action:
+      then:
+        - lambda: |-
+            id(scan_timeout_seconds) = x;
+            id(qrcode_scanner).update_scanning_timeout(x);
+            ESP_LOGI("scan_timeout", "Scan timeout updated to %d seconds", (int)x);
+        - script.execute: led_settings_change
+
+  - platform: template
+    name: "Long Press Duration"
+    id: long_press_duration_control
+    icon: mdi:timer
+    min_value: 1
+    max_value: 10
+    step: 0.5
+    unit_of_measurement: "s"
+    mode: slider
+    lambda: 'return id(long_press_duration_ms) / 1000.0;'
+    set_action:
+      then:
+        - lambda: |-
+            id(long_press_duration_ms) = (unsigned long)(x * 1000);
+            ESP_LOGI("long_press", "Long press duration updated to %.1f seconds (%lu ms)", x, id(long_press_duration_ms));
+        - qrcode2_uart.update_long_press_duration:
+            id: qrcode_scanner
+            duration_ms: !lambda 'return id(long_press_duration_ms);'
+        - script.execute: led_settings_change
+
+
+# Switch for stock mode
+switch:
+  - platform: template
+    name: "Stock Mode"
+    id: stock_mode_switch
+    icon: mdi:package-variant
+    lambda: 'return id(stock_mode);'
+    turn_on_action:
+      then:
+        - lambda: |-
+            id(stock_mode) = true;
+            id(stock_mode_sensor).publish_state("Add Stock");
+            ESP_LOGI("stock_mode", "Switched to ADD STOCK mode");
+        - script.execute: led_mode_change
+    turn_off_action:
+      then:
+        - lambda: |-
+            id(stock_mode) = false;
+            id(stock_mode_sensor).publish_state("Remove Stock");
+            ESP_LOGI("stock_mode", "Switched to REMOVE STOCK mode");
+        - script.execute: led_mode_change
 
 # Device actions for Home Assistant
 button:
@@ -142,11 +353,238 @@ button:
     id: restart_button
     icon: mdi:restart
 
-# Note: The scanner illumination LED is automatically controlled during scanning operations
-# Manual control is not possible due to scanner firmware limitations - the LED only activates during scanning
+  # Scanner reset button
+  - platform: template
+    name: "Reset Scanner"
+    id: reset_scanner_button
+    icon: mdi:backup-restore
+    on_press:
+      then:
+        - qrcode2_uart.reset_scanner:
+            id: qrcode_scanner
+            
+  # Reset count button
+  - platform: template
+    name: "Reset Count"
+    id: reset_count_button
+    icon: mdi:counter
+    on_press:
+      then:
+        - lambda: |-
+            id(scan_count) = 0;
+            id(last_scanned_code) = "";
+            id(scan_counter_sensor).publish_state(id(scan_count));
+            id(scan_info_sensor).publish_state("Count reset");
+            ESP_LOGI("reset_count", "Scan count reset to 0");
 
-# Status LED (internal LED on Atom Lite)  
-status_led:
-  pin:
-    number: 27
-    inverted: true
+# Note: The scanner illumination LED is automatically controlled during scanning operations
+# The LED brightness is managed by the scanner's internal firmware
+
+# RGB Status LED (internal SK6812 on Atom Lite)
+light:
+  - platform: esp32_rmt_led_strip
+    id: status_rgb_led
+    name: "Status LED"
+    pin: 27
+    num_leds: 1
+    chipset: SK6812
+    rgb_order: GRB
+    default_transition_length: 100ms
+    restore_mode: RESTORE_DEFAULT_OFF
+    effects:
+      - pulse:
+          name: "Slow Pulse"
+          transition_length: 1s
+          update_interval: 1s
+      - pulse:
+          name: "Fast Pulse"
+          transition_length: 300ms
+          update_interval: 300ms
+      - strobe:
+          name: "Slow Strobe"
+          colors:
+            - state: true
+              duration: 200ms
+            - state: false
+              duration: 800ms
+      - strobe:
+          name: "Fast Strobe"  
+          colors:
+            - state: true
+              duration: 100ms
+            - state: false
+              duration: 200ms
+      - strobe:
+          name: "Error Blink"
+          colors:
+            - state: true
+              duration: 150ms
+            - state: false
+              duration: 350ms
+
+# LED Control Scripts - Comprehensive Status Indication System
+script:
+  # LED Color Definitions (easy to modify)
+  - id: led_idle
+    then:
+      - light.turn_off: status_rgb_led
+      
+  - id: led_scanning_add
+    then:
+      - light.turn_on:
+          id: status_rgb_led
+          brightness: !lambda 'return id(status_rgb_led)->remote_values.get_brightness();'
+          red: 0%
+          green: 100%
+          blue: 0%
+          effect: "none"
+          
+  - id: led_scanning_remove
+    then:
+      - light.turn_on:
+          id: status_rgb_led
+          brightness: !lambda 'return id(status_rgb_led)->remote_values.get_brightness();'
+          red: 100%
+          green: 0%
+          blue: 0%
+          effect: "none"
+          
+  - id: led_wifi_error
+    then:
+      - light.turn_on:
+          id: status_rgb_led
+          brightness: !lambda 'return id(status_rgb_led)->remote_values.get_brightness();'
+          red: 100%
+          green: 50%
+          blue: 0%
+          effect: "Fast Strobe"
+          
+  - id: led_ha_error
+    then:
+      - light.turn_on:
+          id: status_rgb_led
+          brightness: !lambda 'return id(status_rgb_led)->remote_values.get_brightness();'
+          red: 80%
+          green: 0%
+          blue: 100%
+          effect: "Fast Strobe"
+          
+  - id: led_button_press
+    then:
+      - light.turn_on:
+          id: status_rgb_led
+          brightness: !lambda 'return id(status_rgb_led)->remote_values.get_brightness();'
+          red: 0%
+          green: 0%
+          blue: 100%
+      - delay: 100ms
+      - script.execute: led_idle
+      
+  - id: led_mode_change
+    then:
+      - if:
+          condition:
+            lambda: 'return id(stock_mode);'
+          then:
+            # Add mode - 2 green blinks
+            - repeat:
+                count: 2
+                then:
+                  - light.turn_on:
+                      id: status_rgb_led
+                      brightness: !lambda 'return id(status_rgb_led)->remote_values.get_brightness();'
+                      red: 0%
+                      green: 100%
+                      blue: 0%
+                  - delay: 200ms
+                  - light.turn_off: status_rgb_led
+                  - delay: 200ms
+          else:
+            # Remove mode - 2 red blinks
+            - repeat:
+                count: 2
+                then:
+                  - light.turn_on:
+                      id: status_rgb_led
+                      brightness: !lambda 'return id(status_rgb_led)->remote_values.get_brightness();'
+                      red: 100%
+                      green: 0%
+                      blue: 0%
+                  - delay: 200ms
+                  - light.turn_off: status_rgb_led
+                  - delay: 200ms
+      - delay: 500ms
+      - if:
+          condition:
+            lambda: 'return id(qrcode_scanner).is_scanning();'
+          then:
+            - if:
+                condition:
+                  lambda: 'return id(stock_mode);'
+                then:
+                  - script.execute: led_scanning_add
+                else:
+                  - script.execute: led_scanning_remove
+          else:
+            - script.execute: led_idle
+            
+  - id: led_settings_change
+    then:
+      - light.turn_on:
+          id: status_rgb_led
+          brightness: !lambda 'return id(status_rgb_led)->remote_values.get_brightness();'
+          red: 100%
+          green: 100%
+          blue: 0%
+      - delay: 100ms
+      - script.execute: led_idle
+      
+  - id: led_scan_new_code
+    then:
+      - light.turn_on:
+          id: status_rgb_led
+          brightness: !lambda 'return id(status_rgb_led)->remote_values.get_brightness();'
+          red: 0%
+          green: 80%
+          blue: 100%
+      - delay: 200ms
+      - script.execute: led_idle
+      
+  - id: led_scan_same_code
+    then:
+      - repeat:
+          count: 2
+          then:
+            - light.turn_on:
+                id: status_rgb_led
+                brightness: !lambda 'return id(status_rgb_led)->remote_values.get_brightness();'
+                red: 0%
+                green: 80%
+                blue: 100%
+            - delay: 150ms
+            - light.turn_off: status_rgb_led
+            - delay: 150ms
+      - script.execute: led_idle
+      
+  - id: led_scan_timeout
+    then:
+      - light.turn_on:
+          id: status_rgb_led
+          brightness: !lambda 'return id(status_rgb_led)->remote_values.get_brightness();'
+          red: 100%
+          green: 100%
+          blue: 0%
+      - delay: 300ms
+      - script.execute: led_idle
+      
+  - id: led_error
+    then:
+      - light.turn_on:
+          id: status_rgb_led
+          brightness: !lambda 'return id(status_rgb_led)->remote_values.get_brightness();'
+          red: 100%
+          green: 20%
+          blue: 60%
+          effect: "Error Blink"
+      - delay: 2000ms
+      - script.execute: led_idle
