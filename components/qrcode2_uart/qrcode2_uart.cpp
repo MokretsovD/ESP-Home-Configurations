@@ -117,9 +117,14 @@ void QRCode2UARTComponent::loop() {
       ESP_LOGI(TAG, "🔘 Button RELEASED (GPIO39: LOW→HIGH) after %lu ms", press_duration);
       
       if (!this->long_press_detected_) {
-        // Short press - start scanning
-        ESP_LOGI(TAG, "▶️ SHORT PRESS - starting scan");
-        this->start_scan();
+        // Short press - toggle scanning state
+        if (this->scanning_) {
+          ESP_LOGI(TAG, "⏹️ SHORT PRESS - stopping scan (scanner was active)");
+          this->stop_scan();
+        } else {
+          ESP_LOGI(TAG, "▶️ SHORT PRESS - starting scan (scanner was idle)");
+          this->start_scan();
+        }
       } else {
         ESP_LOGI(TAG, "🔄 LONG PRESS completed - mode already switched");
       }

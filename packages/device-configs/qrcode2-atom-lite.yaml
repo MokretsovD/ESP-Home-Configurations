@@ -51,6 +51,10 @@ globals:
     type: unsigned long
     restore_value: false
     initial_value: '0'
+  - id: grocy_location_id
+    type: int
+    restore_value: true  # Remember the location setting
+    initial_value: '1'  # Default location ID
 
 esp32:
   board: ${device_board}
@@ -204,6 +208,7 @@ qrcode2_uart:
             qr_code: !lambda "return scan_result;"
             scan_number: !lambda "return id(scan_count);"
             stock_mode: !lambda "return id(stock_mode) ? std::string(\"add\") : std::string(\"remove\");"
+            grocy_location_id: !lambda "return id(grocy_location_id);"
 
 # Text sensor to display the last scanned QR code
 text_sensor:
@@ -219,13 +224,7 @@ text_sensor:
     icon: mdi:information
     lambda: 'return std::string("No scans yet");'
     
-  - platform: template
-    name: "Scanner Info"
-    id: scanner_info_sensor
-    icon: mdi:information-outline
-    entity_category: diagnostic
-    lambda: 'return std::string("M5Stack QRCode2 | FW: 1.2.1.18.23060 | SW: ZScan.mh T43m3");'
-    
+
   - platform: template
     name: "Stock Mode"
     id: stock_mode_sensor
@@ -302,6 +301,22 @@ number:
         - qrcode2_uart.update_long_press_duration:
             id: qrcode_scanner
             duration_ms: !lambda 'return id(long_press_duration_ms);'
+        - script.execute: led_settings_change
+
+  - platform: template
+    name: "Grocy Location ID"
+    id: grocy_location_control
+    icon: mdi:map-marker
+    min_value: 1
+    max_value: 100
+    step: 1
+    mode: box
+    lambda: 'return id(grocy_location_id);'
+    set_action:
+      then:
+        - lambda: |-
+            id(grocy_location_id) = (int)x;
+            ESP_LOGI("grocy_location", "Grocy location ID updated to %d", (int)x);
         - script.execute: led_settings_change
 
 
@@ -400,27 +415,6 @@ light:
           name: "Fast Pulse"
           transition_length: 300ms
           update_interval: 300ms
-      - strobe:
-          name: "Slow Strobe"
-          colors:
-            - state: true
-              duration: 200ms
-            - state: false
-              duration: 800ms
-      - strobe:
-          name: "Fast Strobe"  
-          colors:
-            - state: true
-              duration: 100ms
-            - state: false
-              duration: 200ms
-      - strobe:
-          name: "Error Blink"
-          colors:
-            - state: true
-              duration: 150ms
-            - state: false
-              duration: 350ms
 
 # LED Control Scripts - Comprehensive Status Indication System
 script:
@@ -457,7 +451,7 @@ script:
           red: 100%
           green: 50%
           blue: 0%
-          effect: "Fast Strobe"
+          effect: "none"
           
   - id: led_ha_error
     then:
@@ -467,7 +461,7 @@ script:
           red: 80%
           green: 0%
           blue: 100%
-          effect: "Fast Strobe"
+          effect: "none"
           
   - id: led_button_press
     then:
