@@ -66,18 +66,18 @@ substitutions:
   deepsleep_night_sleep_start_hour: "1"
   deepsleep_night_sleep_end_hour: "8"
   # deepsleep absence threshold
-  deepsleep_absence_threshold_sec: "60 * 15" # fifteen minutes
+  deepsleep_absence_threshold_sec: "60 * 2" # two minutes
 
   # deepsleep durations
-  deepsleep_default_duration_ms: "60 * 5 * 1000" # five minutes
-  deepsleep_step_1_duration_ms: "60 * 10 * 1000" # ten minutes
-  deepsleep_step_2_duration_ms: "60 * 20 * 1000" # twenty minutes
+  deepsleep_default_duration_ms: "60 * 1 * 1000" # one minute
+  deepsleep_step_1_duration_ms: "60 * 5 * 1000" # five minutes
+  deepsleep_step_2_duration_ms: "60 * 15 * 1000" # fifteen minutes
   deepsleep_step_3_duration_ms: "60 * 30 * 1000" # thirty minutes
   deepsleep_step_4_duration_ms: "60 * 60 * 1000" # one hour
   deepsleep_max_duration_ms: "60 * 60 * 1000 * 2" # two hours
 
   # deepsleep absence thresholds
-  deepsleep_step_1_threshold_sec: "60*30" # thirty minutes
+  deepsleep_step_1_threshold_sec: "60*5" # five minutes
   deepsleep_step_2_threshold_sec: "60*60" # one hour
   deepsleep_step_3_threshold_sec: "60*60*2" # two hours
   deepsleep_step_4_threshold_sec: "60*60*4" # four hours
@@ -85,8 +85,8 @@ substitutions:
   # sensors ===============================================
   uptime_update_interval: 60s
   # occupancy sensors
-  pir_occupancy_sensor_id: binary_sensor.buro_pir_sensor_occupancy
-  pir_occupancy_last_changed_sensor_id: sensor.buro_pir_sensor_occupancy_last_changed_seconds
+  pir_occupancy_sensor_id: binary_sensor.bluetooth_proxy_buro_cad6d8_mmwave_occupancy
+  pir_occupancy_last_changed_sensor_id: sensor.bluetooth_proxy_buro_cad6d8_mmwave_occupancy_last_changed_seconds
   # air quality sensors
   air_quality_voc_level_sensor_id: sensor.air_quality_sensor_1_voc_level
   air_quality_co2_level_sensor_id: sensor.air_quality_sensor_1_co2_level
