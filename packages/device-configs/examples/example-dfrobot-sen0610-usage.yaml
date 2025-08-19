@@ -1,0 +1,36 @@
+---
+# Example DFRobot SEN0610 mmWave Presence Sensor Configuration
+# Demonstrates how to use the dfrobot-sen0610-presence package
+
+substitutions:
+  device_name: mmwave-presence-1
+  friendly_name: "mmWave Presence Sensor 1"
+  wifi_ssid: "YOUR_WIFI_SSID"
+  wifi_password: "YOUR_WIFI_PASSWORD"
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+  min_version: 2024.6.0
+
+esp32:
+  board: esp32dev
+
+logger:
+  level: INFO
+
+wifi:
+  ssid: ${wifi_ssid}
+  password: ${wifi_password}
+  ap:
+    ssid: "${device_name} Fallback Hotspot"
+    password: "fallbackpassword"
+
+captive_portal:
+
+api:
+
+ota:
+
+packages:
+  dfrobot-sen0610: !include ../dfrobot-sen0610-presence.yaml

@@ -17,4 +17,9 @@ substitutions:
 
 packages:
   bt_proxy: !include packages/device-configs/bluetooth-proxy.yaml
+  mmwave: !include packages/device-configs/dfrobot-sen0610-presence.yaml
 
+external_components:
+  - source:
+      type: local
+      path: components

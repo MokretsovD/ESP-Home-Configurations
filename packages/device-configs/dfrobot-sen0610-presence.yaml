@@ -1,0 +1,229 @@
+---
+logger:
+  level: INFO
+
+uart:
+  id: mmwave_uart
+  tx_pin: GPIO17
+  rx_pin: GPIO16
+  baud_rate: 9600
+
+text_sensor:
+  - platform: uart_line_reader
+    uart_id: mmwave_uart
+    id: mmwave_uart_message
+    name: "MMWave Raw UART Message"
+
+binary_sensor:
+  - platform: template
+    name: "mmWave Occupancy"
+    id: mmwave_occupancy
+    device_class: motion
+    lambda: |-
+      return id(mmwave_presence_detected).state > 0;
+
+sensor:
+  - platform: template
+    id: mmwave_presence_detected
+    internal: true
+    accuracy_decimals: 0
+    lambda: |-
+      if (id(mmwave_uart_message).state.length() > 6 &&
+          id(mmwave_uart_message).state[0] == '$' &&
+          id(mmwave_uart_message).state.substr(1,5) == "DFHPD") {
+        auto parts = id(mmwave_uart_message).state;
+        int comma1 = parts.find(",");
+        int comma2 = parts.find(",", comma1+1);
+        if (comma1 != -1 && comma2 != -1) {
+          std::string people_str = parts.substr(comma1+1, comma2-comma1-1);
+          return atoi(people_str.c_str());
+        }
+      }
+      return 0;
+    update_interval: 0.5s
+    filters:
+      - or:
+        - throttle: 5min
+        - delta: 1
+
+switch:
+  - platform: template
+    name: "mmWave sensor"
+    id: mmwave_sensor
+    disabled_by_default: True
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    turn_on_action:
+      - uart.write:
+          id: mmwave_uart
+          data: "sensorStart"
+      - delay: 1s
+    turn_off_action:
+      - uart.write:
+          id: mmwave_uart
+          data: "sensorStop"
+      - delay: 1s
+
+# --- Merge number blocks ---
+number:
+  - platform: template
+    id: mmwave_range_minimum
+    name: "mmWave Range (Minimum)"
+    min_value: 0
+    max_value: 12
+    initial_value: 0
+    optimistic: true
+    step: 0.1
+    restore_value: true
+    unit_of_measurement: m
+    mode: slider
+
+  - platform: template
+    id: mmwave_range_maximum
+    name: "mmWave Range (Maximum)"
+    min_value: 0
+    max_value: 12
+    initial_value: 12
+    optimistic: true
+    step: 0.1
+    restore_value: true
+    unit_of_measurement: m
+    mode: slider
+
+  - platform: template
+    id: mmwave_range_trigger
+    name: "mmWave Range (Trigger)"
+    min_value: 0
+    max_value: 12
+    initial_value: 6
+    optimistic: true
+    step: 0.1
+    restore_value: true
+    unit_of_measurement: m
+    mode: slider
+
+  - platform: template
+    id: mmwave_off_latency
+    name: "mmWave Delay (Clearance)"
+    min_value: 0
+    max_value: 60
+    initial_value: 15
+    optimistic: true
+    step: 5
+    restore_value: true
+    unit_of_measurement: s
+    mode: slider
+
+  - platform: template
+    id: mmwave_on_latency
+    name: "mmWave Delay (Detection)"
+    min_value: 0
+    max_value: 2
+    initial_value: 0.05
+    optimistic: true
+    step: 0.05
+    restore_value: true
+    unit_of_measurement: s
+    mode: slider
+
+  - platform: template
+    id: mmwave_sensitivity_occupancy
+    name: "mmWave Sensitivity (Occupancy)"
+    min_value: 0
+    max_value: 9
+    initial_value: 7
+    optimistic: true
+    step: 1
+    restore_value: true
+    mode: slider
+
+  - platform: template
+    id: mmwave_sensitivity_movement
+    name: "mmWave Sensitivity (Movement)"
+    min_value: 0
+    max_value: 9
+    initial_value: 5
+    optimistic: true
+    step: 1
+    restore_value: true
+    mode: slider
+
+# --- Merge button blocks ---
+button:
+  - platform: template
+    name: "Apply mmWave Config"
+    id: apply_mmwave_config
+    on_press:
+      - switch.turn_off: mmwave_sensor
+      - delay: 0.5s
+      - uart.write:
+          id: mmwave_uart
+          data: !lambda |-
+            std::string mss = "setLatency " + to_string(id(mmwave_on_latency).state) + " " + to_string(id(mmwave_off_latency).state);
+            return std::vector<unsigned char>(mss.begin(), mss.end());
+      - delay: 0.1s
+      - uart.write:
+          id: mmwave_uart
+          data: !lambda |-
+            std::string ms = "setRange " + to_string(id(mmwave_range_minimum).state) + " " + to_string(id(mmwave_range_maximum).state);
+            return std::vector<unsigned char>(ms.begin(), ms.end());
+      - delay: 0.1s
+      - uart.write:
+          id: mmwave_uart
+          data: !lambda |-
+            std::string ms = "setTrigRange " + to_string(id(mmwave_range_trigger).state);
+            return std::vector<unsigned char>(ms.begin(), ms.end());
+      - delay: 0.1s
+      - uart.write:
+          id: mmwave_uart
+          data: !lambda |-
+            std::string mss = "setSensitivity " + to_string(id(mmwave_sensitivity_occupancy).state) + " " + to_string(id(mmwave_sensitivity_movement).state);
+            return std::vector<unsigned char>(mss.begin(), mss.end());
+      - delay: 0.1s
+      - uart.write:
+          id: mmwave_uart
+          data: "saveConfig"
+      - delay: 0.5s
+      - switch.turn_on: mmwave_sensor
+  
+  - platform: template
+    name: "Restart mmWave Sensor"
+    id: restart_mmwave
+    on_press:
+      - uart.write:
+          id: mmwave_uart
+          data: "resetSystem"
+
+  - platform: template
+    name: "Factory Reset mmWave"
+    id: factory_reset_mmwave
+    on_press:
+      - switch.turn_off: mmwave_sensor
+      - delay: 1s
+      - uart.write:
+          id: mmwave_uart
+          data: "resetCfg"
+      - delay: 3s
+      - switch.turn_on: mmwave_sensor
+
+  - platform: template
+    name: "Query mmWave Config"
+    id: query_mmwave_config
+    on_press:
+      - uart.write:
+          id: mmwave_uart
+          data: "getLatency"
+      - delay: 0.1s
+      - uart.write:
+          id: mmwave_uart
+          data: "getRange"
+      - delay: 0.1s
+      - uart.write:
+          id: mmwave_uart
+          data: "getTrigRange"
+      - delay: 0.1s
+      - uart.write:
+          id: mmwave_uart
+          data: "getSensitivity"
+

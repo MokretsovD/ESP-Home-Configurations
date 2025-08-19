@@ -20,6 +20,7 @@ This repository contains a collection of ESPHome YAML configurations for various
   - [Soil Sensor](#soil-sensor)
   - [Garden Watering Controller](#garden-watering-controller)
   - [QRCode2 Scanner](#qrcode2-scanner)
+  - [DFRobot SEN0610 mmWave Presence Sensor](#dfrobot-sen0610-mmwave-presence-sensor)
 - [Secrets & Sensitive Data](#secrets--sensitive-data)
 - [Credits & Inspirations](#credits--inspirations)
 - [License](#license)
@@ -333,6 +334,21 @@ The `packages/` directory contains reusable configuration components that can be
 - **Documentation:** See `packages/device-configs/qrcode2-atom-lite.md` for detailed hardware setup, pin connections, and usage instructions
 - **Used in:** QRCode2 scanner device configurations for inventory management
 
+#### DFRobot SEN0610 mmWave Presence Sensor Device Config (`device-configs/dfrobot-sen0610-presence.yaml`)
+
+- **File:** `packages/device-configs/dfrobot-sen0610-presence.yaml`
+- **Description:** Comprehensive device configuration package for the DFRobot SEN0610 mmWave presence sensor, enabling advanced occupancy detection, adjustable range and sensitivity, and Home Assistant integration.
+- **Features:**
+  - Real-time occupancy detection using mmWave radar
+  - Adjustable detection range (min, max, trigger)
+  - Sensitivity and latency controls
+  - UART communication and raw message debugging
+  - Home Assistant integration with sensors, numbers, switches, and buttons
+  - Factory reset, restart, and configuration query buttons
+- **Board:** ESP32 (tested), ESP8266 (should work)
+- **Documentation:** See `packages/device-configs/dfrobot-sen0610-presence.md` for detailed usage instructions
+- **Example:** See `packages/device-configs/examples/example-dfrobot-sen0610-usage.yaml`
+
 ---
 
 ## Configurations
@@ -461,6 +477,21 @@ The `packages/` directory contains reusable configuration components that can be
 - **Dependencies:** Uses custom `qrcode2_uart` component (see [Custom Components](#custom-components))
 - **Common Config:** Uses shared QRCode2 Atom Lite device configuration from `packages/device-configs/qrcode2-atom-lite.yaml`
 - **Documentation:** See `packages/device-configs/qrcode2-atom-lite.md` for complete setup and usage guide
+
+### DFRobot SEN0610 mmWave Presence Sensor
+
+- **File:** `mmwave-presence-1.yaml` (example)
+- **Description:** ESP32-based mmWave presence sensor using the DFRobot SEN0610 module for advanced occupancy detection and automation.
+- **Features:**
+  - Real-time occupancy detection
+  - Adjustable detection range and sensitivity
+  - Home Assistant integration with sensors, numbers, switches, and buttons
+  - Factory reset, restart, and configuration query
+- **Board:** ESP32 (tested), ESP8266 (should work)
+- **Hardware Requirements:** DFRobot SEN0610 mmWave sensor, UART wiring
+- **Dependencies:** Uses shared device config from `packages/device-configs/dfrobot-sen0610-presence.yaml`
+- **Documentation:** See `packages/device-configs/dfrobot-sen0610-presence.md` for complete setup and usage guide
+- **Example:** See `packages/device-configs/examples/example-dfrobot-sen0610-usage.yaml`
 
 ---
 
