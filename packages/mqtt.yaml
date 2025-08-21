@@ -34,5 +34,3 @@ mqtt:
     payload: ${mqtt_lwt_offline_payload}
   discovery: ${mqtt_discovery}
   id: mqttclient
-
- 
