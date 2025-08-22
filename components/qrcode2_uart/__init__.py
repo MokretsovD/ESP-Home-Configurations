@@ -21,7 +21,7 @@ QRCode2UARTComponent = qrcode2_uart_ns.class_('QRCode2UARTComponent', cg.Compone
 # Actions
 StartScanAction = qrcode2_uart_ns.class_('StartScanAction', automation.Action)
 StopScanAction = qrcode2_uart_ns.class_('StopScanAction', automation.Action)
-GetDeviceInfoAction = qrcode2_uart_ns.class_('GetDeviceInfoAction', automation.Action)
+# GetDeviceInfoAction = qrcode2_uart_ns.class_('GetDeviceInfoAction', automation.Action)  # Commented out - preserved for reference
 ResetScannerAction = qrcode2_uart_ns.class_('ResetScannerAction', automation.Action)
 UpdateLongPressDurationAction = qrcode2_uart_ns.class_('UpdateLongPressDurationAction', automation.Action)
 
@@ -118,12 +118,16 @@ async def qrcode2_uart_stop_scan_to_code(config, action_id, template_args, args)
 
 # Device information and reset actions
 
-@automation.register_action('qrcode2_uart.get_device_info', GetDeviceInfoAction, cv.Schema({
-    cv.GenerateID(): cv.use_id(QRCode2UARTComponent),
-}))
-async def qrcode2_uart_get_device_info_to_code(config, action_id, template_args, args):
-    parent = await cg.get_variable(config[CONF_ID])
-    return cg.new_Pvariable(action_id, template_args, parent)
+# DEVICE INFO ACTION - PRESERVED FOR FUTURE REFERENCE
+# This automation was used to trigger device info requests from YAML
+# Commented out to simplify code but preserved for future use if needed
+
+# @automation.register_action('qrcode2_uart.get_device_info', GetDeviceInfoAction, cv.Schema({
+#     cv.GenerateID(): cv.use_id(QRCode2UARTComponent),
+# }))
+# async def qrcode2_uart_get_device_info_to_code(config, action_id, template_args, args):
+#     parent = await cg.get_variable(config[CONF_ID])
+#     return cg.new_Pvariable(action_id, template_args, parent)
 
 @automation.register_action('qrcode2_uart.reset_scanner', ResetScannerAction, cv.Schema({
     cv.GenerateID(): cv.use_id(QRCode2UARTComponent),

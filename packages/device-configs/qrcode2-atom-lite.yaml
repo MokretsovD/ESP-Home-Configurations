@@ -24,6 +24,7 @@ esphome:
   min_version: 2024.6.0
   platformio_options:
     board_build.flash_mode: dio
+  # No boot initialization needed - scanner works fine without it
 
 # Global variables to track scan count and last code
 globals:
@@ -73,6 +74,7 @@ ota:
     
 # Enable logging
 logger:
+  # level: DEBUG
   level: INFO
   baud_rate: 0  # Disable serial logging to avoid conflicts with UART
 
@@ -114,6 +116,7 @@ qrcode2_uart:
       output: true
   on_start_scan:
     then:
+      - delay: 200ms  # Wait for any conflicting automations to complete
       - if:
           condition:
             lambda: 'return id(stock_mode);'
@@ -471,7 +474,7 @@ script:
           red: 0%
           green: 0%
           blue: 100%
-      - delay: 100ms
+      - delay: 300ms
       - script.execute: led_idle
       
   - id: led_mode_change
@@ -530,7 +533,7 @@ script:
           red: 100%
           green: 100%
           blue: 0%
-      - delay: 100ms
+      - delay: 300ms
       - script.execute: led_idle
       
   - id: led_scan_new_code

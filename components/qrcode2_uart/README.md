@@ -183,12 +183,17 @@ Manually stops the current scanning operation.
 
 ### qrcode2_uart.get_device_info
 
-Retrieves and logs device information from the scanner.
+**DEPRECATED - Currently disabled to simplify code**
+
+<!-- 
+This action was used to retrieve device information from the scanner.
+Commented out but preserved for future reference.
 
 ```yaml
 - qrcode2_uart.get_device_info:
     id: qrcode_scanner
 ```
+-->
 
 ### qrcode2_uart.reset_scanner
 

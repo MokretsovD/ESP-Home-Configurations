@@ -60,16 +60,20 @@ class QRCode2UARTComponent : public Component, public uart::UARTDevice {
   void set_auto_scan_mode(bool enabled);
   void set_trigger_mode();
   
-  // Device information commands  
-  void get_firmware_version();
-  void get_hardware_model();
-  void get_device_info();
+  // Device information commands - PRESERVED FOR FUTURE REFERENCE
+  // These functions can be used to request device info via protocol if needed in the future
+  // void get_firmware_version();  // Commented out - preserved for reference
+  // void get_hardware_model();   // Commented out - preserved for reference
+  // void get_device_info();      // Commented out - preserved for reference
   void reset_scanner();
+  
+
   
  protected:
   void process_uart_data();
   void handle_scan_result(const std::string &result);
-  void handle_status_response(uint8_t fid, uint8_t length, size_t data_start);
+  void handle_status_response(uint8_t fid, uint8_t length, const std::vector<uint8_t> &buffer, size_t data_start);
+
   void check_scan_timeout();
   
   std::vector<ScanTrigger *> scan_triggers_;
@@ -80,7 +84,7 @@ class QRCode2UARTComponent : public Component, public uart::UARTDevice {
   std::vector<ScanTrigger *> start_scan_triggers_;
   std::vector<ScanTrigger *> stop_scan_triggers_;
   std::string buffer_;
-  std::string device_info_; // Store accumulated device info
+
   bool scanning_{false};
   uint32_t scan_start_time_{0};
   uint32_t scanning_timeout_{20000};  // 20 seconds default
@@ -94,6 +98,10 @@ class QRCode2UARTComponent : public Component, public uart::UARTDevice {
   uint32_t button_press_start_time_{0};  // For long press detection
   bool long_press_detected_{false};
   bool button_pressed_{false};  // Current button state - false = not pressed
+  
+  // QR data timeout tracking for Atomic QRCode2 Base
+  bool parsing_qr_code_{false};
+  uint32_t last_qr_data_time_{0};
   
   // Scanner command constants - Based on actual protocol documentation
   // Control Commands (TYPE=0x32)
@@ -137,17 +145,21 @@ template<typename... Ts> class StopScanAction : public Action<Ts...> {
 
 
 
-template<typename... Ts> class GetDeviceInfoAction : public Action<Ts...> {
- public:
-  GetDeviceInfoAction(QRCode2UARTComponent *parent) : parent_(parent) {}
-  
-  void play(Ts... x) override { 
-    this->parent_->get_device_info(); 
-  }
-  
- protected:
-  QRCode2UARTComponent *parent_;
-};
+// DEVICE INFO ACTION - PRESERVED FOR FUTURE REFERENCE
+// This action was used to trigger device info requests from YAML automations
+// Commented out to simplify code but preserved for future use if needed
+
+// template<typename... Ts> class GetDeviceInfoAction : public Action<Ts...> {
+//  public:
+//   GetDeviceInfoAction(QRCode2UARTComponent *parent) : parent_(parent) {}
+//   
+//   void play(Ts... x) override { 
+//     this->parent_->get_device_info();
+//   }
+//   
+//  protected:
+//   QRCode2UARTComponent *parent_;
+// };
 
 template<typename... Ts> class ResetScannerAction : public Action<Ts...> {
  public:

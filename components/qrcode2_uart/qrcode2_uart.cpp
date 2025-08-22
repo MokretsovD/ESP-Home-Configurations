@@ -52,10 +52,10 @@ void QRCode2UARTComponent::setup() {
   // Configure the scanner
   this->configure_scanner();
   
-  // Get device information at startup
+  // Get device information at startup - COMMENTED OUT
   delay(1000);  // Give scanner time to fully initialize
-  ESP_LOGI(TAG, "Getting device information at startup...");
-  this->get_device_info();
+  ESP_LOGI(TAG, "Scanner setup complete - device info requests disabled");
+  // this->get_device_info();  // Function commented out - preserved for reference
 }
 
 void QRCode2UARTComponent::loop() {
@@ -123,6 +123,8 @@ void QRCode2UARTComponent::loop() {
           this->stop_scan();
         } else {
           ESP_LOGI(TAG, "▶️ SHORT PRESS - starting scan (scanner was idle)");
+          this->buffer_.clear();
+          this->parsing_qr_code_ = false;
           this->start_scan();
         }
       } else {
@@ -137,6 +139,41 @@ void QRCode2UARTComponent::loop() {
   
   // Process incoming UART data
   this->process_uart_data();
+  
+  // Handle QR data timeout for Atomic QRCode2 Base when it sends ASCII without terminators
+  // ONLY process data as QR codes when we're actually scanning
+  if (this->parsing_qr_code_ && !this->buffer_.empty() && this->scanning_) {
+    uint32_t time_since_last_data = millis() - this->last_qr_data_time_;
+    if (time_since_last_data > 300) {
+      // Only process as QR code if it's reasonable length and we're in scanning mode
+      if (this->buffer_.length() >= 3) {
+        ESP_LOGI(TAG, "QR Code scanned: %s", this->buffer_.c_str());
+        this->handle_scan_result(this->buffer_);
+      } else {
+        ESP_LOGV(TAG, "Ignoring short buffer (likely protocol fragment): '%s'", this->buffer_.c_str());
+      }
+      // CRITICAL: Reset state immediately after processing to prevent multiple triggers
+      this->buffer_.clear();
+      this->parsing_qr_code_ = false;
+      this->last_qr_data_time_ = 0;  // Reset timestamp to prevent re-triggering
+    } else {
+      // Debug: Show when we're waiting for timeout
+      static uint32_t last_debug = 0;
+      if (millis() - last_debug > 1000) {  // Debug every 1000ms (reduced frequency)
+        ESP_LOGV(TAG, "⏱️ Waiting for timeout: buffer='%s', time_since_last=%lu ms", this->buffer_.c_str(), time_since_last_data);
+        last_debug = millis();
+      }
+    }
+  } else if (this->parsing_qr_code_ && !this->buffer_.empty() && !this->scanning_) {
+    // If we're accumulating data but not scanning, clear it after a timeout
+    uint32_t time_since_last_data = millis() - this->last_qr_data_time_;
+    if (time_since_last_data > 300) {
+      ESP_LOGD(TAG, "📋 Clearing non-scan data after timeout: '%s'", this->buffer_.c_str());
+      this->buffer_.clear();
+      this->parsing_qr_code_ = false;
+      this->last_qr_data_time_ = 0;
+    }
+  }
   
   // Check for scan timeout
   if (this->scanning_) {
@@ -253,47 +290,52 @@ void QRCode2UARTComponent::set_trigger_mode() {
 
 
 
-void QRCode2UARTComponent::get_firmware_version() {
-  ESP_LOGI(TAG, "Requesting firmware version: 0x%02X 0x%02X 0x%02X", 
-           CMD_GET_FIRMWARE_VER[0], CMD_GET_FIRMWARE_VER[1], CMD_GET_FIRMWARE_VER[2]);
-  this->write_array(CMD_GET_FIRMWARE_VER, sizeof(CMD_GET_FIRMWARE_VER));
-  this->flush();
-  delay(200);
-}
+// DEVICE INFO FUNCTIONS - PRESERVED FOR FUTURE REFERENCE
+// These functions were used to request device information via protocol
+// Commented out to simplify code but preserved for future use if needed
 
-void QRCode2UARTComponent::get_hardware_model() {
-  ESP_LOGI(TAG, "Requesting hardware model: 0x%02X 0x%02X 0x%02X", 
-           CMD_GET_HARDWARE_MODEL[0], CMD_GET_HARDWARE_MODEL[1], CMD_GET_HARDWARE_MODEL[2]);
-  this->write_array(CMD_GET_HARDWARE_MODEL, sizeof(CMD_GET_HARDWARE_MODEL));
-  this->flush();
-  delay(200);
-}
+// void QRCode2UARTComponent::get_firmware_version() {
+//   ESP_LOGI(TAG, "Requesting firmware version: 0x%02X 0x%02X 0x%02X", 
+//            CMD_GET_FIRMWARE_VER[0], CMD_GET_FIRMWARE_VER[1], CMD_GET_FIRMWARE_VER[2]);
+//   this->write_array(CMD_GET_FIRMWARE_VER, sizeof(CMD_GET_FIRMWARE_VER));
+//   this->flush();
+//   delay(200);
+// }
 
-void QRCode2UARTComponent::get_device_info() {
-  ESP_LOGI(TAG, "Getting device information with correct protocol...");
-  
-  // Get software version
-  ESP_LOGI(TAG, "Requesting software version: 0x%02X 0x%02X 0x%02X", 
-           CMD_GET_SOFTWARE_VER[0], CMD_GET_SOFTWARE_VER[1], CMD_GET_SOFTWARE_VER[2]);
-  this->write_array(CMD_GET_SOFTWARE_VER, sizeof(CMD_GET_SOFTWARE_VER));
-  this->flush();
-  delay(500);
-  
-  // Get firmware version
-  this->get_firmware_version();
-  delay(500);
-  
-  // Get hardware model
-  this->get_hardware_model();
-  delay(500);
-  
-  // Get serial number
-  ESP_LOGI(TAG, "Requesting serial number: 0x%02X 0x%02X 0x%02X", 
-           CMD_GET_SERIAL_NUM[0], CMD_GET_SERIAL_NUM[1], CMD_GET_SERIAL_NUM[2]);
-  this->write_array(CMD_GET_SERIAL_NUM, sizeof(CMD_GET_SERIAL_NUM));
-  this->flush();
-  delay(500);
-}
+// void QRCode2UARTComponent::get_hardware_model() {
+//   ESP_LOGI(TAG, "Requesting hardware model: 0x%02X 0x%02X 0x%02X", 
+//            CMD_GET_HARDWARE_MODEL[0], CMD_GET_HARDWARE_MODEL[1], CMD_GET_HARDWARE_MODEL[2]);
+//   this->write_array(CMD_GET_HARDWARE_MODEL, sizeof(CMD_GET_HARDWARE_MODEL));
+//   this->flush();
+//   delay(200);
+// }
+
+// Master function to get all device information - useful for diagnostics
+// void QRCode2UARTComponent::get_device_info() {
+//   ESP_LOGI(TAG, "Getting device information with correct protocol...");
+//   
+//   // Get software version
+//   ESP_LOGI(TAG, "Requesting software version: 0x%02X 0x%02X 0x%02X", 
+//            CMD_GET_SOFTWARE_VER[0], CMD_GET_SOFTWARE_VER[1], CMD_GET_SOFTWARE_VER[2]);
+//   this->write_array(CMD_GET_SOFTWARE_VER, sizeof(CMD_GET_SOFTWARE_VER));
+//   this->flush();
+//   delay(500);
+//   
+//   // Get firmware version
+//   // this->get_firmware_version();  // Function commented out - preserved for reference
+//   delay(500);
+//   
+//   // Get hardware model
+//   // this->get_hardware_model();   // Function commented out - preserved for reference
+//   delay(500);
+//   
+//   // Get serial number
+//   ESP_LOGI(TAG, "Requesting serial number: 0x%02X 0x%02X 0x%02X", 
+//            CMD_GET_SERIAL_NUM[0], CMD_GET_SERIAL_NUM[1], CMD_GET_SERIAL_NUM[2]);
+//   this->write_array(CMD_GET_SERIAL_NUM, sizeof(CMD_GET_SERIAL_NUM));
+//   this->flush();
+//   delay(500);
+// }
 
 
 
@@ -307,7 +349,6 @@ void QRCode2UARTComponent::reset_scanner() {
 
 void QRCode2UARTComponent::process_uart_data() {
   static std::vector<uint8_t> protocol_buffer;
-  static bool parsing_qr_code = false;
   
   while (this->available()) {
     uint8_t data;
@@ -321,87 +362,94 @@ void QRCode2UARTComponent::process_uart_data() {
       protocol_buffer.erase(protocol_buffer.begin());
     }
     
-    // Check for protocol status reply (0x44 = Status Reply)
-    if (protocol_buffer.size() >= 4) {
-      size_t pos = protocol_buffer.size() - 4;
-      if (protocol_buffer[pos] == 0x44 && protocol_buffer[pos+1] == 0x02) {
+    // Check for protocol status reply (0x44 = Status Reply or 0x33 for Atomic QRCode2)
+    if (protocol_buffer.size() >= 3) {
+      size_t pos = protocol_buffer.size() - 3;
+      if ((protocol_buffer[pos] == 0x44 || protocol_buffer[pos] == 0x33) && 
+          (protocol_buffer[pos+1] == 0x02 || protocol_buffer[pos+1] == 0x75)) {
         uint8_t fid = protocol_buffer[pos+2];
-        uint8_t status = protocol_buffer[pos+3];
+        ESP_LOGV(TAG, "Protocol response detected: 0x%02X 0x%02X 0x%02X", 
+                 protocol_buffer[pos], protocol_buffer[pos+1], protocol_buffer[pos+2]);
         
-        if (status == 0x00) {  // Success
-          // Check if there's a length byte for data
-          if (protocol_buffer.size() >= 5) {
-            uint8_t length = protocol_buffer[pos+4];
-            this->handle_status_response(fid, length, pos + 5);
+        // Clear any ASCII buffer that might contain protocol data
+        if (!this->buffer_.empty() && this->buffer_.length() <= 2) {
+          ESP_LOGV(TAG, "Clearing buffer with potential protocol data: '%s'", this->buffer_.c_str());
+          this->buffer_.clear();
+          this->parsing_qr_code_ = false;
+        }
+        
+        if (protocol_buffer.size() >= 4) {
+          uint8_t status = protocol_buffer[pos+3];
+          if (status == 0x00) {  // Success
+            // Check if there's a length byte for data
+            if (protocol_buffer.size() >= 5) {
+              uint8_t length = protocol_buffer[pos+4];
+              this->handle_status_response(fid, length, protocol_buffer, pos + 5);
+            }
           }
         }
       }
     }
     
-    // Handle QR code scanning (ASCII data ending with \r or \n)
+    // Handle QR code scanning (ASCII data ending with \r or \n OR timeout for Atomic QRCode2)
     char c = static_cast<char>(data);
     
     // Check if this looks like QR code data (printable ASCII)
     if (c >= 0x20 && c <= 0x7E) {
       this->buffer_ += c;
-      parsing_qr_code = true;
-    } else if ((c == '\r' || c == '\n') && parsing_qr_code) {
-      if (!this->buffer_.empty()) {
-        ESP_LOGI(TAG, "QR Code scanned: %s", this->buffer_.c_str());
-        this->handle_scan_result(this->buffer_);
-        this->buffer_.clear();
+      this->parsing_qr_code_ = true;
+      this->last_qr_data_time_ = millis();  // Update timestamp for timeout
+      if (this->scanning_) {
+        ESP_LOGV(TAG, "📝 QR char: '%c' (0x%02X), buffer now: '%s'", c, data, this->buffer_.c_str());
+      } else {
+        ESP_LOGV(TAG, "📄 Data char (not scanning): '%c' (0x%02X), buffer now: '%s'", c, data, this->buffer_.c_str());
       }
-      parsing_qr_code = false;
+    } else if ((c == '\r' || c == '\n') && this->parsing_qr_code_) {
+      if (!this->buffer_.empty() && this->scanning_) {
+        if (this->buffer_.length() >= 3) {
+          ESP_LOGI(TAG, "✅ QR Code scanned (terminated): '%s'", this->buffer_.c_str());
+          this->handle_scan_result(this->buffer_);
+        } else {
+          ESP_LOGV(TAG, "Ignoring short terminated buffer: '%s'", this->buffer_.c_str());
+        }
+      } else if (!this->buffer_.empty()) {
+        ESP_LOGD(TAG, "📋 Ignoring data received when not scanning: '%s'", this->buffer_.c_str());
+      }
+      this->buffer_.clear();
+      this->parsing_qr_code_ = false;
+      this->last_qr_data_time_ = 0;  // Reset timestamp
+      ESP_LOGV(TAG, "Reset parsing due to terminator");
     } else if (c == '\r' || c == '\n') {
       // End of some data, reset QR buffer if it has content
       if (!this->buffer_.empty()) {
+        ESP_LOGV(TAG, "Clearing buffer due to unexpected terminator: '%s'", this->buffer_.c_str());
         this->buffer_.clear();
       }
-      parsing_qr_code = false;
+      this->parsing_qr_code_ = false;
+    } else {
+      // Log non-ASCII data
+      ESP_LOGD(TAG, "🔍 Non-ASCII byte: 0x%02X (%d)", data, data);
     }
   }
+  
+
 }
 
-void QRCode2UARTComponent::handle_status_response(uint8_t fid, uint8_t length, size_t data_start) {
-  // We'll build device info from multiple status responses
-  static int info_parts_received = 0;
-  static const int total_info_parts = 4; // We request 4 pieces of info
+void QRCode2UARTComponent::handle_status_response(uint8_t fid, uint8_t length, const std::vector<uint8_t> &buffer, size_t data_start) {
+  // Just log protocol responses, don't use them for device info
+  // Device info is handled via raw ASCII startup messages instead
   
-  switch (fid) {
-    case 0xC1:
-      ESP_LOGI(TAG, "📋 Firmware Version Response (length: %d bytes)", length);
-      if (!device_info_.empty()) device_info_ += " | ";
-      device_info_ += "FW: 1.2.1.18.23060";
-      info_parts_received++;
-      break;
-    case 0xC2:
-      ESP_LOGI(TAG, "📋 Software Version Response (length: %d bytes) - ZScan.mh T43m3 1.2.1.18.23060", length);
-      if (!device_info_.empty()) device_info_ += " | ";
-      device_info_ += "SW: ZScan.mh T43m3";
-      info_parts_received++;
-      break;
-    case 0xC5:
-      ESP_LOGI(TAG, "📋 Serial Number Response (length: %d bytes)", length);
-      if (!device_info_.empty()) device_info_ += " | ";
-      device_info_ += "SN: QR-Scanner";
-      info_parts_received++;
-      break;
-    case 0xC7:
-      ESP_LOGI(TAG, "📋 Hardware Model Response (length: %d bytes)", length);
-      if (!device_info_.empty()) device_info_ += " | ";
-      device_info_ += "Model: M5Stack QRCode2";
-      info_parts_received++;
-      break;
-    default:
-      ESP_LOGI(TAG, "📋 Unknown Status Response: FID=0x%02X, length=%d", fid, length);
-      break;
+  std::string response_data = "";
+  if (length > 0 && data_start < buffer.size()) {
+    for (size_t i = data_start; i < data_start + length && i < buffer.size(); i++) {
+      uint8_t byte = buffer[i];
+      if (byte >= 0x20 && byte <= 0x7E) {  // Printable ASCII
+        response_data += static_cast<char>(byte);
+      }
+    }
   }
   
-  // Update info sensor when we have received enough info
-  if (info_parts_received >= total_info_parts) {
-    ESP_LOGI(TAG, "📱 Device info complete: %s", device_info_.c_str());
-    info_parts_received = 0; // Reset for next time
-  }
+  ESP_LOGD(TAG, "📋 Protocol Response: FID=0x%02X, length=%d, data='%s'", fid, length, response_data.c_str());
 }
 
 void QRCode2UARTComponent::handle_scan_result(const std::string &result) {
@@ -424,8 +472,6 @@ void QRCode2UARTComponent::handle_scan_result(const std::string &result) {
   ESP_LOGI(TAG, "✅ Scan #%lu complete: %s", this->scan_counter_, result.c_str());
   ESP_LOGI(TAG, "📱 Updated sensor with raw code: %s", result.c_str());
 }
-
-
 
 void QRCode2UARTComponent::check_scan_timeout() {
   if (millis() - this->scan_start_time_ > this->scanning_timeout_) {
