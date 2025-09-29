@@ -12,7 +12,10 @@ substitutions:
   esp_ota_password: !secret bluetooth_proxy_wr_esp_ota_password
   manifest_url: https://firmware.esphome.io/bluetooth-proxy/esp32-generic/manifest.json
   dashboard_import: github://esphome/bluetooth-proxies/esp32-generic/esp32-generic.yaml@main
+  buzzer_pin: GPIO21 # GPIO26 # Pin for the buzzer
+  buzzer_pwm_platform: "ledc"  # ESP32 uses LEDC
   board: esp32dev
 
 packages:
   bt_proxy: !include packages/device-configs/bluetooth-proxy.yaml
+  rtttl_buzzer: !include packages/device-configs/rtttl-buzzer.yaml

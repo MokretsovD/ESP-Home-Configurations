@@ -1,0 +1,155 @@
+---
+# RTTTL Buzzer Configuration Package
+# Provides RTTTL (Ring Tone Text Transfer Language) buzzer functionality
+# with configurable output pin and volume control
+#
+# Compatible with both ESP32 and ESP8266 platforms
+#
+# Required substitutions:
+# - buzzer_pin: GPIO pin for the buzzer (e.g., GPIO21)
+# - buzzer_pwm_platform: "ledc" for ESP32, "esp8266_pwm" for ESP8266
+# Optional substitutions:
+# - buzzer_gain: Volume gain percentage (default: 75%)
+
+substitutions:
+  rtttl_gain: "75%" # Over this value, the buzzer will distort (max allowed volume)
+  
+logger:
+  level: INFO
+
+# PWM output - uses ledc for ESP32, esp8266_pwm for ESP8266
+output:
+  - platform: ${buzzer_pwm_platform}
+    frequency: 1000 Hz
+    pin: ${buzzer_pin}
+    id: buzzer_output
+
+rtttl:
+  id: buzzer_rtttl
+  output: buzzer_output
+  gain: ${rtttl_gain}
+
+# Volume control number component
+number:
+  - platform: template
+    name: "Buzzer Volume"
+    id: buzzer_volume
+    entity_category: config
+    min_value: 0
+    max_value: 100
+    step: 5
+    initial_value: 100  # Default volume percentage
+    optimistic: true
+    restore_value: true
+    unit_of_measurement: "%"
+
+
+# Reusable script for RTTTL playback
+script:
+  - id: rtttl_play
+    parameters:
+      song: string
+      volume: int
+    then:
+      - rtttl.stop:
+      - lambda: |-
+          id(buzzer_output).set_max_power((float)clamp(volume, 0, 100) / 100.0f);
+          // id(buzzer_rtttl)->set_gain(volume / 100.0);         
+      - delay: 100ms
+      - rtttl.play:
+          rtttl: !lambda 'return song;'
+
+  # Predefined RTTTL songs for common notifications
+  - id: play_startup_sound
+    then:
+      - script.execute:
+          id: rtttl_play
+          song: "startup:d=4,o=5,b=125:16e6,16e6,32p,8e6,16c6,16e6,8g6,8p,8g,8p"
+          volume: !lambda 'return (int)id(buzzer_volume).state;'
+
+  - id: play_notification_sound
+    then:
+      - script.execute:
+          id: rtttl_play
+          song: "notification:d=4,o=5,b=140:8g,8a,8g,8a,8g,8a,8g"
+          volume: !lambda 'return (int)id(buzzer_volume).state;'
+
+  - id: play_error_sound
+    then:
+      - script.execute:
+          id: rtttl_play
+          song: "error:d=4,o=4,b=125:8c,8p,8c,8p,8c"
+          volume: !lambda 'return (int)id(buzzer_volume).state;'
+
+  - id: play_success_sound
+    then:
+      - script.execute:
+          id: rtttl_play
+          song: "success:d=4,o=5,b=140:8c,8e,8g,8c6"
+          volume: !lambda 'return (int)id(buzzer_volume).state;'
+
+  - id: play_doorbell_sound
+    then:
+      - script.execute:
+          id: rtttl_play
+          song: "doorbell:d=4,o=5,b=125:8g,8a,8g,8a,8g,8a,8g,8a"
+          volume: !lambda 'return (int)id(buzzer_volume).state;'
+
+# API actions for RTTTL control
+# Note: These will be merged with existing API configuration
+api:
+  actions:
+    - action: rtttl_play      
+      variables:
+        song_str: string
+      then:
+        - script.execute:
+            id: rtttl_play
+            song: !lambda 'return song_str;'
+            volume: !lambda 'return (int)id(buzzer_volume).state;'
+
+    - action: rtttl_play_with_volume
+      variables:
+        song_str: string
+        volume: int
+      then:
+        - script.execute:
+            id: rtttl_play
+            song: !lambda 'return song_str;'
+            volume: !lambda 'return volume;'
+
+button:
+  - platform: template
+    name: "Play Startup Sound"
+    id: play_startup_btn
+    entity_category: diagnostic
+    on_press:
+      - script.execute: play_startup_sound
+
+  - platform: template
+    name: "Play Notification Sound"
+    id: play_notification_btn
+    entity_category: diagnostic
+    on_press:
+      - script.execute: play_notification_sound
+
+  - platform: template
+    name: "Play Error Sound"
+    id: play_error_btn
+    entity_category: diagnostic
+    on_press:
+      - script.execute: play_error_sound
+
+  - platform: template
+    name: "Play Success Sound"
+    id: play_success_btn
+    entity_category: diagnostic
+    on_press:
+      - script.execute: play_success_sound
+
+  - platform: template
+    name: "Play Doorbell Sound"
+    id: play_doorbell_btn
+    entity_category: diagnostic
+    on_press:
+      - script.execute: play_doorbell_sound

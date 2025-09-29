@@ -1,0 +1,87 @@
+---
+# Example RTTTL Buzzer Configuration for ESP8266
+# Demonstrates how to use the rtttl-buzzer package with ESP8266
+# 
+# ✅ ESP8266 example using esp8266_pwm platform
+
+substitutions:
+  device_name: rtttl-buzzer-esp8266
+  friendly_name: "RTTTL Buzzer ESP8266"
+  wifi_ssid: "YOUR_WIFI_SSID"
+  wifi_password: "YOUR_WIFI_PASSWORD"
+  buzzer_pin: GPIO4  # D2 on NodeMCU, adjust to your wiring
+  buzzer_gain: "80%"  # Optional: adjust volume (default is 80%)
+  buzzer_pwm_platform: "esp8266_pwm"  # ESP8266 uses esp8266_pwm
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+  min_version: 2024.6.0
+
+esp8266:
+  board: nodemcuv2  # or d1_mini, adjust to your board
+
+logger:
+  level: INFO
+
+wifi:
+  ssid: ${wifi_ssid}
+  password: ${wifi_password}
+  ap:
+    ssid: "${device_name} Fallback"
+    password: "fallbackpassword"
+
+captive_portal:
+
+api:
+
+ota:
+
+# Include the RTTTL buzzer package
+packages:
+  rtttl_buzzer: !include ../rtttl-buzzer.yaml
+
+# Example: Add a button to play a custom song
+button:
+  - platform: template
+    name: "Play Mario Theme"
+    id: play_mario_btn
+    on_press:
+      - script.execute:
+          id: rtttl_play
+          song: "mario:d=4,o=5,b=100:16e6,16e6,32p,8e6,16c6,16e6,8g6,8p,8g,8p,8c,8p,8g,8p,8e,8p,8a,8b,8bb,8a,8g,8e6,8g6,8a6,8f6,8g6,8p,8e6,8c6,8d6,8b"
+          volume: !lambda 'return (int)id(buzzer_volume).state;'
+
+  - platform: template
+    name: "Play Tetris Theme"
+    id: play_tetris_btn
+    on_press:
+      - script.execute:
+          id: rtttl_play
+          song: "tetris:d=4,o=5,b=160:e6,8b,8c6,8d6,16e6,16d6,8c6,8b,a,8a,8c6,e6,8d6,8c6,b,8b,8c6,d6,e6,c6,a,a"
+          volume: !lambda 'return (int)id(buzzer_volume).state;'
+
+# Example: Motion sensor that plays notification sound
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO5  # D1 on NodeMCU
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    name: "Motion Sensor"
+    device_class: motion
+    on_press:
+      - script.execute: play_notification_sound
+
+# Example: Use RTTTL in automations via Home Assistant API actions
+# Call these from Home Assistant:
+# service: esphome.rtttl_buzzer_esp8266_rtttl_play
+# data:
+#   song_str: "mario:d=4,o=5,b=100:16e6,16e6,32p,8e6,16c6,16e6,8g6,8p,8g,8p"
+#
+# service: esphome.rtttl_buzzer_esp8266_rtttl_play_with_volume  
+# data:
+#   song_str: "mario:d=4,o=5,b=100:16e6,16e6,32p,8e6,16c6,16e6,8g6,8p,8g,8p"
+#   volume: 50

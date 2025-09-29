@@ -349,6 +349,23 @@ The `packages/` directory contains reusable configuration components that can be
 - **Documentation:** See `packages/device-configs/dfrobot-sen0610-presence.md` for detailed usage instructions
 - **Example:** See `packages/device-configs/examples/example-dfrobot-sen0610-usage.yaml`
 
+#### RTTTL Buzzer Device Config (`device-configs/rtttl-buzzer.yaml`)
+
+- **File:** `packages/device-configs/rtttl-buzzer.yaml`
+- **Description:** Comprehensive device configuration package for RTTTL (Ring Tone Text Transfer Language) buzzer functionality, enabling musical notifications, alerts, and sound effects with Home Assistant integration.
+- **Features:**
+  - RTTTL playback with runtime volume control (0-100%)
+  - API actions for dynamic song playback from Home Assistant
+  - Predefined notification sounds (startup, error, success, doorbell, notification)
+  - Flexible GPIO pin configuration for buzzer output
+  - Cross-platform PWM output for ESP32 and ESP8266
+  - Home Assistant buttons for testing predefined sounds
+  - Support for custom RTTTL melodies and ringtones
+- **Board:** ESP32 and ESP8266 (requires platform-specific substitution)
+- **Hardware:** Passive buzzer (required for RTTTL functionality) or speaker with driver/amplifier
+- **Documentation:** See `packages/device-configs/rtttl-buzzer.md` for detailed usage instructions
+- **Example:** See `packages/device-configs/examples/example-rtttl-buzzer-usage.yaml`
+
 ---
 
 ## Configurations
