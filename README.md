@@ -528,6 +528,14 @@ Some configurations are based on or inspired by the following awesome community 
 
 ---
 
+## Support
+
+If you find these configurations helpful, you can support my work:
+
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-yellow?logo=buy-me-a-coffee)](https://buymeacoffee.com/dmmk)
+
+---
+
 ## License
 
 See [LICENSE](LICENSE) for details.
