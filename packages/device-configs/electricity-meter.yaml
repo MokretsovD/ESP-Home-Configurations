@@ -621,8 +621,21 @@ text_sensor:
                   }
                   break;
                 case HASH_CURRENT_POWER:
+                  if (id(positioning_mode).state) {
+                    std::string_view rsv = parse_obis_string_value(
+                        x, obis_str, '*');
+                    if (!rsv.empty()) {
+                      float rv = parse_float(rsv);
+                      if (!isnan(rv)) {
+                        id(raw_current_power)->publish_state(rv);
+                        ESP_LOGI("meter", "[positioning] Power: %.0f W", rv);
+                      }
+                    }
+                  }
                   if (ENABLE_CORE_SENSORS) {
-                    update_power_sensor(x, obis_str, id(current_power), id(prev_current_power));
+                    update_power_sensor(
+                        x, obis_str, id(current_power),
+                        id(prev_current_power));
                   }
                   break;
                 case HASH_VOLTAGE_L1:
@@ -641,18 +654,51 @@ text_sensor:
                   }
                   break;
                 case HASH_CURRENT_L1:
+                  if (id(positioning_mode).state) {
+                    std::string_view rsv = parse_obis_string_value(
+                        x, obis_str, '*');
+                    if (!rsv.empty()) {
+                      float rv = parse_float(rsv);
+                      if (!isnan(rv))
+                        id(raw_current_l1)->publish_state(rv);
+                    }
+                  }
                   if (ENABLE_CURRENT_SENSORS) {
-                    update_current_sensor(x, obis_str, id(current_l1), id(prev_current_l1));
+                    update_current_sensor(
+                        x, obis_str, id(current_l1),
+                        id(prev_current_l1));
                   }
                   break;
                 case HASH_CURRENT_L2:
+                  if (id(positioning_mode).state) {
+                    std::string_view rsv = parse_obis_string_value(
+                        x, obis_str, '*');
+                    if (!rsv.empty()) {
+                      float rv = parse_float(rsv);
+                      if (!isnan(rv))
+                        id(raw_current_l2)->publish_state(rv);
+                    }
+                  }
                   if (ENABLE_CURRENT_SENSORS) {
-                    update_current_sensor(x, obis_str, id(current_l2), id(prev_current_l2));
+                    update_current_sensor(
+                        x, obis_str, id(current_l2),
+                        id(prev_current_l2));
                   }
                   break;
                 case HASH_CURRENT_L3:
+                  if (id(positioning_mode).state) {
+                    std::string_view rsv = parse_obis_string_value(
+                        x, obis_str, '*');
+                    if (!rsv.empty()) {
+                      float rv = parse_float(rsv);
+                      if (!isnan(rv))
+                        id(raw_current_l3)->publish_state(rv);
+                    }
+                  }
                   if (ENABLE_CURRENT_SENSORS) {
-                    update_current_sensor(x, obis_str, id(current_l3), id(prev_current_l3));
+                    update_current_sensor(
+                        x, obis_str, id(current_l3),
+                        id(prev_current_l3));
                   }
                   break;
                 case HASH_FREQUENCY:
@@ -1057,6 +1103,48 @@ sensor:
       - or:
           - throttle: 2min
           - delta: 0.1
+  # Positioning mode raw sensors — no validation, no throttle, only active
+  # when positioning_mode switch is on (cleared to unavailable on turn-off)
+  - platform: template
+    name: "Raw Current Power"
+    id: raw_current_power
+    unit_of_measurement: W
+    accuracy_decimals: 0
+    device_class: power
+    state_class: measurement
+    entity_category: diagnostic
+    disabled_by_default: true
+    icon: "mdi:lightning-bolt"
+  - platform: template
+    name: "Raw Current L1"
+    id: raw_current_l1
+    unit_of_measurement: A
+    accuracy_decimals: 2
+    device_class: current
+    state_class: measurement
+    entity_category: diagnostic
+    disabled_by_default: true
+    icon: "mdi:current-ac"
+  - platform: template
+    name: "Raw Current L2"
+    id: raw_current_l2
+    unit_of_measurement: A
+    accuracy_decimals: 2
+    device_class: current
+    state_class: measurement
+    entity_category: diagnostic
+    disabled_by_default: true
+    icon: "mdi:current-ac"
+  - platform: template
+    name: "Raw Current L3"
+    id: raw_current_l3
+    unit_of_measurement: A
+    accuracy_decimals: 2
+    device_class: current
+    state_class: measurement
+    entity_category: diagnostic
+    disabled_by_default: true
+    icon: "mdi:current-ac"
 
 # Reset buttons
 button:
@@ -1116,6 +1204,19 @@ switch:
     entity_category: diagnostic
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
+  - platform: template
+    name: "Positioning Mode"
+    id: positioning_mode
+    icon: "mdi:crosshairs-gps"
+    entity_category: diagnostic
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    on_turn_off:
+      - lambda: |-
+          id(raw_current_power)->publish_state(NAN);
+          id(raw_current_l1)->publish_state(NAN);
+          id(raw_current_l2)->publish_state(NAN);
+          id(raw_current_l3)->publish_state(NAN);
 
 # Scripts
 script:

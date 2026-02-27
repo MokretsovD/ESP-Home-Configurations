@@ -271,6 +271,7 @@ The `packages/` directory contains reusable configuration components that can be
   - Text sensor corruption filtering (requires 3 consecutive identical readings)
   - Comprehensive energy sensors (total, daily, weekly, monthly, yearly consumption)
   - Reset controls for validation state and communication quality
+  - Positioning Mode: real-time raw sensor feedback for physically aligning the optical IR head
   - Highly configurable via substitutions (OBIS codes, validation parameters, UART settings)
 - **Board:** ESP8266 (tested), ESP32 (compiles but untested on hardware)
 - **Requirements:** 
@@ -381,6 +382,7 @@ The `packages/` directory contains reusable configuration components that can be
   - Phase angle measurements for three-phase systems
   - Data validation and corruption filtering
   - Communication quality monitoring
+  - Positioning Mode for aligning the optical IR head without disrupting production data
   - MQTT integration for Home Assistant
   - WiFi signal strength monitoring via shared package
 - **Board:** ESP8266 D1 Mini (tested), ESP32 (compiles but untested on hardware)

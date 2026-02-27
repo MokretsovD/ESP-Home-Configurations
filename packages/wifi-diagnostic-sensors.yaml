@@ -24,7 +24,6 @@ text_sensor:
       entity_category: "diagnostic"
       disabled_by_default: true
       icon: "mdi:ip-network"
-      update_interval: 300s  # Reduced frequency
     # WiFi SSID sensor - optimized
     ssid:
       name: "WiFi SSID"
@@ -32,7 +31,6 @@ text_sensor:
       entity_category: "diagnostic"
       disabled_by_default: true
       icon: "mdi:wifi"
-      update_interval: 300s  # Reduced frequency
 
 # Global variable for WiFi connect count
 globals:
@@ -45,4 +43,5 @@ wifi:
   on_connect:
     - lambda: |-
         id(wifi_connect_counter)++;
-        ESP_LOGI("wifi", "WiFi connected, count: %d", id(wifi_connect_counter)); 
+        ESP_LOGI("wifi", "WiFi connected, count: %d",
+                 id(wifi_connect_counter));

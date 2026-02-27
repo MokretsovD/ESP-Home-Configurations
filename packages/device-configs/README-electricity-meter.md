@@ -11,6 +11,7 @@ A comprehensive ESPHome package for reading OBIS-compliant smart electric meters
 - **Text Sensor Filtering**: Requires 3 consecutive identical readings for text sensors to prevent corruption
 - **Comprehensive Sensors**: Supports energy consumption (total, daily, weekly, monthly, yearly), power, voltage, current, frequency, and phase angle measurements
 - **Reset Controls**: Buttons to reset validation state and communication quality counters
+- **Positioning Mode**: Real-time raw sensor feedback for physically aligning the optical IR head without touching production data
 - **Highly Configurable**: All OBIS codes and validation parameters configurable via substitutions
 
 ## Important Notes
@@ -182,9 +183,21 @@ packages:
 - `Parameter CRC` - Parameter checksum
 - `Status Register` - Meter status information
 
+### Positioning Mode Sensors (disabled by default)
+These sensors are only active while the `Positioning Mode` switch is on. They bypass all
+validation and throttling, publishing every raw parsed value (~1 per second from the meter).
+- `Raw Current Power` - Unvalidated current power reading (W)
+- `Raw Current L1` - Unvalidated L1 current reading (A)
+- `Raw Current L2` - Unvalidated L2 current reading (A)
+- `Raw Current L3` - Unvalidated L3 current reading (A)
+
 ### Control Buttons
 - `Reset Validation State` - Resets all validation counters
 - `Reset Communication Quality` - Resets communication quality counters
+
+### Control Switches
+- `Enable Warning Logs` - Toggles WARN-level rejection log messages
+- `Positioning Mode` - Enables raw real-time sensor output for IR head alignment
 
 ## Data Validation
 
@@ -196,11 +209,46 @@ The package includes several validation mechanisms:
 4. **Bounds Checking**: Clamps all values to realistic ranges
 5. **Corruption Detection**: Tracks and reports data corruption events
 
+## Positioning Mode
+
+When physically mounting and aligning the optical IR head on the meter, use Positioning Mode
+to get near real-time feedback without needing to enable debug logging or waiting for throttled
+sensor updates.
+
+### How to use
+
+1. In Home Assistant, **enable** the four raw sensors: `Raw Current Power`, `Raw Current L1`,
+   `Raw Current L2`, `Raw Current L3` (they are `disabled_by_default: true`)
+2. **Turn on** the `Positioning Mode` switch in Home Assistant
+3. **Adjust the IR head position** while watching the raw sensor values update approximately
+   every second — stable, realistic values indicate good optical coupling
+4. Once positioned correctly, **turn off** `Positioning Mode` — the raw sensors are
+   immediately cleared to unavailable (NaN) so they don't clutter dashboards
+5. Optionally disable the raw sensors again in Home Assistant
+
+### Log output
+
+While Positioning Mode is active, each parsed power reading also emits an INFO-level log line
+visible in the ESPHome log stream (no debug logging required):
+
+```text
+[I][meter]: [positioning] Power: 1234 W
+```
+
+### Notes
+
+- Raw sensors bypass all validation (spike protection, range limits, delta checks) and all
+  throttle/delta filters — every parseable reading is published immediately
+- Production sensors (`Current Power`, `Current L1/L2/L3`, etc.) are completely unaffected
+  while Positioning Mode is active
+- `Positioning Mode` switch restores to OFF after a reboot (`restore_mode: RESTORE_DEFAULT_OFF`)
+  so it cannot be accidentally left on
+
 ## Troubleshooting
 
 ### No Data Received
 - Check UART wiring and settings
-- Verify IR head is properly positioned
+- Use **Positioning Mode** (see above) for real-time feedback while adjusting the IR head
 - Check baud rate and parity settings
 - Enable DEBUG logging to see raw UART data
 
