@@ -1,26 +1,33 @@
 ---
 # Fantastic Outdoor Socket Hardware Configuration
-# ESP8285-based relay socket (e.g., Sonoff Basic R2 / similar boards)
+# ESP8285-based relay socket (Sonoff Basic R2 compatible)
 #
 # GPIO layout:
 #   GPIO4  - On-board button (inverted, active-low, internal pullup)
-#   GPIO5  - Status LED (inverted)
-#   GPIO12 - External switch input
-#   GPIO13 - Relay output
+#   GPIO12 - Relay output
+#   GPIO13 - Status LED (inverted)
 #
 # Required substitutions:
 #   relay_name: friendly name for the relay switch (e.g., "Compressor")
 
-status_led:
-  pin:
-    number: GPIO5
-    inverted: true
+output:
+  - platform: gpio
+    id: led_output
+    pin:
+      number: GPIO13
+      inverted: true
+
+light:
+  - platform: binary
+    id: status_light
+    output: led_output
+    internal: true
 
 switch:
   - platform: gpio
     id: relay
     name: ${relay_name}
-    pin: GPIO13
+    pin: GPIO12
     restore_mode: RESTORE_DEFAULT_OFF
 
 sensor:
@@ -48,23 +55,19 @@ binary_sensor:
     on_press:
       - switch.toggle: relay
 
-  - platform: gpio
-    id: ext_switch
-    pin:
-      number: GPIO12
-      mode:
-        input: true
-    name: "External Switch"
-    internal: true
-    filters:
-      - delayed_on: 100ms
-      - delayed_off: 100ms
-    on_state:
-      # Toggle relay on every state change.
-      # Boot guard: ignore the initial state read during the first 10 s.
-      - lambda: |-
-          if (!id(uptime_sensor).has_state() || id(uptime_sensor).state < 10) {
-            ESP_LOGD("ext_switch", "Ignoring switch state change during boot");
-            return;
-          }
-          id(relay).toggle();
+interval:
+  - interval: 500ms
+    then:
+      - if:
+          condition:
+            api.connected:
+          then:
+            - if:
+                condition:
+                  switch.is_on: relay
+                then:
+                  - light.turn_on: status_light
+                else:
+                  - light.turn_off: status_light
+          else:
+            - light.toggle: status_light
