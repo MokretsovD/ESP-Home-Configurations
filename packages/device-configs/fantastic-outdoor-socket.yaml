@@ -1,0 +1,70 @@
+---
+# Fantastic Outdoor Socket Hardware Configuration
+# ESP8285-based relay socket (e.g., Sonoff Basic R2 / similar boards)
+#
+# GPIO layout:
+#   GPIO4  - On-board button (inverted, active-low, internal pullup)
+#   GPIO5  - Status LED (inverted)
+#   GPIO12 - External switch input
+#   GPIO13 - Relay output
+#
+# Required substitutions:
+#   relay_name: friendly name for the relay switch (e.g., "Compressor")
+
+status_led:
+  pin:
+    number: GPIO5
+    inverted: true
+
+switch:
+  - platform: gpio
+    id: relay
+    name: ${relay_name}
+    pin: GPIO13
+    restore_mode: RESTORE_DEFAULT_OFF
+
+sensor:
+  - platform: uptime
+    name: "Uptime"
+    id: uptime_sensor
+    update_interval: 10s
+    entity_category: diagnostic
+    disabled_by_default: true
+
+binary_sensor:
+  - platform: gpio
+    id: physical_button
+    pin:
+      number: GPIO4
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+    name: "Physical Button"
+    internal: true
+    filters:
+      - delayed_on: 50ms
+      - delayed_off: 50ms
+    on_press:
+      - switch.toggle: relay
+
+  - platform: gpio
+    id: ext_switch
+    pin:
+      number: GPIO12
+      mode:
+        input: true
+    name: "External Switch"
+    internal: true
+    filters:
+      - delayed_on: 100ms
+      - delayed_off: 100ms
+    on_state:
+      # Toggle relay on every state change.
+      # Boot guard: ignore the initial state read during the first 10 s.
+      - lambda: |-
+          if (!id(uptime_sensor).has_state() || id(uptime_sensor).state < 10) {
+            ESP_LOGD("ext_switch", "Ignoring switch state change during boot");
+            return;
+          }
+          id(relay).toggle();

@@ -1,0 +1,37 @@
+---
+substitutions:
+  name: compressor
+  friendly_name: Compressor
+  relay_name: Compressor
+  device_static_ip: !secret compressor_wifi_manual_ip_static_ip
+  device_ap_ssid: "Compressor"
+  device_ap_password: !secret compressor_wifi_ap_password
+  wifi_ssid: !secret wifi_ssid
+  wifi_password: !secret wifi_password
+  wifi_manual_ip_gateway: !secret wifi_manual_ip_gateway
+  wifi_manual_ip_subnet: !secret wifi_manual_ip_subnet
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+
+esp8266:
+  board: esp8285
+
+logger:
+
+api:
+  encryption:
+    key: !secret compressor_esp_api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret compressor_esp_ota_password
+
+packages:
+  wifi: !include packages/wifi.yaml
+  wifi-signal-sensors: !include packages/wifi-signal-sensors.yaml
+  wifi-diagnostic-sensors: !include packages/wifi-diagnostic-sensors.yaml
+  hardware: !include packages/device-configs/fantastic-outdoor-socket.yaml
+
+captive_portal:
