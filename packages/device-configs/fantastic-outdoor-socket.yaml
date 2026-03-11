@@ -1,26 +1,36 @@
 ---
 # Fantastic Outdoor Socket Hardware Configuration
-# ESP8285-based relay socket (Sonoff Basic R2 compatible)
+# ESP8285-based relay socket
 #
 # GPIO layout:
-#   GPIO4  - On-board button (inverted, active-low, internal pullup)
+#   GPIO4  - Green relay LED (inverted)
+#   GPIO5  - Red status LED (inverted)
 #   GPIO12 - Relay output
-#   GPIO13 - Status LED (inverted)
+#   GPIO13 - On-board button (inverted, active-low, internal pullup)
 #
 # Required substitutions:
 #   relay_name: friendly name for the relay switch (e.g., "Compressor")
 
 output:
   - platform: gpio
-    id: led_output
+    id: red_led
     pin:
-      number: GPIO13
+      number: GPIO5
+      inverted: true
+  - platform: gpio
+    id: green_led
+    pin:
+      number: GPIO4
       inverted: true
 
 light:
   - platform: binary
-    id: status_light
-    output: led_output
+    id: red_light
+    output: red_led
+    internal: true
+  - platform: binary
+    id: green_light
+    output: green_led
     internal: true
 
 switch:
@@ -29,6 +39,10 @@ switch:
     name: ${relay_name}
     pin: GPIO12
     restore_mode: RESTORE_DEFAULT_OFF
+    on_turn_on:
+      - light.turn_on: green_light
+    on_turn_off:
+      - light.turn_off: green_light
 
 sensor:
   - platform: uptime
@@ -42,7 +56,7 @@ binary_sensor:
   - platform: gpio
     id: physical_button
     pin:
-      number: GPIO4
+      number: GPIO13
       inverted: true
       mode:
         input: true
@@ -53,6 +67,9 @@ binary_sensor:
       - delayed_on: 50ms
       - delayed_off: 50ms
     on_press:
+      - logger.log:
+          level: INFO
+          format: "Physical button pressed"
       - switch.toggle: relay
 
 interval:
@@ -60,14 +77,13 @@ interval:
     then:
       - if:
           condition:
-            api.connected:
+            not:
+              api.connected:
           then:
+            - light.toggle: red_light
+          else:
             - if:
                 condition:
-                  switch.is_on: relay
+                  light.is_on: red_light
                 then:
-                  - light.turn_on: status_light
-                else:
-                  - light.turn_off: status_light
-          else:
-            - light.toggle: status_light
+                  - light.turn_off: red_light
