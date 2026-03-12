@@ -1,0 +1,81 @@
+---
+# Sonoff Basic Hardware Configuration
+# ESP8266EX relay socket (Sonoff Basic R2 / Sonoff S2X compatible)
+#
+# GPIO layout:
+#   GPIO0  - On-board button (inverted, active-low, internal pullup)
+#   GPIO12 - Relay output
+#   GPIO13 - Status LED (inverted): mirrors relay when API connected, blinks when not
+#
+# Required substitutions:
+#   relay_name: friendly name for the relay switch (e.g., "3D Printer")
+
+output:
+  - platform: gpio
+    id: led_output
+    pin:
+      number: GPIO13
+      inverted: true
+
+light:
+  - platform: binary
+    id: status_light
+    output: led_output
+    internal: true
+
+switch:
+  - platform: gpio
+    id: relay
+    name: ${relay_name}
+    pin: GPIO12
+    restore_mode: RESTORE_DEFAULT_OFF
+
+sensor:
+  - platform: uptime
+    name: "Uptime"
+    id: uptime_sensor
+    update_interval: 10s
+    entity_category: diagnostic
+    disabled_by_default: true
+
+binary_sensor:
+  - platform: gpio
+    id: physical_button
+    pin:
+      number: GPIO0
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+    name: "Physical Button"
+    internal: true
+    filters:
+      - delayed_on: 50ms
+      - delayed_off: 50ms
+    on_press:
+      - switch.toggle: relay
+
+interval:
+  - interval: 500ms
+    then:
+      - if:
+          condition:
+            not:
+              api.connected:
+          then:
+            - light.toggle: status_light
+          else:
+            - if:
+                condition:
+                  and:
+                    - switch.is_on: relay
+                    - light.is_off: status_light
+                then:
+                  - light.turn_on: status_light
+            - if:
+                condition:
+                  and:
+                    - switch.is_off: relay
+                    - light.is_on: status_light
+                then:
+                  - light.turn_off: status_light
