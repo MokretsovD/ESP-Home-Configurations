@@ -11,6 +11,7 @@ This repository contains a collection of ESPHome YAML configurations for various
   - [QRCode2 UART Scanner](#qrcode2-uart-scanner-qrcode2_uart)
 - [Shared Packages](#shared-packages)
 - [Configurations](#configurations)
+  - [Relay Sockets](#relay-sockets)
   - [Smart Electric Meter](#smart-electric-meter)
   - [Gas Meter (Gaszaehler)](#gas-meter-gaszaehler)
   - [Water Level Reservoir (wasserstand-regenreservoir)](#water-level-reservoir-wasserstand-regenreservoir)
@@ -248,6 +249,16 @@ The `packages/` directory contains reusable configuration components that can be
   - Disabled by default (can be enabled as needed)
 - **Dependencies:** Designed to work alongside `mqtt.yaml` package
 
+### WiFi Diagnostic Sensors (`wifi-diagnostic-sensors.yaml`)
+
+- **File:** `packages/wifi-diagnostic-sensors.yaml`
+- **Description:** WiFi connection diagnostics exposing network details and reconnection tracking.
+- **Features:**
+  - WiFi connect count tracking (increments on each reconnection)
+  - IP address and connected SSID text sensors
+  - Diagnostic entity category
+  - Disabled by default (can be enabled as needed)
+
 ### Internal Temperature Sensor - ESP32 (`internal-temp-sensor-esp32.yaml`)
 
 - **File:** `packages/internal-temp-sensor-esp32.yaml`
@@ -350,6 +361,43 @@ The `packages/` directory contains reusable configuration components that can be
 - **Documentation:** See `packages/device-configs/dfrobot-sen0610-presence.md` for detailed usage instructions
 - **Example:** See `packages/device-configs/examples/example-dfrobot-sen0610-usage.yaml`
 
+#### Sonoff Basic Socket Device Config (`device-configs/sonoff-basic.yaml`)
+
+- **File:** `packages/device-configs/sonoff-basic.yaml`
+- **Description:** Shared hardware configuration package for ESP8266-based relay sockets compatible with the Sonoff Basic R2 and Sonoff S2X GPIO layout.
+- **Features:**
+  - Relay control with restore-last-state on boot
+  - Physical button toggle (GPIO0, active-low with internal pullup)
+  - Mixed-behaviour status LED (GPIO13, inverted): mirrors relay state when API is connected, blinks when disconnected
+  - Uptime sensor (diagnostic, disabled by default)
+- **Board:** ESP8266 (`esp01_1m`, 1 MB flash)
+- **GPIO layout:**
+  - `GPIO0` — On-board button (inverted, active-low, internal pullup)
+  - `GPIO12` — Relay output
+  - `GPIO13` — Status LED (inverted)
+- **Required substitutions:** `relay_name`
+- **Used in:** `3d-printer-socket.yaml`, `biqu-air-filter-socket.yaml`
+
+#### Fantastic Outdoor Socket Device Config (`device-configs/fantastic-outdoor-socket.yaml`)
+
+- **File:** `packages/device-configs/fantastic-outdoor-socket.yaml`
+- **Description:** Shared hardware configuration package for ESP8285-based relay sockets using the "Fantastic Outdoor" PCB layout with a two-LED design.
+- **Features:**
+  - Relay control with restore-last-state on boot
+  - Physical button toggle (GPIO13, active-low with internal pullup)
+  - Green relay LED (GPIO4, inverted): on when relay is on
+  - Red status LED (GPIO5, inverted): blinks when API is disconnected, off when connected
+  - Reduced WiFi TX power (10 dBm), power-save disabled, and fast-connect enabled — tuned for co-located device pairs where RF interference is a concern
+  - Uptime sensor (diagnostic, disabled by default)
+- **Board:** ESP8285 (`esp8285`, 1 MB flash)
+- **GPIO layout:**
+  - `GPIO4` — Green relay indicator LED (inverted)
+  - `GPIO5` — Red status LED (inverted)
+  - `GPIO12` — Relay output
+  - `GPIO13` — On-board button (inverted, active-low, internal pullup)
+- **Required substitutions:** `relay_name`
+- **Used in:** `compressor.yaml`, `compressor-valve.yaml`
+
 #### RTTTL Buzzer Device Config (`device-configs/rtttl-buzzer.yaml`)
 
 - **File:** `packages/device-configs/rtttl-buzzer.yaml`
@@ -370,6 +418,46 @@ The `packages/` directory contains reusable configuration components that can be
 ---
 
 ## Configurations
+
+### Relay Sockets
+
+ESP8266-based relay sockets with Home Assistant API integration. Two hardware variants are covered by dedicated device config packages.
+
+#### Compressor Socket (`compressor.yaml`) and Compressor Valve Socket (`compressor-valve.yaml`)
+
+- **Files:** `compressor.yaml`, `compressor-valve.yaml`
+- **Description:** Controls mains power to a compressor and its valve. Two co-located sockets on the same PCB hardware.
+- **Hardware:** ESP8285N08 — "Fantastic Outdoor" socket PCB
+- **Features:**
+  - Remote relay control via Home Assistant API
+  - Physical button toggle
+  - Green LED indicates relay state; red LED blinks when API is disconnected
+  - Reduced WiFi TX power (10 dBm) to minimise RF interference between the two co-located devices
+- **Common Config:** Uses `packages/device-configs/fantastic-outdoor-socket.yaml`
+
+#### 3D Printer Socket (`3d-printer-socket.yaml`)
+
+- **File:** `3d-printer-socket.yaml`
+- **Description:** Controls mains power to a 3D printer.
+- **Hardware:** ESP8266EX — Sonoff Basic R2
+- **Features:**
+  - Remote relay control via Home Assistant API
+  - Physical button toggle
+  - Status LED mirrors relay state when connected, blinks when disconnected
+- **Common Config:** Uses `packages/device-configs/sonoff-basic.yaml`
+
+#### BIQU Air Filter Socket (`biqu-air-filter-socket.yaml`)
+
+- **File:** `biqu-air-filter-socket.yaml`
+- **Description:** Controls mains power to a BIQU air filter unit.
+- **Hardware:** ESP8266EX — Sonoff S2X
+- **Features:**
+  - Remote relay control via Home Assistant API
+  - Physical button toggle
+  - Status LED mirrors relay state when connected, blinks when disconnected
+- **Common Config:** Uses `packages/device-configs/sonoff-basic.yaml`
+
+---
 
 ### Smart Electric Meter
 
