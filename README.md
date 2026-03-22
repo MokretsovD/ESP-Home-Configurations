@@ -439,7 +439,7 @@ The `packages/` directory contains reusable configuration components that can be
 - **Requirements:**
   - Custom `diesel_heater_rf` component (see [Custom Components](#custom-components))
   - Arduino framework
-- **Required substitutions:** `heater_address`, `heater_sck_pin`, `heater_miso_pin`, `heater_mosi_pin`, `heater_cs_pin`, `heater_gdo2_pin`
+- **Required substitutions:** `heater_address`, `heater_sck_pin`, `heater_miso_pin`, `heater_mosi_pin`, `heater_cs_pin`, `heater_gdo2_pin`, `heater_frequency`, `heater_frequency_offset_hz`
 - **Used in:** `diesel-heater.yaml`
 
 #### RTTTL Buzzer Device Config (`device-configs/rtttl-buzzer.yaml`)

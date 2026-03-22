@@ -65,7 +65,7 @@ diesel_heater_rf:
   mosi_pin: 23                   # optional, default 23
   cs_pin: 5                      # optional, default 5
   gdo2_pin: 4                    # optional, default 4
-  update_interval: 10s           # optional, default 10s
+  update_interval: 60s           # optional, default 60s
 
   state_sensor:
     name: "Heater State"
@@ -97,17 +97,19 @@ diesel_heater_rf:
 
 ## Sensors
 
-| Sensor             | Type          | Unit | Description                                    |
-|--------------------|---------------|------|------------------------------------------------|
-| `state_sensor`     | Text sensor   | —    | Operational state: Off, Startup, Warming, Running, Cooling, etc. |
-| `ambient_temp_sensor` | Sensor     | °C   | Ambient air temperature                        |
-| `case_temp_sensor` | Sensor        | °C   | Heat exchanger / case temperature              |
-| `setpoint_sensor`  | Sensor        | °C   | Current temperature setpoint                   |
-| `heat_level_sensor`| Sensor        | —    | Heat output level (1–10)                       |
-| `pump_freq_sensor` | Sensor        | Hz   | Fuel pump frequency (manual mode)              |
-| `voltage_sensor`   | Sensor        | V    | Supply voltage                                 |
-| `rssi_sensor`      | Sensor        | dBm  | RF signal strength                             |
-| `auto_mode_sensor` | Binary sensor | —    | `true` = thermostat mode, `false` = manual Hz mode |
+| Sensor                      | Type          | Unit | Description                                                        |
+|-----------------------------|---------------|------|--------------------------------------------------------------------|
+| `state_sensor`              | Text sensor   | —    | Operational state: Off, Startup, Warming, Running, Cooling, etc.   |
+| `ambient_temp_sensor`       | Sensor        | °C   | Ambient air temperature                                            |
+| `case_temp_sensor`          | Sensor        | °C   | Heat exchanger / case temperature                                  |
+| `setpoint_sensor`           | Sensor        | °C   | Current temperature setpoint                                       |
+| `heat_level_sensor`         | Sensor        | —    | Heat output level (1–10)                                           |
+| `pump_freq_sensor`          | Sensor        | Hz   | Fuel pump frequency (manual mode)                                  |
+| `voltage_sensor`            | Sensor        | V    | Supply voltage                                                     |
+| `rssi_sensor`               | Sensor        | dBm  | RF signal strength                                                 |
+| `auto_mode_sensor`          | Binary sensor | —    | `true` = thermostat mode, `false` = manual Hz mode                 |
+| `found_address_sensor`      | Text sensor   | —    | RF address found by the `find_address` scan                        |
+| `transceiver_status_sensor` | Text sensor   | —    | CC1101 init result and any reinit errors                           |
 
 ## Home Assistant Services
 
@@ -148,7 +150,7 @@ All services are registered under `esphome.<device_name>_<service>`.
 
 - **Non-blocking architecture**: all RF activity runs through a command queue in `loop()`. `update()` only enqueues a status poll and returns immediately. No operation blocks for more than 400 ms per loop cycle.
 - **`set_value` is re-evaluated**: the pseudo-command stays in the queue and inserts one UP or DOWN step at a time, confirmed against the heater state response, until the target is reached. Interruptions (e.g. RF gaps) are handled automatically on the next cycle.
-- **Toggle commands** (`mode`, `power`) send exactly 1 RF packet. Sending multiple packets would cause multiple toggles cancelling each other out.
+- **Toggle commands** (`mode`, `power`) use a 14-packet burst for the initial TX and each retransmit. All packets in a burst share the same sequence number, and retransmits use `resendLastCommand()` to keep the same sequence number across retransmit cycles. The heater de-duplicates by sequence number, so the entire burst — including retransmits — counts as exactly one toggle.
 - **`HEATER_CMD_WAKEUP` (0x23) is a status poll**, not a session-establishment wakeup. The heater responds to any valid command regardless of its WOR (Wake-On-Radio) sleep state.
 - **CC1101 config recovery**: VCC noise during TX bursts can corrupt CC1101 registers (most visibly SYNC1), causing received packets to go unrecognised. The component checks SYNC1 every 4 retransmits (~1.6 s) and reinitialises if needed. Add 100 nF ceramic + 10 µF electrolytic decoupling capacitors close to the CC1101 VCC pin to reduce occurrence.
 - The component is compatible with the original physical remote — both can coexist on the same RF network simultaneously.

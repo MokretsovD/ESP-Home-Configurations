@@ -177,9 +177,9 @@ void DieselHeaterRFComponent::loop() {
       if (auto_mode_sensor_ != nullptr)
         auto_mode_sensor_->publish_state(state.autoMode);
 
-      ESP_LOGD(TAG, "state=%s power=%d setpoint=%d°C pumpFreq=%.1fHz ambient=%d°C voltage=%.1fV",
-               state_to_string(state.state), state.power, state.setpoint,
-               state.pumpFreq, state.ambientTemp, state.voltage);
+      ESP_LOGD(TAG, "state=%s mode=%s power=%d setpoint=%d°C pumpFreq=%.1fHz ambient=%d°C voltage=%.1fV",
+               state_to_string(state.state), state.autoMode ? "auto" : "manual",
+               state.power, state.setpoint, state.pumpFreq, state.ambientTemp, state.voltage);
 
       // MODE is a single-packet toggle: only pop when the toggle is confirmed in the response.
       // If the heater acknowledged but auto_mode didn't change, stay in IDLE and retry.

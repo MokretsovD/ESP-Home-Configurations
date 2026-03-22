@@ -35,44 +35,95 @@ diesel_heater_rf:
   frequency_offset_hz: ${heater_frequency_offset_hz}
 
   state_sensor:
-    name: "${friendly_name} State"
-    icon: "mdi:fire"
+    id: diesel_heater_state_raw
+    internal: true
 
   ambient_temp_sensor:
     name: "${friendly_name} Ambient Temperature"
+    filters:
+      - or:
+          - throttle: 5min
+          - delta: 1
 
   case_temp_sensor:
     name: "${friendly_name} Case Temperature"
     entity_category: diagnostic
+    filters:
+      - or:
+          - throttle: 5min
+          - delta: 1
 
   setpoint_sensor:
     name: "${friendly_name} Temperature Setpoint"
+    filters:
+      - or:
+          - throttle: 5min
+          - delta: 1
 
   heat_level_sensor:
     name: "${friendly_name} Heat Level"
     icon: "mdi:fire-circle"
+    filters:
+      - or:
+          - throttle: 5min
+          - delta: 1
 
   pump_freq_sensor:
     name: "${friendly_name} Pump Frequency"
     icon: "mdi:pump"
     entity_category: diagnostic
+    filters:
+      - or:
+          - throttle: 5min
+          - delta: 0.1
 
   voltage_sensor:
     name: "${friendly_name} Supply Voltage"
     entity_category: diagnostic
+    filters:
+      - or:
+          - throttle: 5min
+          - delta: 0.1
 
   rssi_sensor:
     name: "${friendly_name} RF Signal Strength"
+    filters:
+      - or:
+          - throttle: 5min
+          - delta: 3
 
   auto_mode_sensor:
     name: "${friendly_name} Auto Mode"
     icon: "mdi:thermostat"
 
   found_address_sensor:
-    name: "${friendly_name} Found RF Address"
+    id: diesel_heater_found_address_raw
+    internal: true
 
   transceiver_status_sensor:
+    id: diesel_heater_transceiver_status_raw
+    internal: true
+
+text_sensor:
+  - platform: deduplicate_text
+    name: "${friendly_name} State"
+    icon: "mdi:fire"
+    lambda: return id(diesel_heater_state_raw).state;
+    update_interval: 5s
+
+  - platform: deduplicate_text
+    name: "${friendly_name} Found RF Address"
+    entity_category: diagnostic
+    icon: "mdi:identifier"
+    lambda: return id(diesel_heater_found_address_raw).state;
+    update_interval: 5s
+
+  - platform: deduplicate_text
     name: "${friendly_name} Transceiver Status"
+    entity_category: diagnostic
+    icon: "mdi:radio-tower"
+    lambda: return id(diesel_heater_transceiver_status_raw).state;
+    update_interval: 5s
 
 number:
   - platform: template

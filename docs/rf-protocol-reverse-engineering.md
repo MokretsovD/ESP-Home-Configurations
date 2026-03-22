@@ -247,8 +247,8 @@ to the 433 MHz version — only the carrier frequency changes:
 | Parameter | 433 MHz | 868 MHz |
 |-----------|---------|---------|
 | CC1101 FREQ2 | `0x10` | `0x21` |
-| CC1101 FREQ1 | `0xB1` | `0x6E` |
-| CC1101 FREQ0 | `0x3B` | `0x6A` |
+| CC1101 FREQ1 | `0xB0` | `0x65` |
+| CC1101 FREQ0 | `0x9E` | `0x6F` |
 | Carrier | 433.92 MHz | 868.30 MHz |
 | Modulation | GFSK | GFSK |
 | Baud rate | ~10 kbps | ~10 kbps |
