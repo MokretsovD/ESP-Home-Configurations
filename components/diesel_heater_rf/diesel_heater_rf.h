@@ -41,8 +41,13 @@ class DieselHeaterRFComponent : public PollingComponent, public api::CustomAPIDe
   void set_debug_mode(bool v) { debug_mode_ = v; }
   bool is_debug_mode() const { return debug_mode_; }
   void set_poll_interval_seconds(float seconds) {
-    set_update_interval((uint32_t)(seconds * 1000.0f));
-    start_poller();
+    user_poll_interval_ms_ = (uint32_t)(seconds * 1000.0f);
+    // Only restart poller if not in offline backoff — backoff is managed via
+    // next_backoff_probe_ms_, not via update_interval, to avoid duplicate timers.
+    if (!offline_) {
+      set_update_interval(user_poll_interval_ms_);
+      start_poller();
+    }
   }
 
   void setup() override;
@@ -98,6 +103,18 @@ class DieselHeaterRFComponent : public PollingComponent, public api::CustomAPIDe
   text_sensor::TextSensor *found_address_sensor_{nullptr};
   text_sensor::TextSensor *transceiver_status_sensor_{nullptr};
 
+  // Offline detection and backoff.
+  // Backoff probing is driven by next_backoff_probe_ms_ checked in update(), NOT by
+  // changing update_interval — start_poller() creates a new scheduler entry on every
+  // call without cancelling the old one, so using it for backoff creates duplicate timers.
+  // Backoff steps (ms): 30 s → 1 min → 2 min → 5 min → 15 min → 30 min → 1 h
+  static constexpr uint32_t kBackoffMs[] = {30000, 60000, 120000, 300000, 900000, 1800000, 3600000};
+  static constexpr uint8_t kBackoffSteps = sizeof(kBackoffMs) / sizeof(kBackoffMs[0]);
+  bool offline_{false};
+  uint8_t backoff_step_{0};
+  uint32_t next_backoff_probe_ms_{0};  // millis() timestamp when the next offline probe is due
+  uint32_t user_poll_interval_ms_{60000};
+
   bool find_address_active_{false};
   uint8_t find_address_attempts_{0};
   uint32_t find_address_last_ms_{0};
@@ -106,6 +123,7 @@ class DieselHeaterRFComponent : public PollingComponent, public api::CustomAPIDe
   PollPhase poll_phase_{PollPhase::IDLE};
   uint32_t poll_rx_deadline_ms_{0};
 
+  bool initial_update_seen_{false};  // suppresses the immediate update() ESPHome fires at t=0
   bool debug_mode_{false};
   uint32_t debug_last_ms_{0};
   uint32_t debug_reg_dump_ms_{0};  // tracks periodic register readback in debug mode
@@ -116,6 +134,7 @@ class DieselHeaterRFComponent : public PollingComponent, public api::CustomAPIDe
   uint8_t cca_mode_{0};  // 0 = always TX, 3 = RSSI+no RX
 
   static const char *state_to_string(uint8_t state);
+  void reset_backoff_if_offline_();
 };
 
 }  // namespace diesel_heater_rf

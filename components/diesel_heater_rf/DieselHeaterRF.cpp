@@ -16,7 +16,7 @@
  * Protocol notes (reverse-engineered):
  *   TX packet: 10 bytes — [0x09 (len), cmd, addr[3:0], seq, crc_hi, crc_lo, 0x00]
  *   RX packet: 26 bytes — 23 data bytes + 2 CC1101 APPEND_STATUS bytes (RSSI, LQI/CRC_OK)
- *   HEATER_CMD_WAKEUP (0x23): requests a state packet; also acts as a keep-alive ping
+ *   HEATER_CMD_GET_STATUS (0x23): requests a state packet; also acts as a keep-alive ping
  *   HEATER_CMD_MODE (0x24), HEATER_CMD_POWER (0x2B): toggle commands — each unique-seq
  *     packet fires one toggle, so send exactly 1 packet per desired toggle
  *   HEATER_CMD_UP (0x3C), HEATER_CMD_DOWN (0x3E): accumulator commands — heater applies
@@ -143,7 +143,7 @@ void DieselHeaterRF::sendCommand(uint8_t cmd, uint32_t addr, uint8_t numTransmit
     do {
       ms = writeReg(0xF5, 0xFF);
       if (millis() - t > 50) {   // should exit in <1 ms with CCA disabled
-        writeReg(0x17, 0x00);
+        writeReg(0x17, (_ccaMode << 4));
         writeStrobe(0x36);
         return;
       }
@@ -159,7 +159,7 @@ void DieselHeaterRF::sendCommand(uint8_t cmd, uint32_t addr, uint8_t numTransmit
       ms = writeReg(0xF5, 0xFF);
       delay(1);
       if (millis() - t > 100) {
-        writeReg(0x17, 0x00);
+        writeReg(0x17, (_ccaMode << 4));
         writeStrobe(0x36);
         return;
       }
@@ -188,7 +188,7 @@ void DieselHeaterRF::resendLastCommand(uint8_t numTransmits) {
     uint8_t ms;
     do {
       ms = writeReg(0xF5, 0xFF);
-      if (millis() - t > 50) { writeReg(0x17, 0x00); writeStrobe(0x36); return; }
+      if (millis() - t > 50) { writeReg(0x17, (_ccaMode << 4)); writeStrobe(0x36); return; }
     } while (ms == 0x01 || ms == 0x12);
 
     _lastTxActive = true;
@@ -197,7 +197,7 @@ void DieselHeaterRF::resendLastCommand(uint8_t numTransmits) {
     do {
       ms = writeReg(0xF5, 0xFF);
       delay(1);
-      if (millis() - t > 100) { writeReg(0x17, 0x00); writeStrobe(0x36); return; }
+      if (millis() - t > 100) { writeReg(0x17, (_ccaMode << 4)); writeStrobe(0x36); return; }
     } while (ms != 0x12);
   }
 

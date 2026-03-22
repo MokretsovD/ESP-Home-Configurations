@@ -19,8 +19,8 @@ Based on [DieselHeaterRF by Jarno Kyttälä](https://github.com/jakkik/DieselHea
 
 ### Default Wiring (CC1101 → ESP32)
 
-| CC1101 | ESP32 |
-|--------|-------|
+| CC1101 | ESP32  |
+|--------|--------|
 | GDO2   | GPIO4  |
 | SCK    | GPIO18 |
 | MOSI   | GPIO23 |
@@ -115,15 +115,15 @@ diesel_heater_rf:
 
 All services are registered under `esphome.<device_name>_<service>`.
 
-| Service           | Parameters         | Description                                                     |
-|-------------------|--------------------|----------------------------------------------------------------|
-| `power`           | —                  | Toggle heater on/off                                           |
-| `get_status`      | —                  | Request a state packet from the heater immediately             |
-| `mode`            | —                  | Toggle between auto (thermostat) and manual (pump Hz) mode     |
-| `temp_up`         | —                  | Increase setpoint by 1°C                                       |
-| `temp_down`       | —                  | Decrease setpoint by 1°C                                       |
-| `set_value`       | `value` (float)    | Auto mode: drive setpoint to target °C (8–35). Manual mode: drive pump frequency to target Hz (1.7–5.5). Sends UP/DOWN steps via non-blocking queue until target is confirmed in heater state. |
-| `find_address`    | —                  | Listen for 10 s and log the heater's RF address                |
+| Service | Parameters | Description |
+| --- | --- | --- |
+| `power` | — | Toggle heater on/off |
+| `get_status` | — | Request a state packet from the heater immediately |
+| `mode` | — | Toggle between auto (thermostat) and manual (pump Hz) mode |
+| `temp_up` | — | Increase setpoint by 1°C |
+| `temp_down` | — | Decrease setpoint by 1°C |
+| `set_value` | `value` (float) | Auto mode: sets temperature target (8–35°C); manual mode: sets pump frequency target (1.7–5.5 Hz). Drives to target using UP/DOWN steps confirmed against heater state. |
+| `find_address` | — | Listen for 10 s and log the heater's RF address |
 
 ## First-Time Setup: Finding the Heater Address
 
@@ -151,6 +151,6 @@ All services are registered under `esphome.<device_name>_<service>`.
 - **Non-blocking architecture**: all RF activity runs through a command queue in `loop()`. `update()` only enqueues a status poll and returns immediately. No operation blocks for more than 400 ms per loop cycle.
 - **`set_value` is re-evaluated**: the pseudo-command stays in the queue and inserts one UP or DOWN step at a time, confirmed against the heater state response, until the target is reached. Interruptions (e.g. RF gaps) are handled automatically on the next cycle.
 - **Toggle commands** (`mode`, `power`) use a 14-packet burst for the initial TX and each retransmit. All packets in a burst share the same sequence number, and retransmits use `resendLastCommand()` to keep the same sequence number across retransmit cycles. The heater de-duplicates by sequence number, so the entire burst — including retransmits — counts as exactly one toggle.
-- **`HEATER_CMD_WAKEUP` (0x23) is a status poll**, not a session-establishment wakeup. The heater responds to any valid command regardless of its WOR (Wake-On-Radio) sleep state.
+- **`HEATER_CMD_GET_STATUS` (0x23) is a status poll**, not a session-establishment wakeup. The heater responds to any valid command regardless of its WOR (Wake-On-Radio) sleep state.
 - **CC1101 config recovery**: VCC noise during TX bursts can corrupt CC1101 registers (most visibly SYNC1), causing received packets to go unrecognised. The component checks SYNC1 every 4 retransmits (~1.6 s) and reinitialises if needed. Add 100 nF ceramic + 10 µF electrolytic decoupling capacitors close to the CC1101 VCC pin to reduce occurrence.
 - The component is compatible with the original physical remote — both can coexist on the same RF network simultaneously.

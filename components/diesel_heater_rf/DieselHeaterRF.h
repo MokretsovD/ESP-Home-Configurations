@@ -32,7 +32,7 @@
 #define HEATER_SS_PIN    5
 #define HEATER_GDO2_PIN  4
 
-#define HEATER_CMD_WAKEUP 0x23
+#define HEATER_CMD_GET_STATUS 0x23
 #define HEATER_CMD_MODE   0x24
 #define HEATER_CMD_POWER  0x2b
 #define HEATER_CMD_UP     0x3c

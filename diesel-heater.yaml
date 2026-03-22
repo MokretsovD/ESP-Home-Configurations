@@ -43,7 +43,7 @@ esp32:
     type: arduino
 
 logger:
-  level: DEBUG
+  level: INFO
 
 api:
   encryption:

@@ -10,6 +10,7 @@ void DieselHeaterRFComponent::setup() {
   heater_->setFrequency(freq2_, freq1_, freq0_);
   heater_->setCcaMode(cca_mode_);
   heater_->begin(addr_);
+  user_poll_interval_ms_ = get_update_interval();
   ESP_LOGI(TAG, "Initialized: address=0x%08X freq=0x%02X%02X%02X", addr_, freq2_, freq1_, freq0_);
 
   uint8_t partnum = heater_->getPartNum();
@@ -50,9 +51,14 @@ void DieselHeaterRFComponent::setup() {
   register_service(&DieselHeaterRFComponent::on_temp_down, "temp_down");
   register_service(&DieselHeaterRFComponent::on_set_value, "set_value", {"value"});
   register_service(&DieselHeaterRFComponent::on_find_address, "find_address");
+
+  // Delay the first poll by 15 s to let other startup routines settle before
+  // occupying the SPI bus with RF activity.
+  set_timeout(20000, [this]() { pending_cmds_.push_back(HEATER_CMD_GET_STATUS); });
 }
 
 void DieselHeaterRFComponent::update() {
+  if (!initial_update_seen_) { initial_update_seen_ = true; return; }
   if (debug_mode_ || find_address_active_) return;
 
   // Verify CC1101 is still configured (SYNC1 should be 0x7E).
@@ -74,38 +80,62 @@ void DieselHeaterRFComponent::update() {
     ESP_LOGI(TAG, "CC1101 reinit OK");
   }
 
-  // HEATER_CMD_WAKEUP (0x23) is a status-poll: requests a state packet from the heater.
+  if (offline_) {
+    // In offline mode probing is timed by next_backoff_probe_ms_, not by update_interval.
+    // update() still fires on the normal schedule (for the CC1101 health check above),
+    // but only enqueues a probe when the backoff window has elapsed.
+    if (millis() < next_backoff_probe_ms_) return;
+    ESP_LOGD(TAG, "Offline probe (backoff step %d/%d, interval %lus)",
+             backoff_step_ + 1, (int)kBackoffSteps, (unsigned long)(kBackoffMs[backoff_step_] / 1000));
+  }
+
+  // HEATER_CMD_GET_STATUS (0x23) is a status-poll: requests a state packet from the heater.
   // The heater responds to any valid command regardless of its WOR sleep state, so no
   // special wake sequence is needed — this is purely a periodic state refresh.
-  pending_cmds_.push_back(HEATER_CMD_WAKEUP);
+  pending_cmds_.push_back(HEATER_CMD_GET_STATUS);
 }
 
 // ---------------------------------------------------------------------------
 // Service handlers — enqueue commands; loop() drives all RF activity
 // ---------------------------------------------------------------------------
 
+// Reset backoff to step 0 when the user explicitly sends a command while offline,
+// so probing becomes aggressive again while the user is actively trying to connect.
+void DieselHeaterRFComponent::reset_backoff_if_offline_() {
+  if (!offline_) return;
+  backoff_step_ = 0;
+  next_backoff_probe_ms_ = millis() + kBackoffMs[0];
+  ESP_LOGI(TAG, "User command while offline — resetting backoff to %lus",
+           (unsigned long)(kBackoffMs[0] / 1000));
+}
+
 void DieselHeaterRFComponent::on_power() {
   ESP_LOGI(TAG, "Service: power toggle");
+  reset_backoff_if_offline_();
   pending_cmds_.push_back(HEATER_CMD_POWER);
 }
 
 void DieselHeaterRFComponent::on_get_status() {
   ESP_LOGI(TAG, "Service: get_status");
-  pending_cmds_.push_back(HEATER_CMD_WAKEUP);
+  reset_backoff_if_offline_();
+  pending_cmds_.push_back(HEATER_CMD_GET_STATUS);
 }
 
 void DieselHeaterRFComponent::on_mode() {
   ESP_LOGI(TAG, "Service: mode toggle (auto/manual)");
+  reset_backoff_if_offline_();
   pending_cmds_.push_back(HEATER_CMD_MODE);
 }
 
 void DieselHeaterRFComponent::on_temp_up() {
   ESP_LOGI(TAG, "Service: temp/freq up");
+  reset_backoff_if_offline_();
   pending_cmds_.push_back(HEATER_CMD_UP);
 }
 
 void DieselHeaterRFComponent::on_temp_down() {
   ESP_LOGI(TAG, "Service: temp/freq down");
+  reset_backoff_if_offline_();
   pending_cmds_.push_back(HEATER_CMD_DOWN);
 }
 
@@ -155,6 +185,12 @@ void DieselHeaterRFComponent::loop() {
       // ACK received — update sensors and pop the completed command
       poll_phase_ = PollPhase::IDLE;
       cmd_fail_count_ = 0;
+
+      if (offline_) {
+        offline_ = false;
+        backoff_step_ = 0;
+        ESP_LOGI(TAG, "Heater back online — resuming normal polling");
+      }
       last_setpoint_ = state.setpoint;
       last_pump_freq_ = state.pumpFreq;
       last_auto_mode_ = state.autoMode;
@@ -198,10 +234,29 @@ void DieselHeaterRFComponent::loop() {
       poll_phase_ = PollPhase::IDLE;
       cmd_fail_count_++;
       ESP_LOGW(TAG, "Cmd 0x%02X timed out (fail_count=%d)", current_cmd_, cmd_fail_count_);
+
+      // Each failed GET_STATUS probe while offline advances the backoff window.
+      // Backoff timing uses next_backoff_probe_ms_ checked in update() — no start_poller()
+      // call here, because start_poller() adds a new scheduler entry without cancelling
+      // the old one, causing duplicate update() timers with increasingly wrong intervals.
       if (cmd_fail_count_ >= 10) {
         ESP_LOGE(TAG, "10 consecutive command failures — heater unreachable, clearing queue");
         pending_cmds_.clear();
         cmd_fail_count_ = 0;
+        if (offline_) {
+          // Already offline — advance backoff step for next probe
+          if (backoff_step_ + 1 < kBackoffSteps) backoff_step_++;
+          next_backoff_probe_ms_ = millis() + kBackoffMs[backoff_step_];
+          ESP_LOGI(TAG, "Heater offline — next probe in %lus (step %d/%d)",
+                   (unsigned long)(kBackoffMs[backoff_step_] / 1000), backoff_step_ + 1, (int)kBackoffSteps);
+        } else {
+          offline_ = true;
+          backoff_step_ = 0;
+          next_backoff_probe_ms_ = millis() + kBackoffMs[0];
+          if (state_sensor_ != nullptr) state_sensor_->publish_state("Offline");
+          ESP_LOGE(TAG, "Heater offline — first probe in %lus",
+                   (unsigned long)(kBackoffMs[0] / 1000));
+        }
       }
     } else {
       // 400 ms window elapsed, deadline not yet reached — retransmit.
