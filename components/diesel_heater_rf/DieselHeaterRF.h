@@ -126,6 +126,12 @@ class DieselHeaterRF
         // Call this instead of begin() when SPI is already initialised.
         void reinitRadio() { initRadio(); }
 
+        // Re-transmit the last sent command packet using the same sequence number.
+        // Toggle commands (MODE, POWER) are de-duplicated by the heater on sequence number,
+        // so this achieves a larger RF burst (better WOR window hit probability) without
+        // firing an additional toggle. Use instead of sendCommand() for toggle retransmits.
+        void resendLastCommand(uint8_t numTransmits);
+
     private:
 
         uint8_t _pinSck;

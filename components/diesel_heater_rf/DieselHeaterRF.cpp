@@ -174,6 +174,39 @@ void DieselHeaterRF::sendCommand(uint8_t cmd, uint32_t addr, uint8_t numTransmit
 
 }
 
+void DieselHeaterRF::resendLastCommand(uint8_t numTransmits) {
+  if (_lastTxBuf[0] == 0) return;  // no prior command (buf[0]=9 for valid packets)
+
+  unsigned long t;
+
+  writeReg(0x17, 0x01); // MCSM1: CCA_MODE=0, TXOFF_MODE=FSTXON
+  txFlush();
+
+  for (int i = 0; i < numTransmits; i++) {
+    writeBurst(0x7F, 10, (char*)_lastTxBuf);
+    writeStrobe(0x35);  // STX
+
+    t = millis();
+    uint8_t ms;
+    do {
+      ms = writeReg(0xF5, 0xFF);
+      if (millis() - t > 50) { writeReg(0x17, 0x00); writeStrobe(0x36); return; }
+    } while (ms == 0x01 || ms == 0x12);
+
+    _lastTxActive = true;
+
+    t = millis();
+    do {
+      ms = writeReg(0xF5, 0xFF);
+      delay(1);
+      if (millis() - t > 100) { writeReg(0x17, 0x00); writeStrobe(0x36); return; }
+    } while (ms != 0x12);
+  }
+
+  writeReg(0x17, 0x00);
+  writeStrobe(0x36);  // SIDLE
+}
+
 uint8_t DieselHeaterRF::getPartNum()   { return writeReg(0xF0, 0xFF); }
 uint8_t DieselHeaterRF::getVersion()   { return writeReg(0xF1, 0xFF); }
 uint8_t DieselHeaterRF::getMarcstate() { return writeReg(0xF5, 0xFF); }

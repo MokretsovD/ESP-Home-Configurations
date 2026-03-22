@@ -204,19 +204,22 @@ void DieselHeaterRFComponent::loop() {
       }
     } else {
       // 400 ms window elapsed, deadline not yet reached — retransmit.
-      // MODE/POWER are toggle commands: each unique-seq packet fires one toggle, so sending
-      // N packets = N toggles. Use exactly 1 packet per retransmit to avoid double-toggling.
+      // Each sendCommand() increments the sequence number — the heater fires one action per
+      // unique seq (one toggle for MODE/POWER, one step for UP/DOWN). Retransmits must reuse
+      // the same seq so the heater de-duplicates them; resendLastCommand() achieves this while
+      // still sending a 14-packet burst (~70 ms) for better WOR window hit probability.
       ESP_LOGD(TAG, "No response — retransmitting cmd 0x%02X", current_cmd_);
-      bool is_toggle = (current_cmd_ == HEATER_CMD_MODE || current_cmd_ == HEATER_CMD_POWER);
-      heater_->sendCommand(current_cmd_, addr_, is_toggle ? 1 : 14);
-      // Check CC1101 SYNC1 every 4 retransmits (~1.6 s). CC1101 is in IDLE after sendCommand
-      // so no marcstate guard is needed. VCC noise during TX bursts can corrupt SYNC1 causing
-      // heater state packets to go unrecognised even though TX still works.
+      heater_->resendLastCommand(14);
+      // Check CC1101 SYNC1 every 4 retransmits (~1.6 s). Only check when IDLE (after
+      // sendCommand/resendLastCommand the CC1101 is in IDLE, but marcstate guard prevents
+      // false alarms from any brief transitional state during synthesizer power-down).
       if ((++reinit_check_counter_ & 0x03) == 0) {
-        uint8_t sync1 = heater_->readConfigReg(0x04);
-        if (sync1 != 0x7E) {
-          ESP_LOGW(TAG, "CC1101 config lost mid-TX (SYNC1=0x%02X) — reinitialising", sync1);
-          heater_->reinitRadio();
+        if (heater_->getMarcstate() == 0x01) {
+          uint8_t sync1 = heater_->readConfigReg(0x04);
+          if (sync1 != 0x7E) {
+            ESP_LOGW(TAG, "CC1101 config lost mid-TX (SYNC1=0x%02X) — reinitialising", sync1);
+            heater_->reinitRadio();
+          }
         }
       }
     }
@@ -336,11 +339,11 @@ void DieselHeaterRFComponent::loop() {
   if (cmd == HEATER_CMD_MODE)
     mode_toggle_expected_ = !last_auto_mode_;
 
-  // Transmit — MODE/POWER are toggle commands (1 packet each); all others use 14-packet burst
+  // Transmit — 14-packet burst for all commands. Within a single sendCommand() call all
+  // packets share the same _packetSeq, so the heater still counts it as one toggle/step.
   current_cmd_ = cmd;
-  bool is_toggle = (cmd == HEATER_CMD_MODE || cmd == HEATER_CMD_POWER);
   ESP_LOGD(TAG, "TX cmd 0x%02X (queue depth=%d)", cmd, (int) pending_cmds_.size());
-  heater_->sendCommand(cmd, addr_, is_toggle ? 1 : 14);
+  heater_->sendCommand(cmd, addr_, 14);
   poll_phase_ = PollPhase::RX;
   poll_rx_deadline_ms_ = millis() + 8000;
 }
