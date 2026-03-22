@@ -25,6 +25,8 @@ substitutions:
   # Measure the gap between module and remote/heater signals in SDR++ and set accordingly.
   # Example: if module is 50 kHz below remote, use "50000".
   heater_frequency_offset_hz: "36000"
+  # CC1101 CCA mode: 0=always TX, 1=RSSI below threshold, 2=not receiving, 3=RSSI+not receiving
+  heater_cca_mode: "0"
 
 esphome:
   name: ${name}
@@ -41,7 +43,7 @@ esp32:
     type: arduino
 
 logger:
-  level: INFO
+  level: DEBUG
 
 api:
   encryption:

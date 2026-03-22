@@ -125,10 +125,10 @@ void DieselHeaterRF::sendCommand(uint8_t cmd, uint32_t addr, uint8_t numTransmit
 
   _lastTxActive = false;
 
-  // CCA_MODE=3: transmit only when RSSI below threshold AND not receiving a packet.
+  // CCA_MODE configurable via setCcaMode(): 0 = always TX (default), 3 = RSSI+no RX.
   // TXOFF_MODE=FSTXON: synthesizer stays locked between packets — single calibration keeps
   // all N packets on the same frequency (eliminates spectral drift seen on waterfall).
-  writeReg(0x17, 0x31); // MCSM1: CCA_MODE=3, TXOFF_MODE=FSTXON
+  writeReg(0x17, (_ccaMode << 4) | 0x01); // MCSM1: CCA_MODE=_ccaMode, TXOFF_MODE=FSTXON
 
   txFlush();  // SIDLE + SFTX → reach IDLE, flush TX FIFO; first STX triggers one auto-cal
 
@@ -167,7 +167,7 @@ void DieselHeaterRF::sendCommand(uint8_t cmd, uint32_t addr, uint8_t numTransmit
   }
 
   // Restore MCSM1 and leave radio in IDLE
-  writeReg(0x17, 0x30); // MCSM1: CCA_MODE=3, TXOFF_MODE=IDLE
+  writeReg(0x17, (_ccaMode << 4)); // MCSM1: CCA_MODE=_ccaMode, TXOFF_MODE=IDLE
   writeStrobe(0x36);    // SIDLE
 
 }
@@ -177,7 +177,7 @@ void DieselHeaterRF::resendLastCommand(uint8_t numTransmits) {
 
   unsigned long t;
 
-  writeReg(0x17, 0x31); // MCSM1: CCA_MODE=3, TXOFF_MODE=FSTXON
+  writeReg(0x17, (_ccaMode << 4) | 0x01); // MCSM1: CCA_MODE=_ccaMode, TXOFF_MODE=FSTXON
   txFlush();
 
   for (int i = 0; i < numTransmits; i++) {
@@ -201,7 +201,7 @@ void DieselHeaterRF::resendLastCommand(uint8_t numTransmits) {
     } while (ms != 0x12);
   }
 
-  writeReg(0x17, 0x30); // MCSM1: CCA_MODE=3, TXOFF_MODE=IDLE
+  writeReg(0x17, (_ccaMode << 4)); // MCSM1: CCA_MODE=_ccaMode, TXOFF_MODE=IDLE
   writeStrobe(0x36);  // SIDLE
 }
 
@@ -336,7 +336,7 @@ void DieselHeaterRF::initRadio() {
   writeReg(0x13, 0x22); // MDMCFG1: NUM_PREAMBLE=4 bytes (matches original remote)
   writeReg(0x14, 0xF8); // MDMCFG0
   writeReg(0x15, 0x26); // DEVIATN
-  writeReg(0x17, 0x30); // MCSM1: CCA_MODE=3 (RSSI+no packet), TXOFF_MODE=IDLE
+  writeReg(0x17, (_ccaMode << 4)); // MCSM1: CCA_MODE=_ccaMode, TXOFF_MODE=IDLE
   writeReg(0x18, 0x18); // MCSM0
   writeReg(0x19, 0x17); // FOCCFG — FOC_LIMIT=±BW/2=±29 kHz (was 0x16=±14.5 kHz)
   writeReg(0x1A, 0x6C); // BSCFG

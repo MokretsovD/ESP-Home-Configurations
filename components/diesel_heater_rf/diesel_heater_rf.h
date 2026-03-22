@@ -37,6 +37,7 @@ class DieselHeaterRFComponent : public PollingComponent, public api::CustomAPIDe
   void set_found_address_sensor(text_sensor::TextSensor *s) { found_address_sensor_ = s; }
   void set_transceiver_status_sensor(text_sensor::TextSensor *s) { transceiver_status_sensor_ = s; }
   void set_freq(uint8_t f2, uint8_t f1, uint8_t f0) { freq2_ = f2; freq1_ = f1; freq0_ = f0; }
+  void set_cca_mode(uint8_t mode) { cca_mode_ = mode; }
   void set_debug_mode(bool v) { debug_mode_ = v; }
   bool is_debug_mode() const { return debug_mode_; }
   void set_poll_interval_seconds(float seconds) {
@@ -112,6 +113,7 @@ class DieselHeaterRFComponent : public PollingComponent, public api::CustomAPIDe
   uint8_t freq2_{0x10};
   uint8_t freq1_{0xB0};  // 433.938 MHz default
   uint8_t freq0_{0x9E};
+  uint8_t cca_mode_{0};  // 0 = always TX, 3 = RSSI+no RX
 
   static const char *state_to_string(uint8_t state);
 };

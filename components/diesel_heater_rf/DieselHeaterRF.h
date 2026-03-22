@@ -16,7 +16,7 @@
  *     software crc16_2 positions don't match this heater variant
  *   - FOCCFG 0x16→0x17 (FOC_LIMIT ±BW/4 → ±BW/2) for better frequency-offset tolerance
  *   - MDMCFG1 NUM_PREAMBLE set to match original remote (4 bytes)
- *   - MCSM1 CCA_MODE=3 in initRadio() and sendCommand() (RSSI below threshold + not receiving)
+ *   - MCSM1 CCA_MODE configurable via setCcaMode() (default 0 = always TX)
  *
  * Feel free to use this library as you please, but do it at your own risk!
  */
@@ -122,6 +122,11 @@ class DieselHeaterRF
         // Presets: 433.92 MHz → (0x10, 0xB0, 0x71), 868.30 MHz → (0x21, 0x65, 0x6F)
         void setFrequency(uint8_t freq2, uint8_t freq1, uint8_t freq0);
 
+        // Set CC1101 CCA_MODE (MCSM1 bits 5:4) before calling begin().
+        // 0 = always transmit (default), 1 = RSSI below threshold,
+        // 2 = not receiving, 3 = RSSI below threshold AND not receiving.
+        void setCcaMode(uint8_t mode) { _ccaMode = mode & 0x03; }
+
         // Re-run radio configuration without touching SPI bus setup.
         // Call this instead of begin() when SPI is already initialised.
         void reinitRadio() { initRadio(); }
@@ -147,6 +152,7 @@ class DieselHeaterRF
         uint8_t _freq2{0x10};
         uint8_t _freq1{0xB0};
         uint8_t _freq0{0x9E};  // 433.938 MHz
+        uint8_t _ccaMode{0};   // MCSM1 CCA_MODE bits 5:4; 0 = always TX (default)
 
         void initRadio();
 

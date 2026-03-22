@@ -33,6 +33,7 @@ diesel_heater_rf:
   gdo2_pin: ${heater_gdo2_pin}
   frequency: ${heater_frequency}
   frequency_offset_hz: ${heater_frequency_offset_hz}
+  cca_mode: ${heater_cca_mode}
 
   state_sensor:
     id: diesel_heater_state_raw

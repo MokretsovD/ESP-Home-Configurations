@@ -40,6 +40,7 @@ CONF_FOUND_ADDRESS_SENSOR = "found_address_sensor"
 CONF_TRANSCEIVER_STATUS_SENSOR = "transceiver_status_sensor"
 CONF_FREQUENCY = "frequency"
 CONF_FREQUENCY_OFFSET_HZ = "frequency_offset_hz"
+CONF_CCA_MODE = "cca_mode"
 
 FREQUENCY_PRESETS = {
     "433": (0x10, 0xB0, 0x9E),  # 433.938 MHz — FREQ_REG=1,093,790; nominal 433.92 but measured heater center is ~+19 kHz higher
@@ -57,6 +58,7 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Optional(CONF_GDO2_PIN, default=4): cv.int_,
         cv.Optional(CONF_FREQUENCY, default="433"): cv.one_of(*FREQUENCY_PRESETS, lower=True),
         cv.Optional(CONF_FREQUENCY_OFFSET_HZ, default=0): cv.int_,
+        cv.Optional(CONF_CCA_MODE, default=0): cv.int_range(min=0, max=3),
         cv.Optional(CONF_STATE_SENSOR): text_sensor.text_sensor_schema(),
         cv.Optional(CONF_VOLTAGE_SENSOR): sensor.sensor_schema(
             unit_of_measurement=UNIT_VOLT,
@@ -134,6 +136,7 @@ async def to_code(config):
         f1 = (freq_reg >> 8) & 0xFF
         f0 = freq_reg & 0xFF
     cg.add(var.set_freq(f2, f1, f0))
+    cg.add(var.set_cca_mode(config[CONF_CCA_MODE]))
 
     if CONF_STATE_SENSOR in config:
         s = await text_sensor.new_text_sensor(config[CONF_STATE_SENSOR])

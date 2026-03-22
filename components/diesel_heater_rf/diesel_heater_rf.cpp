@@ -8,6 +8,7 @@ static const char *const TAG = "diesel_heater_rf";
 void DieselHeaterRFComponent::setup() {
   heater_ = new DieselHeaterRF(sck_pin_, miso_pin_, mosi_pin_, cs_pin_, gdo2_pin_);
   heater_->setFrequency(freq2_, freq1_, freq0_);
+  heater_->setCcaMode(cca_mode_);
   heater_->begin(addr_);
   ESP_LOGI(TAG, "Initialized: address=0x%08X freq=0x%02X%02X%02X", addr_, freq2_, freq1_, freq0_);
 
