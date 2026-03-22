@@ -9,14 +9,14 @@
  *   - Added getMarcstate(), readConfigReg(), getFreqRegisters() for health-check and diagnostics
  *   - Added getLastTxActive() / getLastTxPacket() for TX verification
  *   - Added receiveRaw() for raw packet capture (debug mode)
- *   - Rewrote sendCommand(): CCA disabled (CCA_MODE=0) to prevent silent TX drops on busy channel;
- *     TXOFF_MODE=FSTXON for locked synthesizer between packets in a burst (single calibration,
- *     no frequency drift); explicit IDLE+FSTXON wait loop replaces timing-based delays
+ *   - Rewrote sendCommand(): CCA_MODE=3 (RSSI+no packet), TXOFF_MODE=FSTXON for locked
+ *     synthesizer between packets in a burst (single calibration, no frequency drift);
+ *     explicit IDLE+FSTXON wait loop replaces timing-based delays
  *   - CRC check in receivePacket() switched to hardware CRC (APPEND_STATUS bit7);
  *     software crc16_2 positions don't match this heater variant
  *   - FOCCFG 0x16→0x17 (FOC_LIMIT ±BW/4 → ±BW/2) for better frequency-offset tolerance
  *   - MDMCFG1 NUM_PREAMBLE set to match original remote (4 bytes)
- *   - MCSM1 CCA_MODE cleared in initRadio() default so TX fires unconditionally
+ *   - MCSM1 CCA_MODE=3 in initRadio() and sendCommand() (RSSI below threshold + not receiving)
  *
  * Feel free to use this library as you please, but do it at your own risk!
  */
