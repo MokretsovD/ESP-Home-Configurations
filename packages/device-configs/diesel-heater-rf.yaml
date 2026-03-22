@@ -1,0 +1,110 @@
+---
+# Diesel Heater RF Package
+# Controls a VEVOR/Chinese diesel heater via CC1101 433 MHz RF transceiver.
+# Protocol reverse-engineered from the four-button OLED remote.
+#
+# Hardware required:
+#   - ESP32 (any variant)
+#   - TI CC1101 transceiver module (e.g. Ebyte E07-M1101S)
+#
+# Default wiring (CC1101 → ESP32):
+#   GDO2 → GPIO4   SCK → GPIO18   MOSI → GPIO23
+#   MISO → GPIO19  CSn → GPIO5    VCC → 3V3   GND → GND
+#
+# Required substitutions:
+#   heater_address         - 32-bit RF address (hex, e.g. "0x12AB34CD")
+#                            Run the find_address HA service to discover it.
+#   heater_sck_pin         - SPI clock pin number (default 18)
+#   heater_miso_pin        - SPI MISO pin number  (default 19)
+#   heater_mosi_pin        - SPI MOSI pin number  (default 23)
+#   heater_cs_pin          - SPI chip-select pin  (default 5)
+#   heater_gdo2_pin        - CC1101 GDO2 pin      (default 4)
+#   heater_frequency       - RF carrier frequency: "433" (433.92 MHz, default)
+#                            or "868" (868.30 MHz for EU-market heaters)
+
+
+diesel_heater_rf:
+  id: diesel_heater_rf_component
+  heater_address: "${heater_address}"
+  sck_pin: ${heater_sck_pin}
+  miso_pin: ${heater_miso_pin}
+  mosi_pin: ${heater_mosi_pin}
+  cs_pin: ${heater_cs_pin}
+  gdo2_pin: ${heater_gdo2_pin}
+  frequency: ${heater_frequency}
+  frequency_offset_hz: ${heater_frequency_offset_hz}
+
+  state_sensor:
+    name: "${friendly_name} State"
+    icon: "mdi:fire"
+
+  ambient_temp_sensor:
+    name: "${friendly_name} Ambient Temperature"
+
+  case_temp_sensor:
+    name: "${friendly_name} Case Temperature"
+    entity_category: diagnostic
+
+  setpoint_sensor:
+    name: "${friendly_name} Temperature Setpoint"
+
+  heat_level_sensor:
+    name: "${friendly_name} Heat Level"
+    icon: "mdi:fire-circle"
+
+  pump_freq_sensor:
+    name: "${friendly_name} Pump Frequency"
+    icon: "mdi:pump"
+    entity_category: diagnostic
+
+  voltage_sensor:
+    name: "${friendly_name} Supply Voltage"
+    entity_category: diagnostic
+
+  rssi_sensor:
+    name: "${friendly_name} RF Signal Strength"
+
+  auto_mode_sensor:
+    name: "${friendly_name} Auto Mode"
+    icon: "mdi:thermostat"
+
+  found_address_sensor:
+    name: "${friendly_name} Found RF Address"
+
+  transceiver_status_sensor:
+    name: "${friendly_name} Transceiver Status"
+
+number:
+  - platform: template
+    name: "${friendly_name} Poll Interval"
+    icon: "mdi:timer-outline"
+    entity_category: config
+    unit_of_measurement: "s"
+    min_value: 10
+    max_value: 90
+    step: 1
+    initial_value: 60
+    optimistic: true
+    restore_value: true
+    on_value:
+      then:
+        - lambda: id(diesel_heater_rf_component).set_poll_interval_seconds(x);
+
+button:
+  - platform: template
+    name: "${friendly_name} Find RF Address"
+    entity_category: diagnostic
+    icon: "mdi:magnify"
+    on_press:
+      - lambda: id(diesel_heater_rf_component).on_find_address();
+
+switch:
+  - platform: template
+    name: "${friendly_name} RF Debug Mode"
+    entity_category: diagnostic
+    icon: "mdi:bug"
+    lambda: return id(diesel_heater_rf_component).is_debug_mode();
+    turn_on_action:
+      - lambda: id(diesel_heater_rf_component).set_debug_mode(true);
+    turn_off_action:
+      - lambda: id(diesel_heater_rf_component).set_debug_mode(false);

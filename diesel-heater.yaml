@@ -1,0 +1,62 @@
+---
+substitutions:
+  name: diesel-heater
+  friendly_name: Diesel Heater
+  device_static_ip: !secret diesel_heater_wifi_manual_ip_static_ip
+  device_ap_ssid: "Diesel-Heater"
+  device_ap_password: !secret diesel_heater_wifi_ap_password
+  wifi_ssid: !secret wifi_ssid
+  wifi_password: !secret wifi_password
+  wifi_manual_ip_gateway: !secret wifi_manual_ip_gateway
+  wifi_manual_ip_subnet: !secret wifi_manual_ip_subnet
+
+  # RF address of your heater — run the find_address HA service to discover it,
+  # then replace the value below and re-flash.
+  heater_address: !secret diesel_heater_address
+
+  # CC1101 wiring — defaults match the reference schematic (GPIO4/18/19/23/5)
+  heater_gdo2_pin: "4"
+  heater_sck_pin: "18"
+  heater_miso_pin: "19"
+  heater_mosi_pin: "23"
+  heater_cs_pin: "5"
+  heater_frequency: "433"
+  # Compensate for CC1101 crystal offset. Positive = shift up (right on waterfall).
+  # Measure the gap between module and remote/heater signals in SDR++ and set accordingly.
+  # Example: if module is 50 kHz below remote, use "50000".
+  heater_frequency_offset_hz: "36000"
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+
+external_components:
+  - source:
+      type: local
+      path: components
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+logger:
+  level: INFO
+
+api:
+  encryption:
+    key: !secret diesel_heater_esp_api_encryption_key
+  custom_services: true
+
+ota:
+  - platform: esphome
+    password: !secret diesel_heater_esp_ota_password
+
+packages:
+  wifi: !include packages/wifi.yaml
+  wifi-signal-sensors: !include packages/wifi-signal-sensors.yaml
+  wifi-diagnostic-sensors: !include packages/wifi-diagnostic-sensors.yaml
+  hardware: !include packages/device-configs/diesel-heater-rf.yaml
+  # bt_proxy: !include packages/device-configs/bluetooth-proxy.yaml
+
+captive_portal:

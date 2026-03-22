@@ -9,6 +9,7 @@ This repository contains a collection of ESPHome YAML configurations for various
   - [UART Line Reader](#uart-line-reader-uart_line_reader)
   - [Deduplicate Text Sensor](#deduplicate-text-sensor-deduplicate_text)
   - [QRCode2 UART Scanner](#qrcode2-uart-scanner-qrcode2_uart)
+  - [Diesel Heater RF](#diesel-heater-rf-diesel_heater_rf)
 - [Shared Packages](#shared-packages)
 - [Configurations](#configurations)
   - [Relay Sockets](#relay-sockets)
@@ -22,6 +23,7 @@ This repository contains a collection of ESPHome YAML configurations for various
   - [Garden Watering Controller](#garden-watering-controller)
   - [QRCode2 Scanner](#qrcode2-scanner)
   - [DFRobot SEN0610 mmWave Presence Sensor](#dfrobot-sen0610-mmwave-presence-sensor)
+  - [Diesel Heater](#diesel-heater)
 - [Secrets & Sensitive Data](#secrets--sensitive-data)
 - [Credits & Inspirations](#credits--inspirations)
 - [License](#license)
@@ -50,11 +52,13 @@ For the best development experience, I recommend using Visual Studio Code or Cur
 To validate configurations and perform OTA updates locally, you'll need to install the ESPHome CLI. Here's how to set it up on Linux with installed Python:
 
 1. Install ESPHome CLI using pip:
+
 ```bash
 pip3 install esphome
 ```
 
 2. Update ESPHome CLI when new versions are released:
+
 ```bash
 pip3 install -U esphome
 ```
@@ -66,16 +70,19 @@ pip3 install esphome --upgrade
 ```
 
 3. Validate a configuration:
+
 ```bash
 esphome validate your-config.yaml
 ```
 
 4. Perform an OTA update:
+
 ```bash
 esphome run your-config.yaml
 ```
 
 For more detailed installation and update instructions, refer to the official ESPHome documentation:
+
 - [Getting Started Guide](https://esphome.io/guides/getting_started_command_line)
 - [Installation Guide](https://esphome.io/guides/installing_esphome)
 
@@ -115,13 +122,14 @@ esphome:
   - Optimized for OBIS protocol parsing from smart meters
   - Supports various UART configurations (baud rate, parity, data bits)
   - Memory-efficient streaming data processing
-- **Requirements:** 
+- **Requirements:**
   - **ESP32**: Works out of the box (no C++17 required)
   - **ESP8266**: Works out of the box
-- **Used by:** 
+- **Used by:**
   - `packages/electricity-meter.yaml` - For reading OBIS data from smart electric meters
   - `smart-electric-meter.yaml` - Smart meter implementation
 - **Usage:** Include in your configuration with:
+
   ```yaml
   external_components:
     - source:
@@ -140,11 +148,11 @@ esphome:
   - Drop-in replacement for template text sensors with automatic deduplication
   - Supports all standard text sensor configuration options (lambda, update_interval, etc.)
   - Built-in logging and debugging capabilities
-- **Requirements:** 
+- **Requirements:**
   - **ESP32**: C++17 or later support required (see above)
   - **ESP8266**: Works out of the box
 - **Examples:** See `components/deduplicate_text/examples/` for complete usage examples
-- **Used by:** 
+- **Used by:**
   - `packages/device-configs/electricity-meter.yaml` - For meter information text sensors (serial number, firmware version, etc.)
 - **Usage:** Replace `platform: template` with `platform: deduplicate_text`:
   ```yaml
@@ -155,6 +163,27 @@ esphome:
         return std::string("Hello World");
       update_interval: 60s
   ```
+
+### Diesel Heater RF (`diesel_heater_rf`)
+
+- **Location:** `components/diesel_heater_rf/`
+- **Description:** Custom component for wireless control and monitoring of VEVOR and other Chinese diesel heaters via 433 MHz RF using a TI CC1101 transceiver. Replicates the protocol of the four-button OLED remote without any physical modifications to the heater.
+- **Features:**
+  - Non-invasive RF communication — no wiring to the heater's control unit
+  - Full remote parity: all commands available from the physical remote (power, mode, temp up/down, get_status)
+  - Rich telemetry: operational state, ambient and case temperature, setpoint, heat level, pump frequency, supply voltage, RF signal strength
+  - Direct setpoint control via `set_temperature` HA service — computes and sends required UP/DOWN steps automatically
+  - Built-in address discovery service for first-time pairing
+  - Compatible with the original physical remote — both can coexist simultaneously
+- **Requirements:**
+  - **Platform:** ESP32 only
+  - **Framework:** Arduino (the bundled CC1101 library uses `SPI.h` and Arduino GPIO functions)
+  - `api` component must be present for HA service registration
+- **Hardware:** TI CC1101 433 MHz transceiver module (e.g. Ebyte E07-M1101S, ~$5 USD), connected via SPI
+- **Documentation:** See `components/diesel_heater_rf/README.md` for wiring diagram, full configuration reference, and first-time setup guide
+- **Used by:**
+  - `packages/device-configs/diesel-heater-rf.yaml` — device configuration package
+  - `diesel-heater.yaml` — main device configuration
 
 ### QRCode2 UART Scanner (`qrcode2_uart`)
 
@@ -170,13 +199,13 @@ esphome:
   - Multiple automation triggers for scan events and button presses
   - RGB LED integration for visual status indication
   - Stock management modes (Add/Remove stock) with persistence
-- **Requirements:** 
+- **Requirements:**
   - **ESP32**: Works out of the box (no special C++ requirements)
   - M5Stack QRCode2 scanner module
   - UART pins for communication (TX, RX)
   - GPIO pins for trigger control and button input
 - **Documentation:** See `components/qrcode2_uart/README.md` for complete API reference
-- **Used by:** 
+- **Used by:**
   - `packages/device-configs/qrcode2-atom-lite.yaml` - M5Stack Atom Lite scanner device configuration
 - **Usage:** Include in your configuration with:
   ```yaml
@@ -285,7 +314,7 @@ The `packages/` directory contains reusable configuration components that can be
   - Positioning Mode: real-time raw sensor feedback for physically aligning the optical IR head
   - Highly configurable via substitutions (OBIS codes, validation parameters, UART settings)
 - **Board:** ESP8266 (tested), ESP32 (compiles but untested on hardware)
-- **Requirements:** 
+- **Requirements:**
   - Custom `uart_line_reader` component (see [Custom Components](#custom-components))
   - Custom `deduplicate_text` component (see [Custom Components](#custom-components))
   - IR head or serial connection to smart meter
@@ -338,7 +367,7 @@ The `packages/` directory contains reusable configuration components that can be
   - Scan counting and duplicate detection with timestamps
   - Visual feedback for all device states and user interactions
 - **Board:** M5Stack Atom Lite (ESP32-based)
-- **Requirements:** 
+- **Requirements:**
   - Custom `qrcode2_uart` component (see [Custom Components](#custom-components))
   - M5Stack QRCode2 Base scanner module
   - Home Assistant for full feature utilization
@@ -397,6 +426,21 @@ The `packages/` directory contains reusable configuration components that can be
   - `GPIO13` — On-board button (inverted, active-low, internal pullup)
 - **Required substitutions:** `relay_name`
 - **Used in:** `compressor.yaml`, `compressor-valve.yaml`
+
+#### Diesel Heater RF Device Config (`device-configs/diesel-heater-rf.yaml`)
+
+- **File:** `packages/device-configs/diesel-heater-rf.yaml`
+- **Description:** Reusable device configuration package for diesel heater RF integration. Declares the `diesel_heater_rf` hub with all sensors pre-named using `${friendly_name}` substitutions, ready to drop into any ESP32 device config.
+- **Features:**
+  - State, ambient temperature, case temperature, setpoint, heat level, pump frequency, supply voltage, and RF signal strength sensors
+  - Auto mode binary sensor
+  - Configurable pins and heater RF address via substitutions
+- **Board:** ESP32
+- **Requirements:**
+  - Custom `diesel_heater_rf` component (see [Custom Components](#custom-components))
+  - Arduino framework
+- **Required substitutions:** `heater_address`, `heater_sck_pin`, `heater_miso_pin`, `heater_mosi_pin`, `heater_cs_pin`, `heater_gdo2_pin`
+- **Used in:** `diesel-heater.yaml`
 
 #### RTTTL Buzzer Device Config (`device-configs/rtttl-buzzer.yaml`)
 
@@ -482,7 +526,7 @@ ESP8266-based relay sockets with Home Assistant API integration. Two hardware va
 
 - **File:** `gaszahler.yaml`
 - **Description:** ESP8266-based gas meter pulse counter using a reed switch. Tracks gas consumption and exposes it to Home Assistant.
-- **Features:** 
+- **Features:**
   - Pulse counting via GPIO
   - Total consumption calculation
   - Optional LED pulse indicator
@@ -585,6 +629,23 @@ ESP8266-based relay sockets with Home Assistant API integration. Two hardware va
 - **Common Config:** Uses shared QRCode2 Atom Lite device configuration from `packages/device-configs/qrcode2-atom-lite.yaml`
 - **Documentation:** See `packages/device-configs/qrcode2-atom-lite.md` for complete setup and usage guide
 
+### Diesel Heater
+
+- **File:** `diesel-heater.yaml`
+- **Description:** ESP32-based wireless controller and monitor for VEVOR and compatible Chinese diesel heaters via 433 MHz RF. Communicates with the heater non-invasively using a TI CC1101 transceiver, replicating the four-button OLED remote protocol.
+- **Features:**
+  - Full heater control via Home Assistant services: power toggle, mode toggle, temperature up/down, direct setpoint, and get_status
+  - Real-time telemetry: operational state, ambient and case temperature, current setpoint, heat level (1–10), pump frequency, supply voltage, and RF signal strength
+  - Auto/manual mode monitoring
+  - First-time address discovery via `find_address` HA service
+  - WiFi signal strength monitoring via shared package
+- **Board:** ESP32 (generic `esp32dev`)
+- **Framework:** Arduino
+- **Hardware:** TI CC1101 433 MHz transceiver module wired via SPI (default: GDO2→GPIO4, SCK→GPIO18, MOSI→GPIO23, MISO→GPIO19, CSn→GPIO5)
+- **Dependencies:** Uses custom `diesel_heater_rf` component (see [Custom Components](#custom-components))
+- **Common Config:** Uses `packages/device-configs/diesel-heater-rf.yaml`, `packages/wifi.yaml`, `packages/wifi-signal-sensors.yaml`, `packages/wifi-diagnostic-sensors.yaml`
+- **First-time setup:** Flash with `heater_address: "0x00000000"`, call the `find_address` HA service, note the address from ESPHome logs, update `diesel_heater_address` in `secrets.yaml`, re-flash
+
 ### DFRobot SEN0610 mmWave Presence Sensor
 
 - **File:** `mmwave-presence-1.yaml` (example)
@@ -615,6 +676,7 @@ Some configurations are based on or inspired by the following awesome community 
 - **Gaszaehler:** [be-jo.net Gaszähler mit ESPHome](https://be-jo.net/2022/02/home-assistant-gaszaehler-mit-esphome-auslesen-flashen-unter-wsl/)
 - **wasserstand-regenreservoir:** [nachbelichtet.com Water Level in Cisterns](https://nachbelichtet.com/en/measure-water-level-in-cisterns-and-tanks-with-homeassistant-esphome-and-tl-136-pressure-sensor-update-2)
 - **air-quality-sensor-1:** [Tom's 3D SBR1 Sensor Box](https://go.toms3d.org/sbr1)
+- **diesel-heater:** [DieselHeaterRF by Jarno Kyttälä](https://github.com/jakkik/DieselHeaterRF) — reverse-engineered 433 MHz RF protocol for Chinese diesel heaters
 
 ---
 
