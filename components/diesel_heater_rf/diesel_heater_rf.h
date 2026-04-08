@@ -8,6 +8,9 @@
 #include "esphome/components/text_sensor/text_sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
 #include "esphome/components/api/custom_api_device.h"
+#include "esp_event.h"
+#include "esp_wifi.h"
+#include "esp_timer.h"
 #include "DieselHeaterRF.h"
 
 namespace esphome {
@@ -34,10 +37,12 @@ class DieselHeaterRFComponent : public PollingComponent, public api::CustomAPIDe
   void set_pump_freq_sensor(sensor::Sensor *s) { pump_freq_sensor_ = s; }
   void set_rssi_sensor(sensor::Sensor *s) { rssi_sensor_ = s; }
   void set_auto_mode_sensor(binary_sensor::BinarySensor *s) { auto_mode_sensor_ = s; }
+  void set_error_sensor(text_sensor::TextSensor *s) { error_sensor_ = s; }
   void set_found_address_sensor(text_sensor::TextSensor *s) { found_address_sensor_ = s; }
   void set_transceiver_status_sensor(text_sensor::TextSensor *s) { transceiver_status_sensor_ = s; }
   void set_freq(uint8_t f2, uint8_t f1, uint8_t f0) { freq2_ = f2; freq1_ = f1; freq0_ = f0; }
   void set_cca_mode(uint8_t mode) { cca_mode_ = mode; }
+  void set_tx_power(uint8_t p) { tx_power_ = p; }
   void set_debug_mode(bool v) { debug_mode_ = v; }
   bool is_debug_mode() const { return debug_mode_; }
   void set_poll_interval_seconds(float seconds) {
@@ -57,6 +62,7 @@ class DieselHeaterRFComponent : public PollingComponent, public api::CustomAPIDe
 
   // HA API services
   void on_power();
+  void on_emergency_stop();
   void on_get_status();
   void on_mode();
   void on_temp_up();
@@ -64,6 +70,7 @@ class DieselHeaterRFComponent : public PollingComponent, public api::CustomAPIDe
   // set_value: in auto mode sets temperature (8–35°C); in manual mode sets pump frequency (1.7–5.5 Hz)
   void on_set_value(float value);
   void on_find_address();
+  void on_ping();
 
  protected:
   DieselHeaterRF *heater_{nullptr};
@@ -74,22 +81,20 @@ class DieselHeaterRFComponent : public PollingComponent, public api::CustomAPIDe
   uint8_t cs_pin_{HEATER_SS_PIN};
   uint8_t gdo2_pin_{HEATER_GDO2_PIN};
 
-  // Last known values from heater state — updated on every received status packet
-  int8_t last_setpoint_{-127};
-  float last_pump_freq_{0.0f};
-  bool last_auto_mode_{false};
-
   // Command queue — all RF activity is driven from here; CMD_SET_VALUE is a pseudo-command
   std::vector<uint8_t> pending_cmds_;
   uint8_t current_cmd_{0xFF};
+  uint8_t current_seq_{0};
   uint8_t cmd_fail_count_{0};
-  uint8_t reinit_check_counter_{0};  // throttles mid-TX SYNC1 check to every 4 retransmits
+  uint32_t next_rxb_check_ms_{0};
 
   // Target for CMD_SET_VALUE: temperature (°C, auto mode) or pump frequency (Hz, manual mode)
   float target_value_{0.0f};
 
-  // Expected auto_mode value after a MODE toggle — used to confirm the toggle took effect
+  // Expected state after toggle commands — set once when queued, checked before retry.
+  // If GET_STATUS reveals the heater already reached the expected state, the command is skipped.
   bool mode_toggle_expected_{false};
+  bool power_target_on_{false};
 
   text_sensor::TextSensor *state_sensor_{nullptr};
   sensor::Sensor *voltage_sensor_{nullptr};
@@ -100,6 +105,7 @@ class DieselHeaterRFComponent : public PollingComponent, public api::CustomAPIDe
   sensor::Sensor *pump_freq_sensor_{nullptr};
   sensor::Sensor *rssi_sensor_{nullptr};
   binary_sensor::BinarySensor *auto_mode_sensor_{nullptr};
+  text_sensor::TextSensor *error_sensor_{nullptr};
   text_sensor::TextSensor *found_address_sensor_{nullptr};
   text_sensor::TextSensor *transceiver_status_sensor_{nullptr};
 
@@ -119,11 +125,12 @@ class DieselHeaterRFComponent : public PollingComponent, public api::CustomAPIDe
   uint8_t find_address_attempts_{0};
   uint32_t find_address_last_ms_{0};
 
-  enum class PollPhase { IDLE, RX };
+  enum class PollPhase { IDLE, RX_LISTEN };
   PollPhase poll_phase_{PollPhase::IDLE};
-  uint32_t poll_rx_deadline_ms_{0};
+  uint32_t rx_window_end_ms_{0};
 
   bool initial_update_seen_{false};  // suppresses the immediate update() ESPHome fires at t=0
+  bool cc1101_ok_{false};   // set true in setup() only if PARTNUM/VERSION match
   bool debug_mode_{false};
   uint32_t debug_last_ms_{0};
   uint32_t debug_reg_dump_ms_{0};  // tracks periodic register readback in debug mode
@@ -132,9 +139,27 @@ class DieselHeaterRFComponent : public PollingComponent, public api::CustomAPIDe
   uint8_t freq1_{0xB0};  // 433.938 MHz default
   uint8_t freq0_{0x9E};
   uint8_t cca_mode_{0};  // 0 = always TX, 3 = RSSI+no RX
+  uint8_t tx_power_{7};  // PATABLE index 0-7; 7=+10dBm (default)
+
+  // WiFi ↔ RF isolation: track WiFi activity to avoid overlapping RF operations
+  // with WiFi TX bursts that cause 3.3V rail droops and CC1101 brownout-resets.
+  uint32_t wifi_busy_until_ms_{0};   // don't start RF before this timestamp
+  uint32_t publish_settle_ms_{0};    // after publishing sensors, wait before next RF
+  static constexpr uint32_t kWifiSettleMs = 150;  // ms to wait after WiFi event before RF
+  static constexpr uint32_t kPublishSettleMs = 100; // ms to wait after publishing before RF
+  static void on_wifi_event_(void *arg, esp_event_base_t base, int32_t id, void *data);
+  bool is_wifi_quiet_() const { uint32_t now = (uint32_t)(esp_timer_get_time() / 1000LL); return now > wifi_busy_until_ms_ && now > publish_settle_ms_; }
+
+  // Deferred sensor publishing — publish only when RF is idle, with change detection.
+  // This separates WiFi TX (API state pushes) from RF activity.
+  bool pending_publish_{false};
+  heater_state_t pending_state_{};
+  void publish_heater_state_();
 
   static const char *state_to_string(uint8_t state);
+  static const char *error_to_string(uint8_t error);
   void reset_backoff_if_offline_();
+  void __attribute__((noinline)) execute_tx_burst_(uint8_t cmd);
 };
 
 }  // namespace diesel_heater_rf

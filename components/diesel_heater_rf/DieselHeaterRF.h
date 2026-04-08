@@ -7,7 +7,7 @@
  *   - Added configurable SPI frequency via setFrequency() / _freq2/_freq1/_freq0 members
  *   - Added reinitRadio() public method for runtime CC1101 recovery without SPI reinit
  *   - Added getMarcstate(), readConfigReg(), getFreqRegisters() for health-check and diagnostics
- *   - Added getLastTxActive() / getLastTxPacket() for TX verification
+ *   - Added getLastBurstCompleted() / getLastBurstRequested() for TX verification
  *   - Added receiveRaw() for raw packet capture (debug mode)
  *   - Rewrote sendCommand(): CCA_MODE=3 (RSSI+no packet), TXOFF_MODE=FSTXON for locked
  *     synthesizer between packets in a burst (single calibration, no frequency drift);
@@ -17,6 +17,7 @@
  *   - FOCCFG 0x16→0x17 (FOC_LIMIT ±BW/4 → ±BW/2) for better frequency-offset tolerance
  *   - MDMCFG1 NUM_PREAMBLE set to match original remote (4 bytes)
  *   - MCSM1 CCA_MODE configurable via setCcaMode() (default 0 = always TX)
+ *   - readPacket() now parses buf[8] as errorCode into heater_state_t
  *
  * Feel free to use this library as you please, but do it at your own risk!
  */
@@ -24,7 +25,9 @@
 #ifndef DieselHeaterRF_h
 #define DieselHeaterRF_h
 
-#include <Arduino.h>
+#include <stdint.h>
+#include <string.h>
+#include "driver/spi_master.h"
 
 #define HEATER_SCK_PIN   18
 #define HEATER_MISO_PIN  19
@@ -54,6 +57,7 @@
 typedef struct {
   uint8_t state       = 0;
   uint8_t power       = 0;
+  uint8_t errorCode   = 0;
   float voltage       = 0;
   int8_t ambientTemp  = 0;
   uint8_t caseTemp    = 0;
@@ -63,118 +67,96 @@ typedef struct {
   int16_t rssi        = 0;
 } heater_state_t;
 
-class DieselHeaterRF
-{
+class DieselHeaterRF {
+  public:
+    DieselHeaterRF() {
+      _pinSck = HEATER_SCK_PIN;
+      _pinMiso = HEATER_MISO_PIN;
+      _pinMosi = HEATER_MOSI_PIN;
+      _pinSs = HEATER_SS_PIN;
+      _pinGdo2 = HEATER_GDO2_PIN;
+    }
+    DieselHeaterRF(uint8_t sck, uint8_t miso, uint8_t mosi, uint8_t ss, uint8_t gdo2) {
+      _pinSck = sck;
+      _pinMiso = miso;
+      _pinMosi = mosi;
+      _pinSs = ss;
+      _pinGdo2 = gdo2;
+    }
+    ~DieselHeaterRF() {}
 
-    public:
+    void begin();
+    void begin(uint32_t heaterAddr);
+    void setAddress(uint32_t heaterAddr);
+    void setFrequency(uint8_t freq2, uint8_t freq1, uint8_t freq0);
+    void setCcaMode(uint8_t mode) { _ccaMode = mode & 0x03; }
+    void setTxPower(uint8_t index) { _txPower = index & 0x07; }
+    void reinitRadio() { initRadio(); }
 
-        DieselHeaterRF() {
-            _pinSck = HEATER_SCK_PIN;
-            _pinMiso = HEATER_MISO_PIN;
-            _pinMosi = HEATER_MOSI_PIN;
-            _pinSs = HEATER_SS_PIN;
-            _pinGdo2 = HEATER_GDO2_PIN;
-        }
+    // Blocking TX — sends numTransmits packets with Phase 1/Phase 2 MARCSTATE polling.
+    // Caller provides seq# explicitly; use nextSeq() for a new seq, or reuse for retransmit.
+    void sendCommand(uint8_t cmd, uint32_t addr, uint8_t numTransmits, uint8_t seq);
+    uint8_t nextSeq() { return _packetSeq++; }
 
-        DieselHeaterRF(uint8_t sck, uint8_t miso, uint8_t mosi, uint8_t ss, uint8_t gdo2) {
-            _pinSck = sck;
-            _pinMiso = miso;
-            _pinMosi = mosi;
-            _pinSs = ss;
-            _pinGdo2 = gdo2;
-        }
+    void endTxBurst();
 
-        ~DieselHeaterRF() {
-        }
+    // Non-blocking RX —————————————————————————————————————
+    // rxFlush + rxEnable — puts CC1101 into RX mode (requires calibration).
+    void startRx();
+    // SRX from FSTXON — enters RX directly without calibration (synth already locked).
+    void startRxFromFstxon();
+    // True if GDO2 is high (packet in RX FIFO).
+    bool isRxAvailable();
+    // Read RX FIFO, validate CRC and address, parse into state. Non-blocking.
+    // Returns false if FIFO size wrong, CRC fail, or address mismatch; calls rxFlush() on failure.
+    bool readPacket(heater_state_t *state);
 
-        void begin();
-        void begin(uint32_t heaterAddr);
+    // Diagnostics —————————————————————————————————————————
+    uint8_t getPartNum();
+    uint8_t getVersion();
+    void getFreqRegisters(uint8_t *freq2, uint8_t *freq1, uint8_t *freq0);
+    uint8_t getMarcstate();
+    uint8_t getRxBytes() { return writeReg(0xFB, 0xFF); }  // RXBYTES status register
+    uint8_t readConfigReg(uint8_t addr) { return writeReg(addr | 0x80, 0xFF); }
+    uint8_t getLastBurstCompleted() const { return _lastBurstCompleted; }
+    uint8_t getLastBurstRequested() const { return _lastBurstRequested; }
+    uint8_t getLastRxEntryState() const { return _lastRxEntryState; }
+    uint8_t getLastP1First() const { return _lastP1First; }
+    uint8_t getLastP1Last() const { return _lastP1Last; }
+    void calibrate() { writeStrobe(0x33); }  // SCAL — manual frequency calibration
+    void sidle()    { writeStrobe(0x36); }  // SIDLE — force chip to IDLE state
+    // Blocking raw RX — for debug/find_address only.
+    bool receiveRaw(char *bytes, uint8_t *len, uint16_t timeout);
+    uint32_t findAddress(uint16_t timeout);
 
-        void setAddress(uint32_t heaterAddr);
-        bool getState(heater_state_t *state);
-        bool getState(heater_state_t *state, uint32_t timeout);
-        bool getState(uint8_t *state, uint8_t *power, float *voltage, int8_t *ambientTemp, uint8_t *caseTemp, int8_t *setpoint, float *pumpFreq, uint8_t *autoMode, int16_t *rssi, uint32_t timeout);
-        void sendCommand(uint8_t cmd);
-        void sendCommand(uint8_t cmd, uint32_t addr);
-        void sendCommand(uint8_t cmd, uint32_t addr, uint8_t numTransmits);
-        uint32_t findAddress(uint16_t timeout);
+  private:
+    uint8_t _pinSck, _pinMiso, _pinMosi, _pinSs, _pinGdo2;
+    uint16_t _pinEnc{0};  // (cs_pin << 8) | miso_pin — packed into spi_transaction_t::user
+    spi_device_handle_t _spi{nullptr};
+    uint32_t _heaterAddr = 0;
+    uint8_t _packetSeq = 0;
+    uint8_t _lastBurstCompleted{0};
+    uint8_t _lastBurstRequested{0};
+    uint8_t _lastRxEntryState{0};
+    uint8_t _lastP1First{0};    // first MARCSTATE seen in Phase 1 of last burst packet
+    uint8_t _lastP1Last{0};     // last MARCSTATE seen in Phase 1 (at exit or timeout)
+    uint8_t _freq2{0x10}, _freq1{0xB0}, _freq0{0x9E};
+    uint8_t _ccaMode{0};
+    uint8_t _txPower{7};  // PATABLE index 0-7; 7=+10dBm, 5=+7dBm, 4=0dBm, 3=-10dBm
 
-        // Diagnostic: read CC1101 status registers over SPI
-        // PARTNUM should return 0x00, VERSION should return 0x14
-        uint8_t getPartNum();
-        uint8_t getVersion();
-        void getFreqRegisters(uint8_t *freq2, uint8_t *freq1, uint8_t *freq0);
-        uint8_t getMarcstate();
-        // Read any CC1101 config register (applies read bit automatically)
-        uint8_t readConfigReg(uint8_t addr) { return writeReg(addr | 0x80, 0xFF); }
-
-        // True if the last sendCommand() observed MARCSTATE=0x13 (TX) in its wait loop,
-        // meaning the CC1101 actually started transmitting.
-        bool getLastTxActive() { return _lastTxActive; }
-
-        // Returns the raw bytes of the last transmitted packet (10 bytes).
-        void getLastTxPacket(uint8_t *out) { memcpy(out, _lastTxBuf, 10); }
-
-        // Raw RX: returns any received bytes regardless of length/SW CRC — for debug
-        bool receiveRaw(char *bytes, uint8_t *len, uint16_t timeout);
-
-        // Set carrier frequency before calling begin().
-        // Presets: 433.92 MHz → (0x10, 0xB0, 0x71), 868.30 MHz → (0x21, 0x65, 0x6F)
-        void setFrequency(uint8_t freq2, uint8_t freq1, uint8_t freq0);
-
-        // Set CC1101 CCA_MODE (MCSM1 bits 5:4) before calling begin().
-        // 0 = always transmit (default), 1 = RSSI below threshold,
-        // 2 = not receiving, 3 = RSSI below threshold AND not receiving.
-        void setCcaMode(uint8_t mode) { _ccaMode = mode & 0x03; }
-
-        // Re-run radio configuration without touching SPI bus setup.
-        // Call this instead of begin() when SPI is already initialised.
-        void reinitRadio() { initRadio(); }
-
-        // Re-transmit the last sent command packet using the same sequence number.
-        // Toggle commands (MODE, POWER) are de-duplicated by the heater on sequence number,
-        // so this achieves a larger RF burst (better WOR window hit probability) without
-        // firing an additional toggle. Use instead of sendCommand() for toggle retransmits.
-        void resendLastCommand(uint8_t numTransmits);
-
-    private:
-
-        uint8_t _pinSck;
-        uint8_t _pinMiso;
-        uint8_t _pinMosi;
-        uint8_t _pinSs;
-        uint8_t _pinGdo2;
-
-        uint32_t _heaterAddr = 0;
-        uint8_t _packetSeq = 0;
-        bool _lastTxActive = false;
-        uint8_t _lastTxBuf[10] = {};
-        uint8_t _freq2{0x10};
-        uint8_t _freq1{0xB0};
-        uint8_t _freq0{0x9E};  // 433.938 MHz
-        uint8_t _ccaMode{0};   // MCSM1 CCA_MODE bits 5:4; 0 = always TX (default)
-
-        void initRadio();
-
-        void txBurst(uint8_t len, char *bytes);
-        void txFlush();
-
-        void rx(uint8_t len, char *bytes);
-        void rxFlush();
-        void rxEnable();
-
-        uint8_t writeReg(uint8_t addr, uint8_t val);
-        void writeBurst(uint8_t addr, uint8_t len, char *bytes);
-        void writeStrobe(uint8_t addr);
-
-        void spiStart(void);
-        void spiEnd(void);
-
-        bool receivePacket(char *bytes, uint16_t timeout);
-        uint32_t parseAddress(char *buf);
-
-        uint16_t crc16_2(char *buf, int len);
-
+    void initRadio();
+    void txBurstLoop(uint8_t numTransmits, const char *buf);
+    void txBurst(uint8_t len, char *bytes);
+    void txFlush();
+    void rx(uint8_t len, char *bytes);
+    void rxFlush();
+    void rxEnable();
+    uint8_t writeReg(uint8_t addr, uint8_t val);
+    void writeBurst(uint8_t addr, uint8_t len, char *bytes);
+    void writeStrobe(uint8_t addr);
+    bool receivePacket(char *bytes, uint16_t timeout);
+    uint32_t parseAddress(char *buf);
+    uint16_t crc16_2(char *buf, int len);
 };
 
 #endif

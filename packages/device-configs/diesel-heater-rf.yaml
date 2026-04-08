@@ -22,6 +22,14 @@
 #   heater_frequency       - RF carrier frequency: "433" (433.92 MHz, default)
 #                            or "868" (868.30 MHz for EU-market heaters)
 
+globals:
+  - id: desired_temp_setpoint
+    type: uint8_t
+    initial_value: "0"
+  - id: desired_pump_freq
+    type: float
+    initial_value: "0.0"
+
 
 diesel_heater_rf:
   id: diesel_heater_rf_component
@@ -34,103 +42,145 @@ diesel_heater_rf:
   frequency: ${heater_frequency}
   frequency_offset_hz: ${heater_frequency_offset_hz}
   cca_mode: ${heater_cca_mode}
-
+  tx_power: ${heater_tx_power}
   state_sensor:
     id: diesel_heater_state
     name: "${friendly_name} State"
     icon: "mdi:fire"
-    # internal: true
+    on_value:
+      - lambda: |-
+          if (x == "Off") {
+            id(diesel_heater_power_switch).publish_state(false);
+            }
+          else if (!x.empty() && x != "Offline" && x != "Unknown") {
+            id(diesel_heater_power_switch).publish_state(true);
+            }
 
   ambient_temp_sensor:
     name: "${friendly_name} Ambient Temperature"
-    # filters:
-    #   - or:
-    #       - throttle: 5min
-    #       - delta: 1
 
   case_temp_sensor:
     name: "${friendly_name} Case Temperature"
     entity_category: diagnostic
-    # filters:
-    #   - or:
-    #       - throttle: 5min
-    #       - delta: 1
 
   setpoint_sensor:
+    id: diesel_heater_setpoint
     name: "${friendly_name} Temperature Setpoint"
-    # filters:
-    #   - or:
-    #       - throttle: 5min
-    #       - delta: 1
+    on_value:
+      - lambda: |-
+          if (id(desired_temp_setpoint) == x) {
+            id(desired_temp_setpoint) = 0;
+          }
+
+          if (id(diesel_heater_temp_ctrl).state != x && id(desired_temp_setpoint) == 0) {
+            ESP_LOGI("heater_ctrl", "Temperature setting from sensor: %.1f°C", x);            
+            id(diesel_heater_temp_ctrl).publish_state(x);
+          }
 
   heat_level_sensor:
     name: "${friendly_name} Heat Level"
     icon: "mdi:fire-circle"
-    # filters:
-    #   - or:
-    #       - throttle: 5min
-    #       - delta: 1
 
   pump_freq_sensor:
+    id: diesel_heater_pump_freq
     name: "${friendly_name} Pump Frequency"
     icon: "mdi:pump"
     entity_category: diagnostic
-    # filters:
-    #   - or:
-    #       - throttle: 5min
-    #       - delta: 0.1
+    on_value:
+      - lambda: |-
+          float desired = id(desired_pump_freq);
+          if (fabsf(desired - x) < 0.05f) {
+            id(desired_pump_freq) = 0.0f;
+          }
+
+          float current = id(diesel_heater_pump_ctrl).state;
+          if (fabsf(current - x) >= 0.05f &&
+              id(desired_pump_freq) == 0.0f) {
+            ESP_LOGI("heater_ctrl",
+                     "Pump freq from sensor: %.1f Hz", x);
+            id(diesel_heater_pump_ctrl).publish_state(x);
+          }
 
   voltage_sensor:
     name: "${friendly_name} Supply Voltage"
     entity_category: diagnostic
-    # filters:
-    #   - or:
-    #       - throttle: 5min
-    #       - delta: 0.1
 
   rssi_sensor:
     name: "${friendly_name} RF Signal Strength"
-    # filters:
-    #   - or:
-    #       - throttle: 5min
-    #       - delta: 3
 
   auto_mode_sensor:
+    id: diesel_heater_auto_mode
     name: "${friendly_name} Auto Mode"
     icon: "mdi:thermostat"
+    trigger_on_initial_state: true
+    on_state:
+      - lambda: |-
+          auto index = id(diesel_heater_mode_select).current_option();
+
+          ESP_LOGI("diesel_heater_auto_mode", "Auto mode diesel_heater_mode_select: %s", index.c_str());
+          bool is_auto = index == "Auto (Thermostat)" || index == "";
+
+          if (is_auto != x) {
+            ESP_LOGI("diesel_heater_auto_mode", "Auto mode from sensor is: %d", x);
+
+            auto call = id(diesel_heater_mode_select).make_call();
+            call.set_option(x ? "Auto (Thermostat)" : "Manual (Pump Hz)");
+            call.perform();
+          }
+  error_sensor:
+    name: "${friendly_name} Error"
+    icon: "mdi:alert-circle"
 
   found_address_sensor:
     id: diesel_heater_found_address
     name: "${friendly_name} Found RF Address"
-    # internal: true
 
   transceiver_status_sensor:
     id: diesel_heater_transceiver_status
     name: "${friendly_name} Transceiver Status"
-    # internal: true
-
-# text_sensor:
-#   - platform: deduplicate_text
-#     name: "${friendly_name} State"
-#     icon: "mdi:fire"
-#     lambda: return id(diesel_heater_state).state;
-#     update_interval: 5s
-#
-#   - platform: deduplicate_text
-#     name: "${friendly_name} Found RF Address"
-#     entity_category: diagnostic
-#     icon: "mdi:identifier"
-#     lambda: return id(diesel_heater_found_address).state;
-#     update_interval: 5s
-#
-#   - platform: deduplicate_text
-#     name: "${friendly_name} Transceiver Status"
-#     entity_category: diagnostic
-#     icon: "mdi:radio-tower"
-#     lambda: return id(diesel_heater_transceiver_status).state;
-#     update_interval: 5s
 
 number:
+  - platform: template
+    id: diesel_heater_temp_ctrl
+    name: "${friendly_name} Temperature"
+    icon: "mdi:thermometer"
+    unit_of_measurement: "°C"
+    min_value: 8
+    max_value: 35
+    step: 1
+    optimistic: true
+    restore_value: false
+    set_action:
+      - lambda: |-
+          if (!id(diesel_heater_auto_mode).has_state() ||
+              !id(diesel_heater_auto_mode).state) {
+            return;
+          }
+          ESP_LOGI("heater_ctrl", "Temperature set_action: %.1f°C", x);
+          id(desired_temp_setpoint) = x;
+          id(diesel_heater_rf_component).on_set_value(x);
+
+  - platform: template
+    id: diesel_heater_pump_ctrl
+    name: "${friendly_name} Pump Frequency"
+    icon: "mdi:pump"
+    unit_of_measurement: "Hz"
+    min_value: 1.7
+    max_value: 5.5
+    step: 0.1
+    optimistic: true
+    restore_value: false
+    set_action:
+      - lambda: |-
+          if (id(diesel_heater_auto_mode).has_state() &&
+              id(diesel_heater_auto_mode).state) {
+            return;
+          }
+          ESP_LOGI("heater_ctrl",
+                   "Pump freq set_action: %.1f Hz", x);
+          id(desired_pump_freq) = x;
+          id(diesel_heater_rf_component).on_set_value(x);
+
   - platform: template
     name: "${friendly_name} Poll Interval"
     icon: "mdi:timer-outline"
@@ -148,13 +198,57 @@ number:
 
 button:
   - platform: template
+    name: "${friendly_name} Emergency Stop"
+    icon: "mdi:fire-extinguisher"
+    on_press:
+      - lambda: |-
+          id(diesel_heater_rf_component).on_emergency_stop();
+
+  - platform: template
+    name: "${friendly_name} Ping"
+    entity_category: diagnostic
+    icon: "mdi:lan-pending"
+    on_press:
+      - lambda: |-
+          id(diesel_heater_rf_component).on_ping();
+
+  - platform: template
     name: "${friendly_name} Find RF Address"
     entity_category: diagnostic
     icon: "mdi:magnify"
     on_press:
-      - lambda: id(diesel_heater_rf_component).on_find_address();
+      - lambda: |-
+          id(diesel_heater_rf_component).on_find_address();
+
+select:
+  - platform: template
+    id: diesel_heater_mode_select
+    name: "${friendly_name} Mode"
+    icon: "mdi:thermostat-auto"
+    optimistic: true
+    options:
+      - "Auto (Thermostat)"
+      - "Manual (Pump Hz)"
+    set_action:
+      - lambda: |-
+          bool want_auto = (x == "Auto (Thermostat)");
+
+          if (id(diesel_heater_auto_mode).has_state() &&
+              want_auto != id(diesel_heater_auto_mode).state)
+            id(diesel_heater_rf_component).on_mode();
 
 switch:
+  - platform: template
+    id: diesel_heater_power_switch
+    name: "${friendly_name} Power"
+    icon: "mdi:power"
+    restore_mode: DISABLED
+    optimistic: true
+    turn_on_action:
+      - lambda: id(diesel_heater_rf_component).on_power();
+    turn_off_action:
+      - lambda: id(diesel_heater_rf_component).on_power();
+
   - platform: template
     name: "${friendly_name} RF Debug Mode"
     entity_category: diagnostic

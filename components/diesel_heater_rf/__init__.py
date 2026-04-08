@@ -36,11 +36,13 @@ CONF_HEAT_LEVEL_SENSOR = "heat_level_sensor"
 CONF_PUMP_FREQ_SENSOR = "pump_freq_sensor"
 CONF_RSSI_SENSOR = "rssi_sensor"
 CONF_AUTO_MODE_SENSOR = "auto_mode_sensor"
+CONF_ERROR_SENSOR = "error_sensor"
 CONF_FOUND_ADDRESS_SENSOR = "found_address_sensor"
 CONF_TRANSCEIVER_STATUS_SENSOR = "transceiver_status_sensor"
 CONF_FREQUENCY = "frequency"
 CONF_FREQUENCY_OFFSET_HZ = "frequency_offset_hz"
 CONF_CCA_MODE = "cca_mode"
+CONF_TX_POWER = "tx_power"
 
 FREQUENCY_PRESETS = {
     "433": (0x10, 0xB0, 0x9E),  # 433.938 MHz — FREQ_REG=1,093,790; nominal 433.92 but measured heater center is ~+19 kHz higher
@@ -59,6 +61,7 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Optional(CONF_FREQUENCY, default="433"): cv.one_of(*FREQUENCY_PRESETS, lower=True),
         cv.Optional(CONF_FREQUENCY_OFFSET_HZ, default=0): cv.int_,
         cv.Optional(CONF_CCA_MODE, default=0): cv.int_range(min=0, max=3),
+        cv.Optional(CONF_TX_POWER, default=7): cv.int_range(min=0, max=7),
         cv.Optional(CONF_STATE_SENSOR): text_sensor.text_sensor_schema(),
         cv.Optional(CONF_VOLTAGE_SENSOR): sensor.sensor_schema(
             unit_of_measurement=UNIT_VOLT,
@@ -101,6 +104,7 @@ CONFIG_SCHEMA = cv.Schema(
             state_class=STATE_CLASS_MEASUREMENT,
         ),
         cv.Optional(CONF_AUTO_MODE_SENSOR): binary_sensor.binary_sensor_schema(),
+        cv.Optional(CONF_ERROR_SENSOR): text_sensor.text_sensor_schema(),
         cv.Optional(CONF_FOUND_ADDRESS_SENSOR): text_sensor.text_sensor_schema(
             entity_category="diagnostic",
             icon="mdi:identifier",
@@ -116,8 +120,6 @@ CONFIG_SCHEMA = cv.Schema(
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
-
-    cg.add_library("SPI", None)
 
     cg.add(var.set_heater_address(config[CONF_HEATER_ADDRESS]))
     cg.add(var.set_sck_pin(config[CONF_SCK_PIN]))
@@ -137,6 +139,7 @@ async def to_code(config):
         f0 = freq_reg & 0xFF
     cg.add(var.set_freq(f2, f1, f0))
     cg.add(var.set_cca_mode(config[CONF_CCA_MODE]))
+    cg.add(var.set_tx_power(config[CONF_TX_POWER]))
 
     if CONF_STATE_SENSOR in config:
         s = await text_sensor.new_text_sensor(config[CONF_STATE_SENSOR])
@@ -173,6 +176,10 @@ async def to_code(config):
     if CONF_AUTO_MODE_SENSOR in config:
         s = await binary_sensor.new_binary_sensor(config[CONF_AUTO_MODE_SENSOR])
         cg.add(var.set_auto_mode_sensor(s))
+
+    if CONF_ERROR_SENSOR in config:
+        s = await text_sensor.new_text_sensor(config[CONF_ERROR_SENSOR])
+        cg.add(var.set_error_sensor(s))
 
     if CONF_FOUND_ADDRESS_SENSOR in config:
         s = await text_sensor.new_text_sensor(config[CONF_FOUND_ADDRESS_SENSOR])

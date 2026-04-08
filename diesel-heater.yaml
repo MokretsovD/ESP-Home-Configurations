@@ -27,6 +27,9 @@ substitutions:
   heater_frequency_offset_hz: "36000"
   # CC1101 CCA mode: 0=always TX, 1=RSSI below threshold, 2=not receiving, 3=RSSI+not receiving
   heater_cca_mode: "0"
+  # CC1101 TX power (PATABLE index): 0=off, 1=-30dBm, 2=-20dBm, 3=-10dBm, 4=0dBm, 5=+7dBm, 6≈+9dBm, 7=+10dBm
+  # Reduce if heater ignores commands at close range (front-end overload)
+  heater_tx_power: "3"
 
 esphome:
   name: ${name}
@@ -40,10 +43,12 @@ external_components:
 esp32:
   board: esp32dev
   framework:
-    type: arduino
+    type: esp-idf
 
 logger:
-  level: INFO
+  level: DEBUG
+  logs:
+    CC1101_RF: DEBUG
 
 api:
   encryption:
@@ -53,6 +58,15 @@ api:
 ota:
   - platform: esphome
     password: !secret diesel_heater_esp_ota_password
+
+wifi:
+  # Reduce WiFi TX power — signal is -51 dBm at full power (20 dB), far more than needed.
+  # Lower power reduces current spikes on the shared 3.3V rail that brownout-reset the CC1101.
+  output_power: 8.5dB
+  # Skip background scanning — connect directly to the configured AP.
+  # Roam scans cause channel hopping + WiFi TX bursts that correlate with CC1101 register corruption.
+  fast_connect: true
+  # post_connect_roaming: false 
 
 packages:
   wifi: !include packages/wifi.yaml
