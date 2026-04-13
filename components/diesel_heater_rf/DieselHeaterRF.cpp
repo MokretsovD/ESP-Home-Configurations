@@ -247,7 +247,7 @@ bool DieselHeaterRF::readPacket(heater_state_t *state) {
   if (address != _heaterAddr) return false;
   state->state      = buf[6];
   state->power      = buf[7];
-  state->errorCode  = buf[8];
+  state->errorCode  = buf[11];  // was buf[8] — neither byte confirmed by protocol docs
   state->voltage    = buf[9] / 10.0f;
   state->ambientTemp = buf[10];
   state->caseTemp   = buf[12];

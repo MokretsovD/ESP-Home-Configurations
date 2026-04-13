@@ -17,7 +17,7 @@
  *   - FOCCFG 0x16→0x17 (FOC_LIMIT ±BW/4 → ±BW/2) for better frequency-offset tolerance
  *   - MDMCFG1 NUM_PREAMBLE set to match original remote (4 bytes)
  *   - MCSM1 CCA_MODE configurable via setCcaMode() (default 0 = always TX)
- *   - readPacket() now parses buf[8] as errorCode into heater_state_t
+ *   - readPacket() now parses buf[11] as errorCode into heater_state_t
  *
  * Feel free to use this library as you please, but do it at your own risk!
  */
