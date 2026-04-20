@@ -1,0 +1,2 @@
+- [feedback_no_tasmota_mentions.md](feedback_no_tasmota_mentions.md): Never mention Tasmota in configs, docs, or commits
+- [feedback_no_coauthored.md](feedback_no_coauthored.md): Never add Co-Authored-By Claude lines to git commits
