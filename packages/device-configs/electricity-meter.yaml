@@ -93,6 +93,11 @@
 #       path: components
 uart:
   rx_pin: ${uart_rx_pin}
+  # rx_pin:
+  #   number: ${uart_rx_pin}
+  #   mode:
+  #     input: true
+  #     pullup: true
   baud_rate: ${uart_baud_rate}
   id: uart_bus
   parity: ${uart_parity}
@@ -171,6 +176,12 @@ globals:
   - id: status_register_count
     type: int
     initial_value: "0"
+  # Total raw lines seen by UART before any filter - distinguishes "no UART data"
+  # from "data filtered/rejected". Unlike total_frames_received (post-filter),
+  # this increments for every line the UART delivers, including invalid ones.
+  - id: uart_lines_seen
+    type: uint32_t
+    initial_value: "0"
 
 # OBIS data parsing text sensor
 text_sensor:
@@ -181,6 +192,19 @@ text_sensor:
     internal: true
     filters:
       - lambda: |-
+          // Count and log raw lines only while positioning mode is active.
+          // Counter is capped at UINT32_MAX-1 to prevent overflow.
+          if (id(positioning_mode).state) {
+            if (id(uart_lines_seen) < 0xFFFFFFFEu) id(uart_lines_seen)++;
+          }
+          // Log every raw UART line when positioning mode is on (pre-filter)
+          if (id(positioning_mode).state) {
+            char raw_buf[65];
+            size_t raw_len = std::min(x.length(), size_t(64));
+            memcpy(raw_buf, x.c_str(), raw_len);
+            raw_buf[raw_len] = '\0';
+            ESP_LOGI("meter_raw", "RAW: [%s]", raw_buf);
+          }
           if (x.length() < 10) return {};
           if (x[0] != '0' && x[0] != '1') return {};
           if (x.find('*') == std::string::npos ||
@@ -1103,6 +1127,23 @@ sensor:
       - or:
           - throttle: 2min
           - delta: 0.1
+  # UART line activity counter — only active while positioning mode is ON.
+  # Counts every line the UART delivers before the filter, including dropped ones.
+  # Compare with total_frames_received (post-filter) to diagnose signal issues:
+  #   grows, total_frames_received flat → filter dropping everything (bad signal)
+  #   both frozen → no UART data at all (probe disconnected / meter silent)
+  - platform: template
+    name: "UART Lines Seen"
+    id: uart_lines_seen_sensor
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: ${disabled_quality_sensors}
+    update_interval: 30s
+    lambda: return (float)id(uart_lines_seen);
+    filters:
+      - or:
+          - throttle: 2min
+          - delta: 1.0
   # Positioning mode raw sensors — no validation, no throttle, only active
   # when positioning_mode switch is on (cleared to unavailable on turn-off)
   - platform: template
@@ -1188,7 +1229,8 @@ button:
       - lambda: |-
           id(total_frames_received) = 0;
           id(corruption_count) = 0;
-          ESP_LOGI("meter", "Quality counters reset"); 
+          id(uart_lines_seen) = 0;
+          ESP_LOGI("meter", "Quality counters reset");
   - platform: restart
     name: "Restart Device"
     id: restart_device
