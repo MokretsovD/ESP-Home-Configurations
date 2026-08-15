@@ -1,0 +1,9 @@
+---
+extends: default
+
+rules:
+  # URLs in mapping values (manifest_url, dashboard_import) cannot be
+  # wrapped; this documented option exempts only such unbreakable values
+  # while keeping the 80-char limit for everything else.
+  line-length:
+    allow-non-breakable-inline-mappings: true

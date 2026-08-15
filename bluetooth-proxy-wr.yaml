@@ -1,3 +1,4 @@
+---
 substitutions:
   name: bluetooth-proxy-wr
   friendly_name: bluetooth-proxy-wr
@@ -12,7 +13,7 @@ substitutions:
   esp_ota_password: !secret bluetooth_proxy_wr_esp_ota_password
   manifest_url: https://firmware.esphome.io/bluetooth-proxy/esp32-generic/manifest.json
   dashboard_import: github://esphome/bluetooth-proxies/esp32-generic/esp32-generic.yaml@main
-  buzzer_pin: GPIO21 # GPIO26 # Pin for the buzzer
+  buzzer_pin: GPIO21  # GPIO26 # Pin for the buzzer
   buzzer_pwm_platform: "ledc"  # ESP32 uses LEDC
   board: esp32dev
 
@@ -20,3 +21,11 @@ packages:
   bt_proxy: !include packages/device-configs/bluetooth-proxy.yaml
   wifi-roaming: !include packages/wifi-roaming-11kv.yaml   # ESP32+esp-idf only
   rtttl_buzzer: !include packages/device-configs/rtttl-buzzer.yaml
+
+# PER-DEVICE (boot log confirmed bootloader support after USB flash): frees
+# SRAM1 as IRAM (+40KB). NEVER move to the shared package -- boards still on
+# an older bootloader (OTA-only history) crash-loop with this enabled.
+esp32:
+  framework:
+    advanced:
+      sram1_as_iram: true

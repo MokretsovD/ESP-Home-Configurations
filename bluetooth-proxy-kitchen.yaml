@@ -22,7 +22,11 @@ packages:
 # PER-DEVICE chip floor (boot log showed rev >= 3.0, suggested 3.1): drops
 # old-silicon workarounds from the binary. NEVER move to the shared package --
 # firmware with a chip floor boot-loops on older-revision boards.
+# sram1_as_iram (boot log confirmed bootloader support after USB flash) frees
+# SRAM1 as IRAM (+40KB); same rule -- boards still on an older bootloader
+# (OTA-only history) crash-loop with this enabled.
 esp32:
   framework:
     advanced:
       minimum_chip_revision: "3.1"
+      sram1_as_iram: true

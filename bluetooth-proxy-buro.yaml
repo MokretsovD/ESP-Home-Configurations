@@ -24,3 +24,11 @@ external_components:
   - source:
       type: local
       path: components
+
+# PER-DEVICE (boot log confirmed bootloader support after USB flash): frees
+# SRAM1 as IRAM (+40KB). NEVER move to the shared package -- boards still on
+# an older bootloader (OTA-only history) crash-loop with this enabled.
+esp32:
+  framework:
+    advanced:
+      sram1_as_iram: true
